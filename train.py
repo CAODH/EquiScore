@@ -94,6 +94,7 @@ parser.add_argument("--r_drop", help="use lr decay ", action = 'store_true')
 parser.add_argument("--deta_const", help="const deta ", action = 'store_true') 
 parser.add_argument("--alpha", help="use lr decay ", type = int,default = 5) 
 parser.add_argument("--norm_type",help = 'select norm type in gnnyou can select  ln or gn ',type = str,choices=['gn_mul','gn_iter','ln'],default = 'gn_mul')
+parser.add_argument("--att_mode", help="attention mode ", default= 'SA',type=str,choices=['DSA','SA']) 
 #pred_mode
 parser.add_argument("--pred_mode",help = 'select nodes to be used  for prediction of graph ',type = str,choices= ['ligand','protein','supernode'],default = 'ligand')
 #set super node
