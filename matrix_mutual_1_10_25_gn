@@ -1,0 +1,25 @@
+2022-01-17 06:39:17
+Namespace(A2_limit=False, EF_rates=0.01, FP=False, alpha=5, attention_dropout_rate=0.2, auxiliary_loss=True, batch_size=12, d_FC_layer=128, data_path='/home/caoduanhua/score_function/GNN/train_result/graphnorm', debug=False, deta_const=False, dis_adj2_with_adj1=False, dropout_rate=0.2, edge_bias=False, edge_type='single', embed_graph_mode='ligand_protein', epoch=1000, ffn_size=280, fundation_model='graphformer', gate=False, grad_sum=False, head_size=8, hot_start=False, in_degree_bias=True, initial_dev=4.0, initial_mu=2.5, layer_type='GAT_gate', loss_fn='bce_loss', lr=0.0001, lr_decay=False, mode='1_H', multi_hop_max_dist=10, n_FC_layer=4, n_graph_layer=2, n_in_feature=80, n_out_feature=80, ngpu=1, norm_type='gn', num_workers=6, only_adj2=False, only_dis_adj2=True, out_degree_bias=False, path_data_dir='../../data/pocket_data_path', patience=1000, pred_mode='ligand', r_drop=False, rel_3d_pos_bias=False, rel_pos_bias=False, sampler=False, save_dir='../train_result/graphnorm/', save_model='/home/caoduanhua/score_function/GNN/train_result/general_refineset/graphnorm/graphformer/GAT_gate/2022-01-03-07-56-07/save_best_model.pt', seed=42, share_layer=True, single_graph=False, supernode=False, test=False, test_keys='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/min_rmsd_keys/test_keys.pkl', test_path='/home/duanhua/data/pocket_sample_70w/train', train_keys='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/min_rmsd_keys/train_keys.pkl', use_adj=True, virtual_aromatic_atom=False)
+Number of train data: 50826
+Number of val data: 5648
+Number of test data: 20841
+Available GPU List
+id	utilization.gpu(%)	memory.free(MiB)
+0 	1                 	11019           
+1 	0                 	11019           
+Select id #1 for you.
+number of parameters :  191653
+Traceback (most recent call last):
+  File "/home/caoduanhua/anaconda3/envs/rdkit-env/lib/python3.6/multiprocessing/resource_sharer.py", line 142, in _serve
+    with self._listener.accept() as conn:
+  File "/home/caoduanhua/anaconda3/envs/rdkit-env/lib/python3.6/multiprocessing/connection.py", line 455, in accept
+    deliver_challenge(c, self._authkey)
+  File "/home/caoduanhua/anaconda3/envs/rdkit-env/lib/python3.6/multiprocessing/connection.py", line 722, in deliver_challenge
+    response = connection.recv_bytes(256)        # reject large message
+  File "/home/caoduanhua/anaconda3/envs/rdkit-env/lib/python3.6/multiprocessing/connection.py", line 216, in recv_bytes
+    buf = self._recv_bytes(maxlength)
+  File "/home/caoduanhua/anaconda3/envs/rdkit-env/lib/python3.6/multiprocessing/connection.py", line 407, in _recv_bytes
+    buf = self._recv(4)
+  File "/home/caoduanhua/anaconda3/envs/rdkit-env/lib/python3.6/multiprocessing/connection.py", line 379, in _recv
+    chunk = read(handle, remaining)
+ConnectionResetError: [Errno 104] Connection reset by peer
