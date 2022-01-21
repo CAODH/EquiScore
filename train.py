@@ -15,14 +15,14 @@ os.environ['CUDA_LAUNCH_BLOCKING']='1'
 from collections import defaultdict
 import argparse
 import time
-from torch.utils.data import DataLoader                                     
-from graphformer_dataset import graphformerDataset, collate_fn, DTISampler
-now = time.localtime()
+from torch.utils.data import DataLoader          
 # from torch.utils.data import DataLoader
 from prefetch_generator import BackgroundGenerator
 class DataLoaderX(DataLoader):
     def __iter__(self):
-        return BackgroundGenerator(super().__iter__())
+        return BackgroundGenerator(super().__iter__())                            
+from graphformer_dataset import graphformerDataset, collate_fn, DTISampler
+now = time.localtime()
 from rdkit import RDLogger
 RDLogger.DisableLog('rdApp.*')
 s = "%04d-%02d-%02d %02d:%02d:%02d" % (now.tm_year, now.tm_mon, now.tm_mday, now.tm_hour, now.tm_min, now.tm_sec)
@@ -32,24 +32,24 @@ os.chdir(os.path.abspath(os.path.dirname(__file__)))
 # print(os.getcwd())
 parser = argparse.ArgumentParser()
 parser.add_argument("--lr", help="learning rate", type=float, default = 0.0001)
-parser.add_argument("--epoch", help="epoch", type=int, default = 1000)
+parser.add_argument("--epoch", help="epoch", type=int, default = 300)
 parser.add_argument("--ngpu", help="number of gpu", type=int, default = 1)
 parser.add_argument("--batch_size", help="batch_size", type=int, default = 12)
-parser.add_argument("--num_workers", help="number of workers", type=int, default = 2)
+parser.add_argument("--num_workers", help="number of workers", type=int, default = 4)
 parser.add_argument("--n_graph_layer", help="number of GNN layer", type=int, default = 2)
 # parser.add_argument("--d_graph_layer", help="dimension of GNN layer", type=int, default = 140)
 parser.add_argument("--n_FC_layer", help="number of FC layer", type=int, default = 4)
 parser.add_argument("--d_FC_layer", help="dimension of FC layer", type=int, default = 128)
-parser.add_argument("--data_path", help="file path of dude data", type=str, default='/home/caoduanhua/score_function/GNN/train_result/divisity/graphnorm/')
+parser.add_argument("--data_path", help="file path of dude data", type=str, default='/home/caoduanhua/score_function/data/general_refineset')
 #/home/jiangjiaxin/../../../
-parser.add_argument("--save_dir", help="save directory of model parameter", type=str, default ='../train_result/divisity/graphnorm/')
+parser.add_argument("--save_dir", help="save directory of model parameter", type=str, default ='../train_result/graphnorm/dude/')
 parser.add_argument("--initial_mu", help="initial value of mu", type=float, default = 2.5)#4.0
 parser.add_argument("--initial_dev", help="initial value of dev", type=float, default = 4.0)#1.0
 parser.add_argument("--dropout_rate", help="dropout_rate", type=float, default = 0.2)
 #args.attention_dropout_rate
 parser.add_argument("--attention_dropout_rate", help="attention_dropout_rate", type=float, default = 0.2)
-parser.add_argument("--train_keys", help="train keys", type=str, default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/divisity_crossdecoys_keys/train_keys.pkl')
-parser.add_argument("--test_keys", help="test keys", type=str, default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/divisity_crossdecoys_keys/test_keys.pkl')
+parser.add_argument("--train_keys", help="train keys", type=str, default='/home/caoduanhua/scorefunction/GNN/GNN_graphformer_pyg/dude_keys/train_keys.pkl')
+parser.add_argument("--test_keys", help="test keys", type=str, default='/home/caoduanhua/scorefunction/GNN/GNN_graphformer_pyg/dude_keys/test_keys.pkl')
 #add by caooduanhua
 # self.fundation_model = args.fundation_model
 parser.add_argument("--fundation_model", help="what kind of model to use : paper or graphformer", type=str, default='graphformer')
@@ -65,13 +65,13 @@ parser.add_argument("--n_in_feature", help="dim before layers to tranform dim in
 parser.add_argument("--n_out_feature", help="dim in layers", type=int, default = 80)
 parser.add_argument("--ffn_size", help="ffn dim in transformer type layers", type=int, default = 280)
 parser.add_argument("--head_size", help="multihead attention", type=int, default = 8)
-parser.add_argument("--patience", help="patience for early stop", type=int, default = 1000)
+parser.add_argument("--patience", help="patience for early stop", type=int, default = 50)
 parser.add_argument("--gate", help="gate mode for Transformer_gate", action = 'store_true')
 parser.add_argument("--debug", help="debug mode for check", action = 'store_true')
 parser.add_argument("--test", help="independent tests or not ", action = 'store_true')
 parser.add_argument("--sampler", help="select sampler in train stage ", action = 'store_true')
 parser.add_argument("--A2_limit", help="select add a A2adj strong limit  in model", action = 'store_true')
-parser.add_argument("--test_path", help="test keys", type=str, default='/home/duanhua/data/pocket_sample_70w/train')
+parser.add_argument("--test_path", help="test keys", type=str, default='/home/caoduanhua/scorefunction/data/independent/dude_pocket')
 parser.add_argument("--path_data_dir", help="saved shortest path data", type=str, default='../../data/pocket_data_path')
 
 
@@ -86,7 +86,7 @@ parser.add_argument("--in_degree_bias", help="add in_degree_bias or not default 
 parser.add_argument("--out_degree_bias", help="add out_degree_bias or not default not ", action = 'store_true')          
 # save_model
 parser.add_argument("--hot_start", help="hot start", action = 'store_true')
-parser.add_argument("--save_model", help="hot start", type=str, default='/home/caoduanhua/score_function/GNN/train_result/min_rmsd/graphnorm/graphformer/GAT_gate/2022-01-17-06-58-25/save_best_model.pt')
+parser.add_argument("--save_model", help="hot start", type=str, default='/home/caoduanhua/score_function/GNN/train_result/graphnorm/graphformer/GAT_gate/2021-12-24-05-33-55/save_best_model.pt')
 parser.add_argument("--lr_decay", help="use lr decay ", action = 'store_true')  
 # auxiliary_loss
 parser.add_argument("--auxiliary_loss", help="use lr decay ", action = 'store_true') 
@@ -94,6 +94,7 @@ parser.add_argument("--r_drop", help="use lr decay ", action = 'store_true')
 parser.add_argument("--deta_const", help="const deta ", action = 'store_true') 
 parser.add_argument("--alpha", help="use lr decay ", type = int,default = 5) 
 parser.add_argument("--norm_type",help = 'select norm type in gnnyou can select  ln or gn ',type = str,choices=['gn_mul','gn_iter','ln'],default = 'gn_mul')
+parser.add_argument("--att_mode", help="attention mode ", default= 'SA',type=str,choices=['DSA','SA']) 
 #pred_mode
 parser.add_argument("--pred_mode",help = 'select nodes to be used  for prediction of graph ',type = str,choices= ['ligand','protein','supernode'],default = 'ligand')
 #set super node
@@ -106,9 +107,7 @@ parser.add_argument("--FP", help="use attentive FP feat", action = 'store_true')
 parser.add_argument("--dis_adj2_with_adj1", help="like name", action = 'store_true')
 parser.add_argument("--seed", help="use lr decay ", type = int,default = 42) 
 # single_graph
-parser.add_argument("--single_graph", help="only use one graph to learning  ", action = 'store_true')
-# load_data_to_cpu
-parser.add_argument("--load_data_to_cpu", help="only use one graph to learning  ", action = 'store_true')
+parser.add_argument("--embed_graph", help="only use one graph to learning  ", default = 'double_graph' ,choices = ['single_graph','double_graph','embed_graph_once'])
 #这套参数默认是paper+ GAT——gate without attn_bias
 args = parser.parse_args()
 print (args)
@@ -148,15 +147,15 @@ def run(args):
     with open (args.train_keys, 'rb') as fp:
         train_keys = pickle.load(fp)
     train_keys,val_keys = random_split(train_keys, split_ratio=0.9, seed=0, shuffle=True)
-    # with open (args.test_keys, 'rb') as fp:
-    #     test_keys = pickle.load(fp)
+    with open (args.test_keys, 'rb') as fp:
+        test_keys = pickle.load(fp)
     # test_keys = os.listdir(args.test_path)
     # train_keys = [args.data_path + i for i in train_keys]
     # test_keys = [args.data_path + i for i in test_keys]
     #print simple statistics about dude data and pdbbind data
     print (f'Number of train data: {len(train_keys)}')
     print (f'Number of val data: {len(val_keys)}')
-    # print (f'Number of test data: {len(test_keys)}')
+    print (f'Number of test data: {len(test_keys)}')
 
     #initialize model
     if args.ngpu>0:
@@ -198,7 +197,7 @@ def run(args):
 
     train_dataset = graphformerDataset(train_keys,args, args.data_path,args.debug)#keys,args, data_dir,debug
     val_dataset = graphformerDataset(val_keys,args, args.data_path,args.debug)
-    # test_dataset = graphformerDataset(test_keys,args, args.data_path,args.debug)
+    # test_dataset = graphformerDataset(test_keys,args, args.data_path,args.debug) 测试集看不出什么东西，直接忽略
     # test_dataset = MolDataset(test_keys, args.data_path,args.debug)
     if args.sampler:
 
@@ -215,7 +214,7 @@ def run(args):
     val_dataloader = DataLoaderX(val_dataset, args.batch_size, \
         shuffle=False, num_workers = args.num_workers, collate_fn=collate_fn,pin_memory=True)
     # test_dataloader = DataLoaderX(test_dataset, args.batch_size, \
-    #     shuffle=False, num_workers = args.num_workers, collate_fn=collate_fn,pin_memory=True)
+    #     shuffle=False, num_workers = args.num_workers, collate_fn=collate_fn,pin_memory=True)  测试集看不出什么东西，直接忽略
 
     #optimizer
     # optimizer = torch.optim.Adam(model.parameters(), lr=lr)
@@ -252,7 +251,7 @@ def run(args):
         if args.loss_fn == 'mse_loss':
             end = time.time()
             with open(log_path,'a') as f:
-                f.write(str(epoch)+ '\t'+str(train_losses)+ '\t'+str(val_losses)+ '\t'+str(0.0) + str(end-st)+ '\n')
+                f.write(str(epoch)+ '\t'+str(train_losses)+ '\t'+str(val_losses)+ '\t'+str(test_losses) + str(end-st)+ '\n')
                 f.close()
         else:
 
@@ -284,15 +283,11 @@ def run(args):
             save_model(model,optimizer,args,epoch,save_path,mode = 'end')
     print('training done!')
     if args.test:
-
         model = gnn(args)
-        # print ('number of parameters : ', sum(p.numel() for p in model.parameters() if p.requires_grad))
-
-        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        model = utils.initialize_model(model, device, load_save_file = best_name )
+        device = args.device#("cuda:0" if torch.cuda.is_available() else "cpu")
+        model = utils.initialize_model(model, device, load_save_file = save_path + '/save_best_model.pt')[0]
         EF_file = save_path +'/EF_test'
-        getEF(model,args,args.test_path,EF_file,device,args.debug,args.batch_size,args.A2_limit,loss_fn,args.EF_rates)
-        #
+        getEF(model,args,args.test_path,save_path,device,args.debug,args.batch_size,args.A2_limit,loss_fn,args.EF_rates)
         
 if '__main__' == __name__:
 

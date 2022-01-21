@@ -113,12 +113,30 @@ class gnn(torch.nn.Module):
             node_feature = node_feature + self.out_degree_encoder(out_degree)
         # self.out_degree_encoder(out_degree)
         return node_feature 
-    def embede_single_graph(self, data,A2_limit):
-        #c_hs, c_adjs1, c_adjs2, c_valid ,sizes,= data
-    #   h_graphformer,in_degree,out_degree,rel_pos,attn_bias,edge_input,all_rel_pos_3d_l, attn_edge_type,c_adjs1, c_adjs2, c_valid ,sizes = data
-        # c_hs_1 = self.GetNodeFea(data.H,data.in_degree_1,data.out_degree_1)
+    def embede_graph_once(self, data,A2_limit):
+        c_hs_1 = self.GetNodeFea(data.H,data.in_degree_1,data.out_degree_1)
         c_hs_2 = self.GetNodeFea(data.H,data.in_degree_2,data.out_degree_2)
-        # attn_bias_1 = self.GetAttnBias(data.rel_pos_1,data.attn_bias,data.edge_input_1,data.all_rel_pos_3d, data.attn_edge_type_1)
+        attn_bias_1 = self.GetAttnBias(data.rel_pos_1,data.attn_bias,data.edge_input_1,data.all_rel_pos_3d, data.attn_edge_type_1)
+        attn_bias_2 = self.GetAttnBias(data.rel_pos_2,data.attn_bias,data.edge_input_2,data.all_rel_pos_3d, data.attn_edge_type_2)
+        if self.args.only_adj2:
+            data.A2 = torch.where(data.A2 > 0,1,0)
+        elif self.args.only_dis_adj2:
+            data.A2 = torch.where(data.A2 > self.mu,torch.exp(-torch.pow(data.A2-self.mu.expand_as(data.A2), 2)/(self.dev + 1e-6)),torch.tensor(1.0).to(self.dev.device))+ data.A1
+        else:
+            data.A2 = torch.exp(-torch.pow(data.A2-self.mu.expand_as(data.A2), 2)/self.dev + 1e-6) + data.A1
+
+        if self.args.mode == '1_H' :
+            for k in range(len(self.gconv1)):
+                # if self.layer_type == 'GAT_gate':
+                c_hs_1 = self.gconv1[k](c_hs_1, data.A1,self.args.use_adj,attn_bias_1)
+                c_hs_2 = self.gconv1[k](c_hs_2, data.A2,self.args.use_adj,attn_bias_2)
+            c_hs = c_hs_2-c_hs_1
+            c_hs = F.dropout(c_hs, p=self.args.dropout_rate, training=self.training)
+            c_hs = c_hs*data.V.unsqueeze(-1).repeat(1, 1, c_hs.size(-1))
+            c_hs = c_hs.sum(1)
+            return c_hs
+    def embede_single_graph(self, data,A2_limit):
+        c_hs_2 = self.GetNodeFea(data.H,data.in_degree_2,data.out_degree_2)
         attn_bias_2 = self.GetAttnBias(data.rel_pos_2,data.attn_bias,data.edge_input_2,data.all_rel_pos_3d, data.attn_edge_type_2)
 
         if A2_limit:#by caoduanhua
@@ -145,11 +163,8 @@ class gnn(torch.nn.Module):
         c_hs_2 = c_hs_2*data.V.unsqueeze(-1).repeat(1, 1, c_hs_2.size(-1))
         c_hs_2 = c_hs_2.sum(1)
         return c_hs_2
+    
     def embede_graph(self, data,A2_limit):
-        #c_hs, c_adjs1, c_adjs2, c_valid ,sizes,= data
-
-    #   h_graphformer,in_degree,out_degree,rel_pos,attn_bias,edge_input,all_rel_pos_3d_l, attn_edge_type,c_adjs1, c_adjs2, c_valid ,sizes = data
-       
         c_hs_1 = self.GetNodeFea(data.H,data.in_degree_1,data.out_degree_1)
         c_hs_2 = self.GetNodeFea(data.H,data.in_degree_2,data.out_degree_2)
         attn_bias_1 = self.GetAttnBias(data.rel_pos_1,data.attn_bias,data.edge_input_1,data.all_rel_pos_3d, data.attn_edge_type_1)
@@ -169,7 +184,6 @@ class gnn(torch.nn.Module):
         elif self.args.only_adj2:
             data.A2 = torch.where(data.A2 > 0,1,0)
         elif self.args.only_dis_adj2:
-            # data.A2 = torch.where(data.A2 == torch.tensor(0.0).to(self.dev.device),torch.tensor(torch.inf).to(self.dev.device),data.A2)
             data.A2 = torch.where(data.A2 > self.mu,torch.exp(-torch.pow(data.A2-self.mu.expand_as(data.A2), 2)/(self.dev + 1e-6)),torch.tensor(1.0).to(self.dev.device))+ data.A1
         else:
             data.A2 = torch.exp(-torch.pow(data.A2-self.mu.expand_as(data.A2), 2)/self.dev + 1e-6) + data.A1
@@ -223,7 +237,62 @@ class gnn(torch.nn.Module):
             raise ValueError('self.args.mode should one of 1_H 2_H 1_2_H! check your code and hyperpara')
           
         # return c_hs
+    def GetATTMapOnce(self,data):
+        c_hs_1 = self.GetNodeFea(data.H,data.in_degree_1,data.out_degree_1)
+        c_hs_2 = self.GetNodeFea(data.H,data.in_degree_2,data.out_degree_2)
+        attn_bias_1 = self.GetAttnBias(data.rel_pos_1,data.attn_bias,data.edge_input_1,data.all_rel_pos_3d, data.attn_edge_type_1)
+        attn_bias_2 = self.GetAttnBias(data.rel_pos_2,data.attn_bias,data.edge_input_2,data.all_rel_pos_3d, data.attn_edge_type_2)
 
+        if self.args.only_adj2:
+            data.A2 = torch.where(data.A2 > 0,1,0)
+        elif self.args.only_dis_adj2:
+            data.A2 = torch.where(data.A2 > self.mu,torch.exp(-torch.pow(data.A2-self.mu.expand_as(data.A2), 2)/(self.dev + 1e-6)),torch.tensor(1.0).to(self.dev.device))+ data.A1
+        else:
+            data.A2 = torch.exp(-torch.pow(data.A2-self.mu.expand_as(data.A2), 2)/self.dev + 1e-6) + data.A1
+        attention_list_1 = []
+        attention_list_2 = []
+        if self.args.mode == '1_H' :
+            # c_hs = c_hs_1
+            for k in range(len(self.gconv1)):
+                # if self.layer_type == 'GAT_gate':
+                c_hs_1,attention_1 = self.gconv1[k].GetAttentionMap(c_hs_1, data.A1,self.args.use_adj,attn_bias_1)
+                c_hs_2,attention_2 = self.gconv1[k].GetAttentionMap(c_hs_2, data.A2,self.args.use_adj,attn_bias_2)
+                attention_list_1.append(attention_1)
+                attention_list_2.append(attention_2)
+            c_hs = c_hs_2-c_hs_1
+            c_hs = F.dropout(c_hs, p=self.args.dropout_rate, training=self.training)
+            # c_hs = c_hs*data.V.unsqueeze(-1).repeat(1, 1, c_hs.size(-1))
+            # c_hs = c_hs.sum(1)
+
+            return attention_list_1,attention_list_2
+    def GetATTMap(self,data):
+        c_hs_1 = self.GetNodeFea(data.H,data.in_degree_1,data.out_degree_1)
+        c_hs_2 = self.GetNodeFea(data.H,data.in_degree_2,data.out_degree_2)
+        attn_bias_1 = self.GetAttnBias(data.rel_pos_1,data.attn_bias,data.edge_input_1,data.all_rel_pos_3d, data.attn_edge_type_1)
+        attn_bias_2 = self.GetAttnBias(data.rel_pos_2,data.attn_bias,data.edge_input_2,data.all_rel_pos_3d, data.attn_edge_type_2)
+
+        if self.args.only_adj2:
+            data.A2 = torch.where(data.A2 > 0,1,0)
+        elif self.args.only_dis_adj2:
+            data.A2 = torch.where(data.A2 > self.mu,torch.exp(-torch.pow(data.A2-self.mu.expand_as(data.A2), 2)/(self.dev + 1e-6)),torch.tensor(1.0).to(self.dev.device))+ data.A1
+        else:
+            data.A2 = torch.exp(-torch.pow(data.A2-self.mu.expand_as(data.A2), 2)/self.dev + 1e-6) + data.A1
+        attention_list_1 = []
+        attention_list_2 = []
+        if self.args.mode == '1_H' :
+            c_hs = c_hs_1
+            for k in range(len(self.gconv1)):
+                # if self.layer_type == 'GAT_gate':
+                c_hs_1,attention_1 = self.gconv1[k].GetAttentionMap(c_hs, data.A1,self.args.use_adj,attn_bias_1)
+                c_hs_2,attention_2 = self.gconv1[k].GetAttentionMap(c_hs, data.A2,self.args.use_adj,attn_bias_2)
+                attention_list_1.append(attention_1)
+                attention_list_2.append(attention_2)
+                c_hs = c_hs_2-c_hs_1
+                c_hs = F.dropout(c_hs, p=self.args.dropout_rate, training=self.training)
+            # c_hs = c_hs*data.V.unsqueeze(-1).repeat(1, 1, c_hs.size(-1))
+            # c_hs = c_hs.sum(1)
+
+            return attention_list_1,attention_list_2
     def fully_connected(self, c_hs):
         regularization = torch.empty(len(self.FC)*1-1, device=c_hs.device)
 
@@ -253,24 +322,15 @@ class gnn(torch.nn.Module):
         # return c_hs
     #add by caodunahua for distribute training
     def forward(self,A2_limit,sample):
-        #把传进来的数据继续有赋值给batch类
-        # print('data_flag: ',data_flag)
-        # print(data_flag)
-        # data_flag = copy.deepcopy(flag)
-        # indices = [i for i in range(len(data_flag)) if data_flag[i] ==1]
-        # for index,data_i in zip(indices,data):
-        #     # print(data_i.shape)
-        #     data_flag[index] = data_i
-
-        # result_data = Batch()
-        # result_data.get_from_list(*data_flag)
-
-        # data = data.to(self.FC[0].weight.device)
         #embede a graph to a vector
-        if self.args.single_graph:
+        if self.args.embed_graph == 'single_graph':
             c_hs = self.embede_single_graph(sample,A2_limit)
-        else:
+        elif self.args.embed_graph == 'embed_graph_once':
+            c_hs = self.embede_graph_once(sample,A2_limit)
+        elif self.args.embed_graph == 'double_graph':
             c_hs = self.embede_graph(sample,A2_limit)
+        else:
+            raise ValueError('not implement thie kind embed graph method !')
         #fully connected NN
         c_hs = self.fully_connected(c_hs)
         # print('c_hs after ebed_graph: ',c_hs)

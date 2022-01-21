@@ -578,7 +578,7 @@ def getEF_from_MSE(model,args,test_path,save_path,device,debug,batch_size,A2_lim
 
                 test_dataset = graphformerDataset(test_keys_pro,args, test_path,debug)
                 test_dataloader = DataLoader(test_dataset, batch_size = batch_size, \
-                shuffle=False, num_workers = 8, collate_fn=collate_fn)
+                shuffle=False, num_workers = args.num_workers, collate_fn=collate_fn)
                 test_losses,test_true,test_pred = evaluator(model,test_dataloader,loss_fn,args)
                 test_auroc,test_adjust_logauroc,test_auprc,test_balanced_acc,test_acc,test_precision,test_sensitity,test_specifity,test_f1 = get_metrics(test_true,test_pred)
                 test_losses = np.mean(np.array(test_losses))

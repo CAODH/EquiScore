@@ -13,9 +13,7 @@ from rdkit import Chem
 from scipy.spatial import distance_matrix
 from rdkit.Chem.rdmolops import GetAdjacencyMatrix
 import pickle
-import time
-from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED, FIRST_COMPLETED
-random.seed(42)
+random.seed(0)
 class DTISampler(Sampler):
 
     def __init__(self, weights, num_samples, replacement=True):
@@ -56,24 +54,14 @@ class graphformerDataset(Dataset):
         self.data_dir = data_dir
         self.debug = debug
         self.args = args
-        if args.debug:
-            self.keys = keys[:128]
+    def __len__(self):
+        if self.debug:
+            return 128
+        return len(self.keys)
 
-        if self.args.load_data_to_cpu:
-            self.ms = [] 
-            # for key in keys:
-            #     self.ms.append(self._getitem(key))
-            start = time.time()
-            executor = ThreadPoolExecutor(max_workers=4)
-            all_task = [executor.submit(self._getitem, (key)) for key in keys]
-            wait(all_task, return_when=ALL_COMPLETED)
-            print('all data load to cpu for next process! use time : % .6f'%(time.time() - start))
-            print('len of keys:',len(self.ms))
-
-
-    # @statisticmethod
-    def _getitem(self,key):
-        # key = self.keys[idx]
+    def __getitem__(self, idx):
+        #idx = 0
+        key = self.keys[idx]
         file_path = self.args.path_data_dir+'/'+key
         try:
             try:
@@ -84,42 +72,9 @@ class graphformerDataset(Dataset):
                 with open(key, 'rb') as f:
         
                     m1,_,m2,_= pickle.load(f)
-            if self.args.load_data_to_cpu:
-                self.ms.append((m1,m2))
-
         except:
             print('file: {} is not a valid file！'.format(key))
-            # return None
-            if self.args.load_data_to_cpu:
-                self.ms.append(None)
-
-
-    def __len__(self):
-        if self.debug:
-            return 128
-        return len(self.keys)
-    def __getitem__(self, idx):
-        #idx = 0
-        if self.args.load_data_to_cpu:
-            try:
-                m1,m2 =  self.ms[idx]
-            except:
-                return None
-        else:
-            key = self.keys[idx]
-            file_path = self.args.path_data_dir+'/'+key
-            try:
-                try:
-                    with open(key, 'rb') as f:
-            
-                        m1,m2= pickle.load(f)
-                except:
-                    with open(key, 'rb') as f:
-            
-                        m1,_,m2,_= pickle.load(f)
-            except:
-                print('file: {} is not a valid file！'.format(key))
-                return None
+            return None
         n1,d1,adj1 = utils.get_mol_info(m1)
         n2,d2,adj2 = utils.get_mol_info(m2)
         # pocket = Chem.CombineMols(m1,m2)
@@ -205,7 +160,7 @@ class graphformerDataset(Dataset):
             Y = -float(key.split('-')[1].split('_')[0])
         else:
             Y = 1 if '_active' in key else 0
-        # print()
+        # print(key)
         
         sample = {
                 'H':item_2['x'], \
