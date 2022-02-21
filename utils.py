@@ -439,10 +439,10 @@ def getToyKey(train_keys):
     # train_keys_toy_a[:300] + train_keys_toy_d[:(max_all-300)]
     return train_keys_toy_a[:300] + train_keys_toy_d[:(max_all-300)]
 
-def getEF(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_fn,rates = 0.01):
+def getEF(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_fn,rates = 0.01,flag = ''):
 
         
-        save_file = save_path + '/EF_test'
+        save_file = save_path + '/EF_test' + flag
         test_keys = [key for key in os.listdir(test_path) if '.' not in key]
         
         pros = defaultdict(list)

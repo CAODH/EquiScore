@@ -6,20 +6,22 @@ import numpy as np
 import os
 random.seed(0)
 from collections import defaultdict,Counter
-valid_keys = glob.glob('/home/caoduanhua/scorefunction/data/generalset_active_pocket_without_h/*')
-valid_keys +=glob.glob('/home/caoduanhua/scorefunction/data/refineset_active_pocket_without_h/*')
-# valid_keys +=glob.glob('/home/caoduanhua/score_function/data/dockingdecoy-bigger-10-caoduanhua-17w/*')
-cross_decoys= os.listdir('/home/caoduanhua/scorefunction/data/generalset_refineset_crossdecoys_1_16_pocket_without_h/')
-cross_decoys_dir = '/home/caoduanhua/scorefunction/data/generalset_refineset_crossdecoys_1_16_pocket_without_h/'
-# print('len of actives: ',len(valid_keys))
-# with open('/home/caoduanhua/scorefunction/GNN/GNN_graphformer/refine_generalcrossdecoy_1_10_keys/all_keys','rb') as f:
-#     all_keys = pickle.load(f)
-# cross_decoys = [cross_decoys_path + i for i in all_keys]
-def get_part_data(data_dir,names,fast_num = 5):
+def filter_targets(file_paths,targets):
+    filtered_keys = []
+    for name in file_paths:
+        if name.split('/')[-1].split('_')[0] in targets:
+            filtered_keys.append(name)
+    return filtered_keys
+def get_part_data(data_dir,names,fast_num = 5,active_names = None):
     # data_name = []
     pro_decoy_pro = defaultdict(list)
     for i in names:
-        pro_decoy_pro[i.split('_')[0]].append(i)
+        pro = i.split('_')[0]
+        if active_names is None:
+            pro_decoy_pro[pro].append(i)
+        else:
+            if pro in active_names:
+                pro_decoy_pro[pro].append(i)
 
     pro_decoy_pro_5 = defaultdict(list)
     for key in pro_decoy_pro.keys():
@@ -32,14 +34,25 @@ def get_part_data(data_dir,names,fast_num = 5):
     pro_decoy_pro_5 = sum(pro_decoy_pro_5.values(),[])
     print('mean of actives : decoys in cross_decoys',np.mean(list(dict(Counter([i.split('_')[2] for i in pro_decoy_pro_5])).values())))
     return [data_dir + name for name in pro_decoy_pro_5]
+valid_keys = glob.glob('/home/caoduanhua/score_function/data/general_refineset/challenge_decoy_filter_top20/*')
+valid_keys +=glob.glob('/home/caoduanhua/score_function/data/general_refineset/generalset_active_pocket_without_h/*')
+valid_keys +=glob.glob('/home/caoduanhua/score_function/data/general_refineset/refineset_active_pocket_without_h/*')
+active_pros = set([v.split('/')[-1].split('_')[0] for v in valid_keys])
 
-valid_keys += get_part_data(cross_decoys_dir,cross_decoys)
+print('actives pros :',len(active_pros))
+cross_decoys= os.listdir('/home/caoduanhua/score_function/data/general_refineset/generalset_refineset_crossdecoys_1_16_pocket_without_h/')
+cross_decoys_pros = set([v.split('/')[-1].split('_')[0] for v in cross_decoys])
+print('cross_decoys_pros :',len(cross_decoys_pros))
+cross_decoys_dir = '/home/caoduanhua/score_function/data/general_refineset/generalset_refineset_crossdecoys_1_16_pocket_without_h/'
+
+valid_keys += get_part_data(cross_decoys_dir,cross_decoys,fast_num=5,active_names = active_pros)
+
 print('len of decoys: ',len(cross_decoys))
 # print('decoy ')
 # print('len of actives: ',len(valid_keys))
 print('removeing duplicated target from training data ..........')
 #------------------------------------------------------
-with open('/home/caoduanhua/scorefunction/data/uniport_analysis/duplicated_with_dekois_independent_uniport_targets','rb') as f:
+with open('/home/caoduanhua/score_function/data/uniport_analysis/duplicated_with_dekois_independent_uniport_targets','rb') as f:
     duplicated_targets = pickle.load(f)
     print('duplicated tragets: ',len(duplicated_targets))
 dude_gene =  set(OrderedDict.fromkeys([v.split('/')[-1].split('_')[0] for v in valid_keys]))

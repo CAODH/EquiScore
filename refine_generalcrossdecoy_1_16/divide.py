@@ -12,7 +12,7 @@ valid_keys +=glob.glob('/home/caoduanhua/scorefunction/data/refineset_active_poc
 cross_decoys= os.listdir('/home/caoduanhua/scorefunction/data/generalset_refineset_crossdecoys_1_16_pocket_without_h/')
 cross_decoys_dir = '/home/caoduanhua/scorefunction/data/generalset_refineset_crossdecoys_1_16_pocket_without_h/'
 # print('len of actives: ',len(valid_keys))
-# with open('/home/caoduanhua/scorefunction/GNN/GNN_graphformer/refine_generalcrossdecoy_1_10_keys/all_keys','rb') as f:
+# with open('/home/caoduanhua/score_function/GNN/GNN_graphformer/refine_generalcrossdecoy_1_10_keys/all_keys','rb') as f:
 #     all_keys = pickle.load(f)
 # cross_decoys = [cross_decoys_path + i for i in all_keys]
 def get_part_data(data_dir,names,fast_num = 16):

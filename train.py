@@ -267,7 +267,6 @@ def run(args):
 
                 + str(end-st)+ '\n')
                 f.close()
-
     #by caoduanhua 通过val 来获取最好的模型，而不是test
        #by caoduanhua 通过val 来获取最好的模型，而不是test
         counter +=1 
