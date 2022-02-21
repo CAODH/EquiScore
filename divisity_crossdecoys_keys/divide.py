@@ -52,7 +52,7 @@ print('len of decoys: ',len(cross_decoys))
 # print('len of actives: ',len(valid_keys))
 print('removeing duplicated target from training data ..........')
 #------------------------------------------------------
-with open('/home/caoduanhua/score_function/data/general_refineset/uniport_analysis/duplicated_with_independent_uniport_targets','rb') as f:
+with open('/home/caoduanhua/score_function/data/uniport_analysis/duplicated_with_independent_uniport_targets','rb') as f:
     duplicated_targets = pickle.load(f)
     print('duplicated tragets: ',len(duplicated_targets))
 dude_gene =  set(OrderedDict.fromkeys([v.split('/')[-1].split('_')[0] for v in valid_keys]))

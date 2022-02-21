@@ -32,24 +32,24 @@ os.chdir(os.path.abspath(os.path.dirname(__file__)))
 # print(os.getcwd())
 parser = argparse.ArgumentParser()
 parser.add_argument("--lr", help="learning rate", type=float, default = 0.0001)
-parser.add_argument("--epoch", help="epoch", type=int, default = 300)
+parser.add_argument("--epoch", help="epoch", type=int, default = 400)
 parser.add_argument("--ngpu", help="number of gpu", type=int, default = 1)
-parser.add_argument("--batch_size", help="batch_size", type=int, default = 12)
+parser.add_argument("--batch_size", help="batch_size", type=int, default = 8)
 parser.add_argument("--num_workers", help="number of workers", type=int, default = 4)
-parser.add_argument("--n_graph_layer", help="number of GNN layer", type=int, default = 2)
+parser.add_argument("--n_graph_layer", help="number of GNN layer", type=int, default = 3)
 # parser.add_argument("--d_graph_layer", help="dimension of GNN layer", type=int, default = 140)
 parser.add_argument("--n_FC_layer", help="number of FC layer", type=int, default = 4)
 parser.add_argument("--d_FC_layer", help="dimension of FC layer", type=int, default = 128)
 parser.add_argument("--data_path", help="file path of dude data", type=str, default='/home/caoduanhua/score_function/data/general_refineset')
 #/home/jiangjiaxin/../../../
-parser.add_argument("--save_dir", help="save directory of model parameter", type=str, default ='../train_result/graphnorm/dude/')
+parser.add_argument("--save_dir", help="save directory of model parameter", type=str, default ='/home/caoduanhua/score_function/GNN/train_result/divisity/dude/')
 parser.add_argument("--initial_mu", help="initial value of mu", type=float, default = 2.5)#4.0
 parser.add_argument("--initial_dev", help="initial value of dev", type=float, default = 4.0)#1.0
 parser.add_argument("--dropout_rate", help="dropout_rate", type=float, default = 0.2)
 #args.attention_dropout_rate
 parser.add_argument("--attention_dropout_rate", help="attention_dropout_rate", type=float, default = 0.2)
-parser.add_argument("--train_keys", help="train keys", type=str, default='/home/caoduanhua/scorefunction/GNN/GNN_graphformer_pyg/dude_keys/train_keys.pkl')
-parser.add_argument("--test_keys", help="test keys", type=str, default='/home/caoduanhua/scorefunction/GNN/GNN_graphformer_pyg/dude_keys/test_keys.pkl')
+parser.add_argument("--train_keys", help="train keys", type=str, default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/divisity_crossdecoys_keys/train_keys.pkl')
+parser.add_argument("--test_keys", help="test keys", type=str, default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/divisity_crossdecoys_keys/test_keys.pkl')
 #add by caooduanhua
 # self.fundation_model = args.fundation_model
 parser.add_argument("--fundation_model", help="what kind of model to use : paper or graphformer", type=str, default='graphformer')
@@ -68,10 +68,10 @@ parser.add_argument("--head_size", help="multihead attention", type=int, default
 parser.add_argument("--patience", help="patience for early stop", type=int, default = 50)
 parser.add_argument("--gate", help="gate mode for Transformer_gate", action = 'store_true')
 parser.add_argument("--debug", help="debug mode for check", action = 'store_true')
-parser.add_argument("--test", help="independent tests or not ", action = 'store_true')
+parser.add_argument("--test", help="independent tests or not ", action = 'store_false')
 parser.add_argument("--sampler", help="select sampler in train stage ", action = 'store_true')
 parser.add_argument("--A2_limit", help="select add a A2adj strong limit  in model", action = 'store_true')
-parser.add_argument("--test_path", help="test keys", type=str, default='/home/caoduanhua/scorefunction/data/independent/dude_pocket')
+parser.add_argument("--test_path", help="test keys", type=str, default='/home/caoduanhua/score_function/data/independent/dude_pocket')
 parser.add_argument("--path_data_dir", help="saved shortest path data", type=str, default='../../data/pocket_data_path')
 
 
@@ -86,7 +86,7 @@ parser.add_argument("--in_degree_bias", help="add in_degree_bias or not default 
 parser.add_argument("--out_degree_bias", help="add out_degree_bias or not default not ", action = 'store_true')          
 # save_model
 parser.add_argument("--hot_start", help="hot start", action = 'store_true')
-parser.add_argument("--save_model", help="hot start", type=str, default='/home/caoduanhua/score_function/GNN/train_result/graphnorm/graphformer/GAT_gate/2021-12-24-05-33-55/save_best_model.pt')
+parser.add_argument("--save_model", help="hot start", type=str, default='/home/caoduanhua/score_function/GNN/train_result/divisity/graphnorm/graphformer/GAT_gate/2022-01-20-08-07-29/save_best_model.pt')
 parser.add_argument("--lr_decay", help="use lr decay ", action = 'store_true')  
 # auxiliary_loss
 parser.add_argument("--auxiliary_loss", help="use lr decay ", action = 'store_true') 

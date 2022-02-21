@@ -34,16 +34,16 @@ def get_part_data(data_dir,names,fast_num = 5,active_names = None):
     pro_decoy_pro_5 = sum(pro_decoy_pro_5.values(),[])
     print('mean of actives : decoys in cross_decoys',np.mean(list(dict(Counter([i.split('_')[2] for i in pro_decoy_pro_5])).values())))
     return [data_dir + name for name in pro_decoy_pro_5]
-valid_keys = glob.glob('/home/caoduanhua/scorefunction/data/general_refineset/challenge_decoy_filter_top20/*')
-valid_keys +=glob.glob('/home/caoduanhua/scorefunction/data/general_refineset/generalset_active_pocket_without_h/*')
-valid_keys +=glob.glob('/home/caoduanhua/scorefunction/data/general_refineset/refineset_active_pocket_without_h/*')
+valid_keys = glob.glob('/home/caoduanhua/score_function/data/general_refineset/challenge_decoy_filter_top20/*')
+valid_keys +=glob.glob('/home/caoduanhua/score_function/data/general_refineset/generalset_active_pocket_without_h/*')
+valid_keys +=glob.glob('/home/caoduanhua/score_function/data/general_refineset/refineset_active_pocket_without_h/*')
 active_pros = set([v.split('/')[-1].split('_')[0] for v in valid_keys])
 
 print('actives pros :',len(active_pros))
-cross_decoys= os.listdir('/home/caoduanhua/scorefunction/data/general_refineset/generalset_refineset_crossdecoys_1_16_pocket_without_h/')
+cross_decoys= os.listdir('/home/caoduanhua/score_function/data/general_refineset/generalset_refineset_crossdecoys_1_16_pocket_without_h/')
 cross_decoys_pros = set([v.split('/')[-1].split('_')[0] for v in cross_decoys])
 print('cross_decoys_pros :',len(cross_decoys_pros))
-cross_decoys_dir = '/home/caoduanhua/scorefunction/data/general_refineset/generalset_refineset_crossdecoys_1_16_pocket_without_h/'
+cross_decoys_dir = '/home/caoduanhua/score_function/data/general_refineset/generalset_refineset_crossdecoys_1_16_pocket_without_h/'
 
 valid_keys += get_part_data(cross_decoys_dir,cross_decoys,fast_num=5,active_names = active_pros)
 
@@ -52,7 +52,7 @@ print('len of decoys: ',len(cross_decoys))
 # print('len of actives: ',len(valid_keys))
 print('removeing duplicated target from training data ..........')
 #------------------------------------------------------
-with open('/home/caoduanhua/scorefunction/data/uniport_analysis/duplicated_with_dude_independent_uniport_targets','rb') as f:
+with open('/home/caoduanhua/score_function/data/uniport_analysis/duplicated_with_dude_independent_uniport_targets','rb') as f:
     duplicated_targets = pickle.load(f)
     print('duplicated tragets: ',len(duplicated_targets))
 dude_gene =  set(OrderedDict.fromkeys([v.split('/')[-1].split('_')[0] for v in valid_keys]))
