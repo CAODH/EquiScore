@@ -3,7 +3,6 @@ from collections import OrderedDict
 import random
 import glob
 random.seed(0)
-
 valid_keys = glob.glob('/home/caoduanhua/score_function/data/pocket_data/*')
 valid_keys = [v.split('/')[-1] for v in valid_keys]
 # print(valid_keys)

@@ -11,6 +11,17 @@ valid_keys +=glob.glob('/home/caoduanhua/score_function/data/refineset_active_po
 # valid_keys +=glob.glob('/home/caoduanhua/score_function/data/dockingdecoy-bigger-10-caoduanhua-17w/*')
 cross_decoys= os.listdir('/home/caoduanhua/score_function/data/generalset_refineset_crossdecoys_1_16_pocket_without_h/')
 cross_decoys_dir = '/home/caoduanhua/score_function/data/generalset_refineset_crossdecoys_1_16_pocket_without_h/'
+valid_keys = glob.glob('/home/caoduanhua/score_function/data/general_refineset/generalset_active_pocket_without_h/*')
+valid_keys +=glob.glob('/home/caoduanhua/score_function/data/general_refineset/refineset_active_pocket_without_h/*')
+# valid_keys +=glob.glob('/home/caoduanhua/score_function/data/dockingdecoy-bigger-10-caoduanhua-17w/*')
+cross_decoys= os.listdir('/home/caoduanhua/score_function/data/general_refineset/generalset_refineset_crossdecoys_1_16_pocket_without_h/')
+cross_decoys_dir = '/home/caoduanhua/score_function/data/general_refineset/generalset_refineset_crossdecoys_1_16_pocket_without_h/'
+valid_keys = glob.glob('/home/caoduanhua/scorefunction/data/generalset_active_pocket_without_h/*')
+valid_keys +=glob.glob('/home/caoduanhua/scorefunction/data/refineset_active_pocket_without_h/*')
+# valid_keys +=glob.glob('/home/caoduanhua/score_function/data/dockingdecoy-bigger-10-caoduanhua-17w/*')
+cross_decoys= os.listdir('/home/caoduanhua/scorefunction/data/generalset_refineset_crossdecoys_1_16_pocket_without_h/')
+cross_decoys_dir = '/home/caoduanhua/scorefunction/data/generalset_refineset_crossdecoys_1_16_pocket_without_h/'
+
 # print('len of actives: ',len(valid_keys))
 # with open('/home/caoduanhua/score_function/GNN/GNN_graphformer/refine_generalcrossdecoy_1_10_keys/all_keys','rb') as f:
 #     all_keys = pickle.load(f)
@@ -39,7 +50,9 @@ print('len of decoys: ',len(cross_decoys))
 # print('len of actives: ',len(valid_keys))
 print('removeing duplicated target from training data ..........')
 #------------------------------------------------------
-with open('/home/caoduanhua/score_function/data/uniport_analysis/duplicated_with_independent_uniport_targets','rb') as f:
+
+with open('/home/caoduanhua/scorefunction/data/uniport_analysis/duplicated_with_independent_uniport_targets','rb') as f:
+
     duplicated_targets = pickle.load(f)
     print('duplicated tragets: ',len(duplicated_targets))
 dude_gene =  set(OrderedDict.fromkeys([v.split('/')[-1].split('_')[0] for v in valid_keys]))

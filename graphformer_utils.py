@@ -306,9 +306,14 @@ def preprocess_item(item, args,file_path,adj,term='item_1',noise=False):
     item['attn_bias'] = attn_bias
     item['attn_edge_type'] = attn_edge_type#每条边的特征
     item['rel_pos'] = rel_pos
+<<<<<<< HEAD
+    item['in_degree'] = adj.long().sum(dim=1).view(-1) if args.in_degree_bias else None #每个结点的输入边的特征
+    item['out_degree'] = adj.long().sum(dim=0).view(-1) if args.out_degree_bias else None
+=======
     adj_in,adj_out = adj.long().sum(dim=1).view(-1),adj.long().sum(dim=0).view(-1)
     item['in_degree'] = torch.where(adj_in > 8,9,adj_in) if args.in_degree_bias else None #每个结点的输入边的特征
     item['out_degree'] = torch.where(adj_out > 8,9,adj_out) if args.out_degree_bias else None
+>>>>>>> 4d1b95afb33aa0f4843dd9af9cd262995a08d42b
     item['edge_input'] = torch.from_numpy(edge_input).long() if edge_input is not None else None
     item['all_rel_pos_3d'] = all_rel_pos_3d_with_noise#torch.long
     #item['all_rel_pos_3d'] = torch.from_numpy(all_rel_pos_3d_with_noise).float() if all_rel_pos_3d_with_noise is not None else None
