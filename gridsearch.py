@@ -58,8 +58,8 @@ parser.add_argument("--initial_dev", help="initial value of dev", type=float, de
 parser.add_argument("--dropout_rate", help="dropout_rate", type=float, default = 0.2)
 #args.attention_dropout_rate
 parser.add_argument("--attention_dropout_rate", help="attention_dropout_rate", type=float, default = 0.2)
-parser.add_argument("--train_keys", help="train keys", type=str, default='/home/caoduanhua/scorefunction/GNN/GNN_graphformer_pyg/dude_keys/train_keys.pkl')
-parser.add_argument("--test_keys", help="test keys", type=str, default='/home/caoduanhua/scorefunction/GNN/GNN_graphformer_pyg/dude_keys/test_keys.pkl')
+parser.add_argument("--train_keys", help="train keys", type=str, default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/dude_keys/train_keys.pkl')
+parser.add_argument("--test_keys", help="test keys", type=str, default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/dude_keys/test_keys.pkl')
 #add by caooduanhua
 # self.fundation_model = args.fundation_model
 parser.add_argument("--fundation_model", help="what kind of model to use : paper or graphformer", type=str, default='graphformer')
@@ -81,7 +81,7 @@ parser.add_argument("--debug", help="debug mode for check", action = 'store_true
 parser.add_argument("--test", help="independent tests or not ", action = 'store_false')
 parser.add_argument("--sampler", help="select sampler in train stage ", action = 'store_true')
 parser.add_argument("--A2_limit", help="select add a A2adj strong limit  in model", action = 'store_true')
-parser.add_argument("--test_path", help="test keys", type=str, default='/home/caoduanhua/scorefunction/data/independent/dude_pocket')
+parser.add_argument("--test_path", help="test keys", type=str, default='/home/caoduanhua/score_function/data/independent/dude_pocket')
 parser.add_argument("--path_data_dir", help="saved shortest path data", type=str, default='../../data/pocket_data_path')
 
 
@@ -103,7 +103,7 @@ parser.add_argument("--auxiliary_loss", help="use lr decay ", action = 'store_tr
 parser.add_argument("--r_drop", help="use lr decay ", action = 'store_true') 
 parser.add_argument("--deta_const", help="const deta ", action = 'store_true') 
 parser.add_argument("--alpha", help="use lr decay ", type = int,default = 5) 
-parser.add_argument("--norm_type",help = 'select norm type in gnnyou can select  ln or gn ',type = str,choices=['gn','ln'],default = 'gn')
+parser.add_argument("--norm_type",help = 'select norm type in gnnyou can select  ln or gn ',type = str,choices=['gn_mul','gn_iter','ln'],default = 'gn_mul')
 #pred_mode
 parser.add_argument("--pred_mode",help = 'select nodes to be used  for prediction of graph ',type = str,choices= ['ligand','protein','supernode'],default = 'ligand')
 #set super node
@@ -111,6 +111,7 @@ parser.add_argument("--supernode", help="const deta ", action = 'store_true')
 parser.add_argument("--embed_graph_mode",help = 'select nodes to be used  for prediction of graph ',type = str,choices= ['only_ligand','ligand_protein','dynamic_adj'],default = 'ligand_protein')
 parser.add_argument("--grad_sum", help="grad sum  ", action = 'store_true')
 parser.add_argument("--virtual_aromatic_atom", help="virtual_aromatic_atom center  ", action = 'store_true')
+parser.add_argument("--att_mode", help="attention mode ", default= 'SA',type=str,choices=['DSA','SA']) 
 # N_atom_features = 28
 parser.add_argument("--FP", help="use attentive FP feat", action = 'store_true')
 parser.add_argument("--dis_adj2_with_adj1", help="like name", action = 'store_true')
@@ -123,8 +124,8 @@ args = parser.parse_args()
 print (args)
 
 if '__main__' == __name__:
-        for n_graph_layer in [4,3,2,1]:
-                for n_FC_layer in [4,2]:
+        for n_graph_layer in [1]:
+                for n_FC_layer in [2]:
                     for virtual_aromatic_atom in [True]:
                             # args.lr = lr
                             args.n_graph_layer = n_graph_layer

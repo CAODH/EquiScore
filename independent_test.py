@@ -48,8 +48,8 @@ parser.add_argument("--initial_dev", help="initial value of dev", type=float, de
 parser.add_argument("--dropout_rate", help="dropout_rate", type=float, default = 0.2)
 #args.attention_dropout_rate
 parser.add_argument("--attention_dropout_rate", help="attention_dropout_rate", type=float, default = 0.2)
-parser.add_argument("--train_keys", help="train keys", type=str, default='/home/caoduanhua/scorefunction/GNN/GNN_graphformer_pyg/dude_keys/train_keys.pkl')
-parser.add_argument("--test_keys", help="test keys", type=str, default='/home/caoduanhua/scorefunction/GNN/GNN_graphformer_pyg/dude_keys/test_keys.pkl')
+parser.add_argument("--train_keys", help="train keys", type=str, default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/dude_keys/train_keys.pkl')
+parser.add_argument("--test_keys", help="test keys", type=str, default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/dude_keys/test_keys.pkl')
 #add by caooduanhua
 # self.fundation_model = args.fundation_model
 parser.add_argument("--fundation_model", help="what kind of model to use : paper or graphformer", type=str, default='graphformer')
@@ -71,11 +71,11 @@ parser.add_argument("--debug", help="debug mode for check", action = 'store_true
 parser.add_argument("--test", help="independent tests or not ", action = 'store_true')
 parser.add_argument("--sampler", help="select sampler in train stage ", action = 'store_true')
 parser.add_argument("--A2_limit", help="select add a A2adj strong limit  in model", action = 'store_true')
-parser.add_argument("--test_path", help="test keys", type=str, default='/home/caoduanhua/scorefunction/data/independent/dude_pocket')
+parser.add_argument("--test_path", help="test keys", type=str, default='/home/caoduanhua/score_function/data/independent/dekois_pocket')
 parser.add_argument("--path_data_dir", help="saved shortest path data", type=str, default='../../data/pocket_data_path')
 
 
-parser.add_argument("--EF_rates", help="eval EF value in different percentage",nargs='+', type=float, default = 0.01)
+parser.add_argument("--EF_rates", help="eval EF value in different percentage",nargs='+', type=float, default = [0.001,0.002,0.005,0.01,0.02,0.05])
 #parser.add_argument('--nargs-int-type', nargs='+', type=int)
 parser.add_argument("--multi_hop_max_dist", help="how many edges to use in multi-hop edge bias", type=int, default = 10)
 parser.add_argument("--edge_type", help="use multi-hop edge or not:single or multi_hop ", type=str, default='single')
@@ -107,6 +107,7 @@ parser.add_argument("--FP", help="use attentive FP feat", action = 'store_true')
 parser.add_argument("--dis_adj2_with_adj1", help="like name", action = 'store_true')
 parser.add_argument("--seed", help="use lr decay ", type = int,default = 42) 
 # single_graph
+parser.add_argument("--save_logits", help="save_logits", action = 'store_true')
 parser.add_argument("--embed_graph", help="only use one graph to learning  ", default = 'double_graph' ,choices = ['single_graph','double_graph','embed_graph_once'])
 #这套参数默认是paper+ GAT——gate without attn_bias
 args = parser.parse_args()
@@ -119,9 +120,9 @@ else:
     args.N_atom_features = 28
 model = gnn(args) 
 # print ('number of parameters : ', sum(p.numel() for p in model.parameters() if p.requires_grad))
-save_path = args.save_dir+ 'independent_test' +'/' + time.strftime('%Y-%m-%d-%H-%M-%S')
-if not os.path.exists(save_path):
-    os.makedirs(save_path)
+# save_path = args.save_dir+ 'independent_test' +'/' + time.strftime('%Y-%m-%d-%H-%M-%S')
+# if not os.path.exists(save_path):
+#     os.makedirs(save_path)
 if args.ngpu>0:
     cmd = get_available_gpu(num_gpu=1, min_memory=6000, sample=3, nitro_restriction=False, verbose=True)
     # cmd = '1,'
@@ -131,7 +132,10 @@ if args.ngpu>0:
     else:
         os.environ['CUDA_VISIBLE_DEVICES']=cmd
     print(cmd)
-best_name = '/home/caoduanhua/scorefunction/GNN/train_result/graphnorm/dekois/graphformer/GAT_gate/2022-01-18-02-43-40/save_best_model.pt'
+best_name = '/home/caoduanhua/score_function/GNN/train_result/graphnorm/dekois/graphformer/GAT_gate/2022-02-13-08-36-44/save_best_model.pt'
+save_path = best_name.replace('/save_best_model.pt','')
+if not os.path.exists(save_path):
+    os.makedirs(save_path)
 #/home/caoduanhua/score_function/GNN/train_result/MSE/paper/GAT_gate/2021-12-08-10-28-48/save_best_model.pt
 #/home/caoduanhua/score_function/GNN/train_result/MSE/paper/GAT_gate/2021-12-03-06-05-48/save_best_model.pt
 args.best_name = best_name
@@ -141,5 +145,5 @@ args.device = device
 model = utils.initialize_model(model, device, load_save_file = best_name )[0]
 loss_fn = nn.BCELoss()
 # EF_file = save_path +'/EF_test' + time.strftime('%Y-%m-%d-%H-%M-%S')
-getEF(model,args,args.test_path,save_path,device,args.debug,args.batch_size,args.A2_limit,loss_fn,args.EF_rates)
+getEF(model,args,args.test_path,save_path,device,args.debug,args.batch_size,args.A2_limit,loss_fn,args.EF_rates,flag = '_dekois')
 # getEF_from_MSE(model,args,args.test_path,save_path,device,args.debug,args.batch_size,args.A2_limit,loss_fn,args.EF_rates)
