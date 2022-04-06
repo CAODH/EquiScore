@@ -284,11 +284,11 @@ def evaluator(model,loader,loss_fn,args):
                 pred = pred.view(-1)
             # pred = model(sample,args.A2_limit)
 
-            loss = loss_fn(pred if args.loss_fn == 'auc_loss' else pred, sample.Y.to(pred.device)) 
+            loss = loss_fn(pred if args.loss_fn == 'auc_loss' else pred, sample.Y.long().to(pred.device)) 
             
             #collect loss, true label and predicted label
             test_losses.append(loss.data.cpu().numpy())
-            test_true.append(sample.Y.data.cpu().numpy())
+            test_true.append(sample.Y.long().data.cpu().numpy())
             if pred.dim()==2:
                 pred = torch.softmax(pred,dim = -1)[:,1]
             pred = pred if args.loss_fn == 'auc_loss' else pred
@@ -350,7 +350,7 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss):
             loss.backward()
             optimizer.step()
             train_losses.append(loss.data.cpu().numpy())
-            train_true.append(sample.Y.data.cpu().numpy())
+            train_true.append(sample.Y.long().data.cpu().numpy())
             if pred.dim() ==2:
                 pred = torch.softmax(pred,dim = -1)[:,1]
             train_pred.append(pred.data.cpu().numpy())
@@ -367,11 +367,11 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss):
             # print(pred)
             # print(sample.Y.to(pred.device))
             # print(sample.H)
-            loss = loss_fn(pred if args.loss_fn == 'auc_loss' else pred, sample.Y.to(pred.device))
+            loss = loss_fn(pred if args.loss_fn == 'auc_loss' else pred, sample.Y.long().to(pred.device))
 
             if args.auxiliary_loss:
                 assert args.loss_fn != 'mse_loss', 'mse_loss cant add auxiliary_loss check your code plz!'
-                loss = loss + model.deta*auxiliary_loss(pred,sample.Y.to(pred.device))
+                loss = loss + model.deta*auxiliary_loss(pred,sample.Y.long().to(pred.device))
             if args.grad_sum:
                 loss = loss/6
                 loss.backward()

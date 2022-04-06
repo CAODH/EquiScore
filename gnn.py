@@ -304,7 +304,7 @@ class gnn(torch.nn.Module):
                 c_hs = F.relu(c_hs)
             else:
                 c_hs = self.FC[k](c_hs)
-        if  self.args.r_drop  or self.args.loss_fn == 'focal_loss' :
+        if  self.args.r_drop  or self.args.loss_fn == 'focal_loss' or self.args.loss_fn == 'cross_entry': 
             return c_hs
         elif self.args.loss_fn == 'mse_loss':
             return c_hs[:,1]

@@ -6,41 +6,16 @@ import numpy as np
 import os
 random.seed(0)
 from collections import defaultdict,Counter
-<<<<<<< HEAD
-=======
-
-valid_keys = glob.glob('/home/caoduanhua/score_function/data/generalset_active_pocket_without_h/*')
-valid_keys +=glob.glob('/home/caoduanhua/score_function/data/refineset_active_pocket_without_h/*')
-# valid_keys +=glob.glob('/home/caoduanhua/score_function/data/dockingdecoy-bigger-10-caoduanhua-17w/*')
-cross_decoys= os.listdir('/home/caoduanhua/score_function/data/generalset_refineset_crossdecoys_1_16_pocket_without_h/')
-cross_decoys_dir = '/home/caoduanhua/score_function/data/generalset_refineset_crossdecoys_1_16_pocket_without_h/'
-valid_keys = glob.glob('/home/caoduanhua/score_function/data/general_refineset/generalset_active_pocket_without_h/*')
-valid_keys +=glob.glob('/home/caoduanhua/score_function/data/general_refineset/refineset_active_pocket_without_h/*')
-# valid_keys +=glob.glob('/home/caoduanhua/score_function/data/dockingdecoy-bigger-10-caoduanhua-17w/*')
-cross_decoys= os.listdir('/home/caoduanhua/score_function/data/general_refineset/generalset_refineset_crossdecoys_1_16_pocket_without_h/')
-cross_decoys_dir = '/home/caoduanhua/score_function/data/general_refineset/generalset_refineset_crossdecoys_1_16_pocket_without_h/'
-
->>>>>>> 850deb8dfdebb3eef146fd58700f12ed4842b277
 valid_keys = glob.glob('/home/caoduanhua/scorefunction/data/generalset_active_pocket_without_h/*')
 valid_keys +=glob.glob('/home/caoduanhua/scorefunction/data/refineset_active_pocket_without_h/*')
 # valid_keys +=glob.glob('/home/caoduanhua/score_function/data/dockingdecoy-bigger-10-caoduanhua-17w/*')
 cross_decoys= os.listdir('/home/caoduanhua/scorefunction/data/generalset_refineset_crossdecoys_1_16_pocket_without_h/')
 cross_decoys_dir = '/home/caoduanhua/scorefunction/data/generalset_refineset_crossdecoys_1_16_pocket_without_h/'
-<<<<<<< HEAD
-=======
-
->>>>>>> 850deb8dfdebb3eef146fd58700f12ed4842b277
 # print('len of actives: ',len(valid_keys))
 # with open('/home/caoduanhua/score_function/GNN/GNN_graphformer/refine_generalcrossdecoy_1_10_keys/all_keys','rb') as f:
 #     all_keys = pickle.load(f)
 # cross_decoys = [cross_decoys_path + i for i in all_keys]
-<<<<<<< HEAD
 def get_part_data(data_dir,names,fast_num = 10):
-=======
-def get_part_data(data_dir,names,fast_num = 5):
-def get_part_data(data_dir,names,fast_num = 10):
-
->>>>>>> 850deb8dfdebb3eef146fd58700f12ed4842b277
     # data_name = []
     pro_decoy_pro = defaultdict(list)
     for i in names:
@@ -59,20 +34,12 @@ def get_part_data(data_dir,names,fast_num = 10):
     return [data_dir + name for name in pro_decoy_pro_5]
 
 valid_keys += get_part_data(cross_decoys_dir,cross_decoys)
-<<<<<<< HEAD
-=======
-
->>>>>>> 850deb8dfdebb3eef146fd58700f12ed4842b277
 print('len of decoys: ',len(cross_decoys))
 # print('decoy ')
 # print('len of actives: ',len(valid_keys))
 print('removeing duplicated target from training data ..........')
 #------------------------------------------------------
-<<<<<<< HEAD
 with open('/home/caoduanhua/scorefunction/data/uniport_analysis/duplicated_with_independent_uniport_targets','rb') as f:
-=======
-with open('/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/refine_generalcrossdecoy_1_5/duplicated_with_independent_tests','rb') as f:
->>>>>>> 850deb8dfdebb3eef146fd58700f12ed4842b277
     duplicated_targets = pickle.load(f)
     print('duplicated tragets: ',len(duplicated_targets))
 dude_gene =  set(OrderedDict.fromkeys([v.split('/')[-1].split('_')[0] for v in valid_keys]))
