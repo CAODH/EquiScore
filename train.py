@@ -122,8 +122,10 @@ def get_args_from_json(json_file_path, args_dict):
         args_dict[key] = summary_dict[key]
     return args_dict
 parser = argparse.ArgumentParser(description='json param')
-parser.add_argument("--json_path", help="file path of param", type=str, default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/config_files/train.json')
-# temp_args = parser.parse_args()
+parser.add_argument("--json_path", help="file path of param", type=str, \
+    default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/train.json')
+
+# label_smoothing# temp_args = parser.parse_args()
 args_dict = vars(parser.parse_args())
 args = get_args_from_json(args_dict['json_path'], args_dict)
 args = argparse.Namespace(**args)
@@ -242,7 +244,7 @@ def run(args):
     elif args.loss_fn == 'focal_loss':
         loss_fn = FocalLoss().to(args.device)
     elif args.loss_fn == 'cross_entry':
-        loss_fn = torch.nn.CrossEntropyLoss(label_smoothing=0.1).to(args.device)
+        loss_fn = torch.nn.CrossEntropyLoss(label_smoothing=args.label_smothing).to(args.device)
     elif args.loss_fn == 'mse_loss':
         loss_fn = nn.MSELoss().to(args.device)
     else:

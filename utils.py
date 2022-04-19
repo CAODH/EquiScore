@@ -494,11 +494,11 @@ def getEF(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_f
     #保存logits 进行下一步分析
                 
                 test_pred = np.concatenate(np.array(test_pred), 0)
-                if args.save_logits:
+                # if args.save_logits:
 
-                    with open(save_path + '/pcba_{}_logits'.format(pro),'wb') as f:
-                        pickle.dump((test_pred,test_keys_pro),f)
-                        f.close()
+                #     with open(save_path + '/pcba_{}_logits'.format(pro),'wb') as f:
+                #         pickle.dump((test_pred,test_keys_pro),f)
+                #         f.close()
     
                 EF = []
                 hits_list = []

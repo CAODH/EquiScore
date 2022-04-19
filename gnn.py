@@ -48,7 +48,7 @@ class gnn(torch.nn.Module):
         self.FC = nn.ModuleList([nn.Linear(self.layers1[-1], self.args.d_FC_layer) if i==0 else
                                 nn.Linear(self.args.d_FC_layer, 2) if i==self.args.n_FC_layer-1  else
                                 nn.Linear(self.args.d_FC_layer, self.args.d_FC_layer) for i in range(self.args.n_FC_layer)])
-    def GetAttnBias(self,rel_pos,attn_bias,edge_input,all_rel_pos_3d_l, attn_edge_type):
+    def GetAttnBias(self,rel_pos,attn_bias,edge_input,all_rel_pos_3d_l, attn_edge_type,bias_one = False):
 
         # graph_attn_bias
         n_graph, n_node = attn_bias.size()[:2]#[bs,n,n]
@@ -58,10 +58,10 @@ class gnn(torch.nn.Module):
         # rel pos
         if self.args.rel_pos_bias is True:
 
-            rel_pos_bias = self.args.rel_pos_encoder(rel_pos).permute(0, 3, 1, 2)# # [n_graph, n_node, n_node, n_head] -> [n_graph, n_head, n_node, n_node]
+            rel_pos_bias = self.rel_pos_encoder(rel_pos).permute(0, 3, 1, 2)# # [n_graph, n_node, n_node, n_head] -> [n_graph, n_head, n_node, n_node]
             graph_attn_bias = graph_attn_bias + rel_pos_bias 
         # rel 3d pos
-        if self.args.rel_3d_pos_bias is True:
+        if self.args.rel_3d_pos_bias is True and bias_one is  False:
 
             rel_3d_bias = self.rel_3d_encoder(all_rel_pos_3d_l).permute(0, 3, 1, 2)
             graph_attn_bias = graph_attn_bias + rel_3d_bias
@@ -167,8 +167,9 @@ class gnn(torch.nn.Module):
     def embede_graph(self, data,A2_limit):
         c_hs_1 = self.GetNodeFea(data.H,data.in_degree_1,data.out_degree_1)
         c_hs_2 = self.GetNodeFea(data.H,data.in_degree_2,data.out_degree_2)
-        attn_bias_1 = self.GetAttnBias(data.rel_pos_1,data.attn_bias,data.edge_input_1,data.all_rel_pos_3d, data.attn_edge_type_1)
+        attn_bias_1 = self.GetAttnBias(data.rel_pos_1,data.attn_bias,data.edge_input_1,data.all_rel_pos_3d, data.attn_edge_type_1,bias_one = True)
         attn_bias_2 = self.GetAttnBias(data.rel_pos_2,data.attn_bias,data.edge_input_2,data.all_rel_pos_3d, data.attn_edge_type_2)
+        
 
         if A2_limit:#by caoduanhua
             for i ,item in enumerate(data.A2):
@@ -182,7 +183,8 @@ class gnn(torch.nn.Module):
             data.A2[i,:n1,n1:n2] = dm_adjust
             data.A2[i,n1:n2,:n1] = dm_adjust_t
         elif self.args.only_adj2:
-            data.A2 = torch.where(data.A2 > 0,1,0)
+            # data.A2 = torch.where(data.A2 > 0,1,0)
+            data.A2 = data.A1
         elif self.args.only_dis_adj2:
             data.A2 = torch.where(data.A2 > self.mu,torch.exp(-torch.pow(data.A2-self.mu.expand_as(data.A2), 2)/(self.dev + 1e-6)),torch.tensor(1.0).to(self.dev.device))+ data.A1
         else:

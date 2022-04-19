@@ -203,7 +203,7 @@ def getEdge(mol,adj = None,n1 = None,n2 = None):
     edge_attr = torch.tensor(edge_features_list, dtype = torch.int64)
     return edge_index,edge_attr
 
-def mol2graph(mol,x,args,adj = None,n1 = None,n2 = None):
+def mol2graph(mol,x,args,adj = None,n1 = None,n2 = None,dm = None):
     """
     Converts SMILES string to graph Data object
     :input: SMILES string (str)
@@ -217,9 +217,14 @@ def mol2graph(mol,x,args,adj = None,n1 = None,n2 = None):
         edge_index, edge_attr= None,None
     # attn
 
-    if args.rel_3d_pos_bias:
+    if args.rel_3d_pos_bias and dm is not None:
+        rel_pos_3d = np.zeros((n1+n2, n1+n2))
+        rel_pos_3d[:n1,n1:] = np.copy(dm)
+        rel_pos_3d[n1:,:n1] = np.copy(np.transpose(dm))
+        # rel_pos_3d = get_rel_pos(mol)
+        # add ligand_protein distance bias as 3d bias 
 
-        rel_pos_3d = get_rel_pos(mol)
+
     else:
         rel_pos_3d =  None
     graph = dict()
@@ -234,7 +239,7 @@ def mol2graph(mol,x,args,adj = None,n1 = None,n2 = None):
 
 #===================all data attrs process start ========================
 
-def preprocess_item(item, args,file_path,adj,term='item_1',noise=False):
+def preprocess_item(item, args,file_path,adj,term='item_1',noise=False,size = None):
     edge_attr, edge_index, x  = item['edge_feat'], item['edge_index'], item['node_feat']
     N = x.size(0)
     # print('num features:',N)
@@ -243,9 +248,10 @@ def preprocess_item(item, args,file_path,adj,term='item_1',noise=False):
         x = convert_to_single_emb(x,offset = offset)
     adj = torch.tensor(adj,dtype=torch.long)
     # edge feature here
-    all_rel_pos_3d_with_noise = torch.from_numpy(algos.bin_rel_pos_3d_1(item['rel_pos_3d'], noise=noise)).long() if args.rel_3d_pos_bias else item['rel_pos_3d']
+    all_rel_pos_3d_with_noise = torch.from_numpy(algos.bin_rel_pos_3d_1(item['rel_pos_3d'], noise=noise)).long() \
+        if args.rel_3d_pos_bias and  term == 'item_1' else item['rel_pos_3d']
    
-    if args.rel_pos_bias:
+    if args.rel_pos_bias and size:
         if os.path.exists(file_path):
             with open(file_path,'rb') as f:
                 if term == 'term_2':
@@ -253,10 +259,12 @@ def preprocess_item(item, args,file_path,adj,term='item_1',noise=False):
                 else:
                     _,_,shortest_path_result, path = pickle.load(f)
         else:
-            shortest_path_result, path = algos.floyd_warshall(adj.numpy())
+            shortest_path_result, path = algos.floyd_warshall(adj[:size[0],:size[0]].numpy())
+            # print('shortest path result ',)
 
         # max_dist = np.amax(shortest_path_result)
         rel_pos = torch.from_numpy((shortest_path_result)).long() #if args.rel_pos else None
+        # print('shortest path result ',rel_pos.shape)
 
     else:
         rel_pos = None
@@ -298,8 +306,6 @@ def preprocess_item(item, args,file_path,adj,term='item_1',noise=False):
     # attn_bias = torch.zeros([N + 1, N + 1], dtype=torch.float) # with graph token
     attn_bias = torch.zeros([N, N], dtype=torch.float) 
     assert len(attn_bias.shape ) == 2 ,print('attn_bias:',attn_bias) 
-    
-    
     # combine
     item['x'] = x
     # item['adj'] = adj

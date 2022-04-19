@@ -195,12 +195,13 @@ class MultiHeadAttention(nn.Module):
         # Attention(Q, K, V) = softmax((QK^T)/sqrt(d_k))V
         q = q * self.scale
         x = torch.matmul(q, k)  # [b, h, q_len, k_len]
+        
         if use_adj:
             
             # adj = torch.where(adj > 0,1,0)
             zero_vec = -9e15*torch.ones_like(x)
             x = torch.where(adj.unsqueeze(1) > 0, x, zero_vec)
-            x = F.softmax(x, dim=-1)
+            # x = F.softmax(x, dim=-1)
             # x = x*
             #attention = F.dropout(attention, self.dropout, training=self.training)
             #h_prime = torch.matmul(attention, h)
@@ -209,7 +210,7 @@ class MultiHeadAttention(nn.Module):
         if attn_bias is not None:
             # print('MH ATT: ',x.shape,attn_bias.shape)
             x = x + attn_bias
-        # x = F.softmax(x, dim=1)
+        x = F.softmax(x, dim=-1)
 
         # x = torch.softmax(x, dim=-1)
         x = self.att_dropout(x)

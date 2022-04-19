@@ -72,7 +72,10 @@ def retract():
     parser.add_argument("--test", help="independent tests or not ", action = 'store_true')
     parser.add_argument("--sampler", help="select sampler in train stage ", action = 'store_true')
     parser.add_argument("--A2_limit", help="select add a A2adj strong limit  in model", action = 'store_true')
-    parser.add_argument("--test_path", help="test keys", type=str, default='/home/caoduanhua/score_function/data/independent/dekois_pocket/')
+    parser.add_argument("--test_path", help="test keys", type=str, default='/home/caoduanhua/score_function/data/independent/pocket_pcba_full/pocket')
+    #/home/caoduanhua/score_function/data/independent/dekois_pocket
+    #/home/caoduanhua/score_function/data/independent/dude_pocket
+
     parser.add_argument("--path_data_dir", help="saved shortest path data", type=str, default='../../data/pocket_data_path')
 
 
@@ -122,7 +125,7 @@ def get_args_from_json(json_file_path, args_dict):
         args_dict[key] = summary_dict[key]
     return args_dict
 parser = argparse.ArgumentParser(description='json param')
-parser.add_argument("--json_path", help="file path of param", type=str, default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/config_files/train.json')
+parser.add_argument("--json_path", help="file path of param", type=str, default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/config_files/ligand_shortest_path.json')
 # temp_args = parser.parse_args()
 args_dict = vars(parser.parse_args())
 args = get_args_from_json(args_dict['json_path'], args_dict)
@@ -147,7 +150,7 @@ if args.ngpu>0:
     else:
         os.environ['CUDA_VISIBLE_DEVICES']=cmd
     print(cmd)
-best_name = '/home/caoduanhua/score_function/GNN/train_result/same_nums_min_rmsd/graphformer/GAT_gate/2022-03-28-08-20-40/save_best_model.pt'
+best_name = '/home/caoduanhua/score_function/GNN/train_result/ligand_shortest_path_bias/graphformer/GAT_gate/2022-04-11-09-29-29/save_best_model.pt'
 save_path = best_name.replace('/save_best_model.pt','')
 if not os.path.exists(save_path):
     os.makedirs(save_path)
@@ -158,7 +161,16 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 args.device = device
 # device = torch.device('cpu')
 model = utils.initialize_model(model, device, load_save_file = best_name )[0]
-loss_fn = nn.BCELoss()
+if args.loss_fn == 'bce_loss':
+    loss_fn = nn.BCELoss().to(args.device)# 
+elif args.loss_fn == 'focal_loss':
+    loss_fn = FocalLoss().to(args.device)
+elif args.loss_fn == 'cross_entry':
+    loss_fn = torch.nn.CrossEntropyLoss(label_smoothing=args.label_smothing).to(args.device)
+elif args.loss_fn == 'mse_loss':
+    loss_fn = nn.MSELoss().to(args.device)
+else:
+    raise ValueError('not support this loss : %s'%args.loss_fn)
 # EF_file = save_path +'/EF_test' + time.strftime('%Y-%m-%d-%H-%M-%S')
-getEF(model,args,args.test_path,save_path,device,args.debug,args.batch_size,args.A2_limit,loss_fn,args.EF_rates,flag = '_dekois')
+getEF(model,args,args.test_path,save_path,device,args.debug,args.batch_size,args.A2_limit,loss_fn,args.EF_rates,flag = '_pcba')
 # getEF_from_MSE(model,args,args.test_path,save_path,device,args.debug,args.batch_size,args.A2_limit,loss_fn,args.EF_rates)

@@ -138,11 +138,11 @@ class graphformerDataset(Dataset):
             agg_adj1 = torch.cat([agg_adj1, torch.zeros_like(agg_adj1[:,0].reshape(-1,1))], dim = 1)
             agg_adj2 = torch.cat([agg_adj2, torch.ones_like(agg_adj2[0].unsqueeze(0))], dim = 0)
             agg_adj2 = torch.cat([agg_adj2, torch.ones_like(agg_adj2[:,0].reshape(-1,1))], dim = 1)
-        item_1 = mol2graph(pocket,H,self.args)
-        item_1 = preprocess_item(item_1, self.args,file_path,adj_graph_1,noise=False)#item, args,file_path,adj,term,noise=False
+        item_1 = mol2graph(pocket,H,self.args,adj = adj_graph_1,n1 = n1,n2 = n2,dm = dm)
+        item_1 = preprocess_item(item_1, self.args,file_path,adj_graph_1,noise=False,size = size)#item, args,file_path,adj,term,noise=False
         #
-        item_2 = mol2graph(pocket,H,self.args,adj = adj_graph_2,n1 = n1,n2 = n2)
-        item_2 = preprocess_item(item_2, self.args,file_path,adj_graph_2,term = 'term_2',noise=False)
+        item_2 = mol2graph(pocket,H,self.args,adj = adj_graph_2,n1 = n1,n2 = n2,dm = None)
+        item_2 = preprocess_item(item_2, self.args,file_path,adj_graph_2,term = 'term_2',noise=False,size = None)
 
         valid = torch.zeros((n1+n2,))
         if self.args.pred_mode == 'ligand':
@@ -337,7 +337,7 @@ def collate_fn(batch):
    
     
     for i in range(len(batch)):
-
+        ligand_atoms,pro_atoms = batch[i]['key']
         natom = len(batch[i]['H'])
         H[i,:natom] = batch[i]['H']
         Y[i] = batch[i]['Y']
@@ -351,8 +351,8 @@ def collate_fn(batch):
             attn_edge_type_1[i,:natom,:natom,:] = batch[i]['attn_edge_type_1'].long()#np.zeros((len(batch), max_natoms, max_natoms,edge_dim))
             attn_edge_type_2[i,:natom,:natom,:] = batch[i]['attn_edge_type_2'].long()
         if sample['rel_pos_1'] is not None:
-            rel_pos_1[i,:natom,:natom] = batch[i]['rel_pos_1'].long()
-            rel_pos_2[i,:natom,:natom] = batch[i]['rel_pos_1'].long()# =np.zeros((len(batch), max_natoms, max_natoms))
+            rel_pos_1[i,:ligand_atoms,:ligand_atoms] = batch[i]['rel_pos_1'].long()
+            rel_pos_2[i,:ligand_atoms,:ligand_atoms] = batch[i]['rel_pos_1'].long()# =np.zeros((len(batch), max_natoms, max_natoms))
         if sample['in_degree_1'] is not None:
            
             in_degree_1[i,:natom] = batch[i]['in_degree_1'].long()#=np.zeros((len(batch), max_natoms))
