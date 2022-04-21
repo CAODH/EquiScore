@@ -306,8 +306,10 @@ class gnn(torch.nn.Module):
                 c_hs = self.FC_reg[k](c_hs)
                 c_hs = F.dropout(c_hs, p=self.args.dropout_rate, training=self.training)
                 c_hs = F.relu(c_hs)
+                # print(c_hs.shape)
             else:
-                c_hs = self.FC[k](c_hs)
+                c_hs = self.FC_reg[k](c_hs)
+        # print(c_hs.shape)
         return c_hs
     def fully_connected(self, c_hs):
         # regularization = torch.empty(len(self.FC)*1-1, device=c_hs.device)

@@ -197,6 +197,7 @@ def run(args):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     args.device = device
     if args.hot_start:
+        
 
         model ,opt_dict,epoch_start= utils.initialize_model(model, args.device,args.save_model)
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)

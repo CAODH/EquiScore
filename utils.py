@@ -186,11 +186,6 @@ def atom_feature_attentive_FP(atom,
                                      ] + [atom.HasProp('_ChiralityPossible')]
 
         return np.array(results) #size all 39 [16 6 1 1 6 1 5 1 2 ]
-
-
-
-
-
 def get_logauc(fp, tp, min_fp=0.001, adjusted=False):
     
     lam_index = np.searchsorted(fp, min_fp)
@@ -370,12 +365,11 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss):
                 # print(model.reg_value.shape,sample.Y.shape,sample.value.shape)
                 loss += args.reg_lambda*torch.nn.functional.mse_loss\
                     (model.reg_value*sample.Y.long().reshape(-1,1).to(pred.device), sample.value.reshape(-1,1).to(pred.device))
-                # print(loss)
             if args.auxiliary_loss:
                 assert args.loss_fn != 'mse_loss', 'mse_loss cant add auxiliary_loss check your code plz!'
                 loss = loss + model.deta*auxiliary_loss(pred,sample.Y.long().to(pred.device))
+                # print(model.deta*auxiliary_loss(pred,sample.Y.long().to(pred.device)))
             # add a logk auxiliary loss
-            
             if args.grad_sum:
                 loss = loss/6
                 loss.backward()
