@@ -123,7 +123,7 @@ def get_args_from_json(json_file_path, args_dict):
     return args_dict
 parser = argparse.ArgumentParser(description='json param')
 parser.add_argument("--json_path", help="file path of param", type=str, \
-    default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/train.json')
+    default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/train_add_reg_logk.json')
 
 # label_smoothing# temp_args = parser.parse_args()
 args_dict = vars(parser.parse_args())
@@ -166,6 +166,7 @@ def run(args):
     with open (args.train_keys, 'rb') as fp:
         train_keys = pickle.load(fp)
     train_keys,val_keys = random_split(train_keys, split_ratio=0.9, seed=0, shuffle=True)
+    # print(sum([1 for key in val_keys if '_active' in key ])/len(val_keys),len(val_keys))
     with open (args.test_keys, 'rb') as fp:
         test_keys = pickle.load(fp)
     # test_keys = os.listdir(args.test_path)

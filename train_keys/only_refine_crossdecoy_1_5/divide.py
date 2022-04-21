@@ -15,8 +15,6 @@ cross_decoys= os.listdir('/home/caoduanhua/score_function/data/general_refineset
 cross_decoys_pros = set([v.split('/')[-1].split('_')[0] for v in cross_decoys])
 print('cross_decoys_pros :',len(cross_decoys_pros))
 cross_decoys_dir = '/home/caoduanhua/score_function/data/general_refineset/generalset_refineset_crossdecoys_1_16_pocket_without_h/'
-
-
 def get_part_data(data_dir,names,fast_num = 5,active_names = None):
     # data_name = []
     pro_decoy_pro = defaultdict(list)

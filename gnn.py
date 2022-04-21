@@ -48,6 +48,11 @@ class gnn(torch.nn.Module):
         self.FC = nn.ModuleList([nn.Linear(self.layers1[-1], self.args.d_FC_layer) if i==0 else
                                 nn.Linear(self.args.d_FC_layer, 2) if i==self.args.n_FC_layer-1  else
                                 nn.Linear(self.args.d_FC_layer, self.args.d_FC_layer) for i in range(self.args.n_FC_layer)])
+        # two layer to regress for -logka/ki
+        if self.args.add_logk_reg:
+            self.FC_reg = nn.ModuleList([
+                                    nn.Linear(self.args.d_FC_layer, 1) if i==self.args.n_FC_layer-3  else
+                                    nn.Linear(self.args.d_FC_layer, self.args.d_FC_layer) for i in range(self.args.n_FC_layer-2)])
     def GetAttnBias(self,rel_pos,attn_bias,edge_input,all_rel_pos_3d_l, attn_edge_type,bias_one = False):
 
         # graph_attn_bias
@@ -295,12 +300,23 @@ class gnn(torch.nn.Module):
             # c_hs = c_hs.sum(1)
 
             return attention_list_1,attention_list_2
+    def reg_head(self,c_hs):
+        for k in range(len(self.FC_reg)):
+            if k<len(self.FC_reg)-1:
+                c_hs = self.FC_reg[k](c_hs)
+                c_hs = F.dropout(c_hs, p=self.args.dropout_rate, training=self.training)
+                c_hs = F.relu(c_hs)
+            else:
+                c_hs = self.FC[k](c_hs)
+        return c_hs
     def fully_connected(self, c_hs):
-        regularization = torch.empty(len(self.FC)*1-1, device=c_hs.device)
+        # regularization = torch.empty(len(self.FC)*1-1, device=c_hs.device)
 
         for k in range(len(self.FC)):
           
             if k<len(self.FC)-1:
+                if k==len(self.FC)-3 and self.args.add_logk_reg:
+                    self.reg_value = self.reg_head(c_hs)
                 c_hs = self.FC[k](c_hs)
                 c_hs = F.dropout(c_hs, p=self.args.dropout_rate, training=self.training)
                 c_hs = F.relu(c_hs)

@@ -54,6 +54,10 @@ class graphformerDataset(Dataset):
         self.data_dir = data_dir
         self.debug = debug
         self.args = args
+        if self.args.add_logk_reg:
+            with open('/home/caoduanhua/score_function/data/general_refineset/datapro/logk_match.pkl','rb') as f:
+                self.logk_match =  pickle.load(f)
+            # self.logk_match = 
     def __len__(self):
         if self.debug:
             return 128
@@ -159,7 +163,20 @@ class graphformerDataset(Dataset):
         if self.args.loss_fn == 'mse_loss':
             Y = -float(key.split('-')[1].split('_')[0])
         else:
-            Y = 1 if '_active' in key else 0
+            if '_active' in key.split('/')[-1]:
+                Y = 1 
+                if self.args.add_logk_reg:
+                    try:
+                        value = self.logk_match[key.split('/')[-1].split('_')[0]]
+                    except:
+                        # pdbscreen active not have value
+                        value = 0
+                else:
+                    value = 0
+            else:
+                Y =  0 
+                value = 0
+
         # print(key)
         
         sample = {
@@ -180,12 +197,13 @@ class graphformerDataset(Dataset):
                 'edge_input_2':item_2['edge_input'],\
                 'all_rel_pos_3d':item_1['all_rel_pos_3d'],\
                 'V': valid, \
-                'Y': Y}
+                'Y': Y,
+                'value':value}
         # print(item_2['x'])
 
         return sample
 
-
+# reconstruct the batch class (to do )
 class Batch():
     def __init__(self,H=None, \
             A1=None, \
@@ -202,7 +220,7 @@ class Batch():
             edge_input_1=None,\
             edge_input_2=None,\
             all_rel_pos_3d=None,\
-            V =None,key=None,Y=None):
+            V =None,key=None,Y=None,value = None ):
         super(Batch, self).__init__()
 
 
@@ -216,7 +234,7 @@ class Batch():
         self.attn_edge_type_2, self.rel_pos_2 = attn_edge_type_2, rel_pos_2
         self.edge_input_1,self.edge_input_2 = edge_input_1,edge_input_2
         self.all_rel_pos_3d = all_rel_pos_3d
-        self.V,self.key,self.Y = V,key,Y
+        self.V,self.key,self.Y,self.value = V,key,Y,value
     def get_att(self):
         return self.H, \
             self.A1, \
@@ -233,7 +251,7 @@ class Batch():
             self.edge_input_1,\
             self.edge_input_2,\
             self.all_rel_pos_3d,\
-            self.V ,self.key,self.Y
+            self.V ,self.key,self.Y,self.value
     def get_from_list(self,*data_list):
         self.H, \
             self.A1, \
@@ -250,7 +268,7 @@ class Batch():
             self.edge_input_1,\
             self.edge_input_2,\
             self.all_rel_pos_3d,\
-            self.V ,self.key,self.Y = data_list
+            self.V ,self.key,self.Y ,self.value= data_list
 
     def to(self, device):
         self.H =self.H.to(device) if type(self.H) is torch.Tensor else self.H
@@ -271,6 +289,7 @@ class Batch():
         self.V=self.V.to(device) if type(self.V) is torch.Tensor else self.V
         self.key=self.key.to(device) if type(self.key) is torch.Tensor else self.key
         self.Y =self.Y.to(device) if type(self.Y) is torch.Tensor else self.Y
+        self.value = self.value.to(device) if type(self.value) is torch.Tensor else self.value
         return self
 
     def __len__(self):
@@ -284,6 +303,7 @@ def collate_fn(batch):
     H = torch.zeros((len(batch), max_natoms, atom_dim))
     Y = torch.zeros((len(batch),))
     V = torch.zeros((len(batch), max_natoms))
+    value = torch.zeros((len(batch), ))
     attn_bias = torch.zeros((len(batch), max_natoms, max_natoms))
 #找出那些是None
     if sample['key'] is None:
@@ -342,6 +362,8 @@ def collate_fn(batch):
         H[i,:natom] = batch[i]['H']
         Y[i] = batch[i]['Y']
         V[i,:natom] = batch[i]['V']
+
+        value[i] = batch[i]['value']
         attn_bias[i,:natom,:natom ] = batch[i]['attn_bias']
         if sample['key'] is not None:
             keys.append(batch[i]['key'])
@@ -389,7 +411,7 @@ def collate_fn(batch):
             edge_input_1,\
             edge_input_2,\
             all_rel_pos_3d,\
-            V ,keys, Y)
+            V ,keys, Y,value)
 
 
 

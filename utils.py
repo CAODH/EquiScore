@@ -357,8 +357,6 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss):
     else:
 
         for i_batch, sample in enumerate(train_dataloader):
-            
-        
             # data_flag,data = data_to_device(sample,args.device)
             pred = model(args.A2_limit,sample.to(args.device))
             if args.loss_fn == 'focal_loss':
@@ -368,10 +366,16 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss):
             # print(sample.Y.to(pred.device))
             # print(sample.H)
             loss = loss_fn(pred if args.loss_fn == 'auc_loss' else pred, sample.Y.long().to(pred.device))
-
+            if args.add_logk_reg:
+                # print(model.reg_value.shape,sample.Y.shape,sample.value.shape)
+                loss += args.reg_lambda*torch.nn.functional.mse_loss\
+                    (model.reg_value*sample.Y.long().reshape(-1,1).to(pred.device), sample.value.reshape(-1,1).to(pred.device))
+                # print(loss)
             if args.auxiliary_loss:
                 assert args.loss_fn != 'mse_loss', 'mse_loss cant add auxiliary_loss check your code plz!'
                 loss = loss + model.deta*auxiliary_loss(pred,sample.Y.long().to(pred.device))
+            # add a logk auxiliary loss
+            
             if args.grad_sum:
                 loss = loss/6
                 loss.backward()
@@ -392,31 +396,6 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss):
             # if (i_batch + 1) % 100 ==0:
             #     print('batch_loss:',np.mean(train_losses))
     return model,train_pred,train_losses,optimizer
-# def train(model,args,optimizer,loss_fn,train_dataloader):
-
-#             #collect losses of each iteration
-#             train_losses = [] 
-#             train_true = []
-#             train_pred = []
-#             model.train()
-#             for i_batch, sample in enumerate(train_dataloader):
-#                 model.zero_grad()
-#                 #train neural network
-#                 data_flag,data = data_to_device(sample,args.device)
-
-#                 # num_flag = sum(data_flag)
-#                 pred = model(args.A2_limit,data_flag,*data)
-#                 # print('pred shape : ',pred.shape)
-#                 # print('pred ',pred.shape)
-#                 loss = loss_fn(pred, sample.Y.to(pred.device)) 
-#                 loss.backward()
-#                 optimizer.step()
-#                 train_losses.append(loss.data.cpu().numpy())
-#                 train_true.append(sample.Y.data.cpu().numpy())
-#                 if pred.dim() ==2:
-#                     pred = torch.softmax(pred,dim = -1)[:,1]
-#                 train_pred.append(pred.data.cpu().numpy())
-#             return model,train_pred,train_losses,optimizer
 def getToyKey(train_keys):
     train_keys_toy_d = []
     train_keys_toy_a = []
@@ -777,7 +756,7 @@ def get_dataloader(args,train_keys,val_keys,val_shuffle=False):
 def write_log_head(args,log_path,model,train_keys,val_keys):
     args_dict = vars(args)
     with open(log_path,'w')as f:
-        f.write(f'Number of train data: {len(train_keys)}' +'\n'+ f'Number of test data: {len(val_keys)}' + '\n')
+        f.write(f'Number of train data: {len(train_keys)}' +'\n'+ f'Number of val data: {len(val_keys)}' + '\n')
         f.write(f'number of parameters : {sum(p.numel() for p in model.parameters() if p.requires_grad)}' +'\n')
         for item in args_dict.keys():
             f.write(item + ' : '+str(args_dict[item]) + '\n')

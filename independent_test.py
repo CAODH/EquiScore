@@ -125,7 +125,8 @@ def get_args_from_json(json_file_path, args_dict):
         args_dict[key] = summary_dict[key]
     return args_dict
 parser = argparse.ArgumentParser(description='json param')
-parser.add_argument("--json_path", help="file path of param", type=str, default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/config_files/ligand_shortest_path.json')
+parser.add_argument("--json_path", help="file path of param", type=str, \
+    default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/train.json')
 # temp_args = parser.parse_args()
 args_dict = vars(parser.parse_args())
 args = get_args_from_json(args_dict['json_path'], args_dict)
