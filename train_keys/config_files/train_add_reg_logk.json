@@ -2,7 +2,7 @@
     "lr": 0.0001,
     "label_smothing":0.0,
     "add_logk_reg":true,
-    "reg_lambda":0.5,
+    "reg_lambda":0.1,
     "epoch": 400,
     "ngpu": 1,
     "batch_size": 12,
