@@ -285,7 +285,18 @@ def mol2graph(mol,x,args,n1,n2,adj = None,dm = None):
     return graph 
 #=================== data attrs end ========================
 #===================all data attrs process start ========================
-
+import pandas as pd
+import numpy as np
+def pandas_bins(dis_matrix,num_bins = None,noise = False):
+    if num_bins is None:
+        num_bins = int((5-2.0)/0.05 + 1)
+    if noise:
+        t = np.random.laplace(0.001, 0.05)
+        dis_matrix += t
+    bins = [-1.0] + list(np.linspace(2.0,5,num_bins)) + [10000]
+    shape = dis_matrix.shape
+    bins_index = np.array(pd.cut(dis_matrix.flatten(),bins = bins,labels = [i for i in range(len(bins) -1)])).reshape(shape)
+    return bins_index
 def preprocess_item(item, args,file_path,adj,term='item_1',noise=False,size = None):
     edge_attr, edge_index, x  = item['edge_feat'], item['edge_index'], item['node_feat']
     N = x.size(0)
@@ -295,7 +306,8 @@ def preprocess_item(item, args,file_path,adj,term='item_1',noise=False,size = No
         x = convert_to_single_emb(x,offset = offset)
     adj = torch.tensor(adj,dtype=torch.long)
     # edge feature here
-    all_rel_pos_3d_with_noise = torch.from_numpy(algos.bin_rel_pos_3d_1(item['rel_pos_3d'], noise=noise)).long() \
+
+    all_rel_pos_3d_with_noise = torch.from_numpy(pandas_bins(item['rel_pos_3d'],num_bins = None,noise = False)).long() \
         if args.rel_3d_pos_bias and  term == 'item_1' else None
 
     if args.rel_pos_bias and size:

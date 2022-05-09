@@ -31,8 +31,8 @@ class gnn(torch.nn.Module):
         self.edge_encoder = nn.Embedding( 35* 5 + 1, self.args.head_size, padding_idx=0) if args.edge_bias is True else nn.Identity()
         self.rel_pos_encoder = nn.Embedding(512, self.args.head_size, padding_idx=0) if args.rel_pos_bias is True else nn.Identity()#rel_pos
         self.in_degree_encoder = nn.Embedding(10, self.args.n_out_feature, padding_idx=0) if args.in_degree_bias is True else nn.Identity()
-        self.out_degree_encoder = nn.Embedding(10, self.args.n_out_feature, padding_idx=0) if args.out_degree_bias is True else nn.Identity()
-        self.rel_3d_encoder = nn.Embedding(20, self.args.head_size, padding_idx=0) if args.rel_3d_pos_bias is True else nn.Identity()
+        # self.out_degree_encoder = nn.Embedding(10, self.args.n_out_feature, padding_idx=0) if args.out_degree_bias is True else nn.Identity()
+        self.rel_3d_encoder = nn.Embedding(65, self.args.head_size, padding_idx=0) if args.rel_3d_pos_bias is True else nn.Identity()
         #share layers
         self.layers1 = [self.args.n_out_feature for i in range(self.args.n_graph_layer+1)]
             #self.gconv1 = nn.ModuleList([GAT_gate(self.layers1[i], self.layers1[i+1]) for i in range(len(self.layers1)-1)]) 
@@ -71,7 +71,7 @@ class gnn(torch.nn.Module):
         if self.args.fundation_model == 'paper' and self.args.layer_type == 'GAT_gate' :
             graph_attn_bias = graph_attn_bias.sum(dim = 1)
         return graph_attn_bias
-    def GetNodeFea(self,x,in_degree,out_degree):
+    def GetNodeFea(self,x,in_degree):
         # print('x: ',x.device)
         # print('embede weight: ',self.embede.weight.device)
         if self.args.fundation_model == 'paper':
@@ -80,8 +80,8 @@ class gnn(torch.nn.Module):
             node_feature = self.atom_encoder(x.long()).mean(-2)
         if self.args.in_degree_bias:
             node_feature = node_feature + self.in_degree_encoder(in_degree)
-        if self.args.out_degree_bias:
-            node_feature = node_feature + self.out_degree_encoder(out_degree)
+        # if self.args.out_degree_bias:
+        #     node_feature = node_feature + self.out_degree_encoder(out_degree)
         # self.out_degree_encoder(out_degree)
         return node_feature 
     def embede_graph_once(self, data,A2_limit):
@@ -136,10 +136,10 @@ class gnn(torch.nn.Module):
         return c_hs_2
     
     def embede_graph(self, data,A2_limit):
-        c_hs_1 = self.GetNodeFea(data.H,data.in_degree_1,data.out_degree_1)
-        c_hs_2 = self.GetNodeFea(data.H,data.in_degree_2,data.out_degree_2)
+        c_hs_1 = self.GetNodeFea(data.H,data.in_degree_1)
+        c_hs_2 = self.GetNodeFea(data.H,data.in_degree_1)
         attn_bias_1 = self.GetAttnBias(data.rel_pos_1,data.attn_bias,data.edge_input_1,data.all_rel_pos_3d, data.attn_edge_type_1,bias_one = True)
-        attn_bias_2 = self.GetAttnBias(data.rel_pos_2,data.attn_bias,data.edge_input_2,data.all_rel_pos_3d, data.attn_edge_type_2)
+        attn_bias_2 = self.GetAttnBias(data.rel_pos_1,data.attn_bias,data.edge_input_1,data.all_rel_pos_3d, data.attn_edge_type_1)
     
         if self.args.only_adj2:
             data.A2 = torch.where(data.A2 > 0,1,0)
@@ -160,40 +160,7 @@ class gnn(torch.nn.Module):
             c_hs = c_hs*data.V.unsqueeze(-1).repeat(1, 1, c_hs.size(-1))
             c_hs = c_hs.sum(1)
 
-            return c_hs
-        elif self.args.mode == '2_H' :
-            c_hs = c_hs_2
-            for k in range(len(self.gconv1)):
-                # if self.layer_type == 'GAT_gate':
-                c_hs_1 = self.gconv1[k](c_hs, data.A1,self.args.use_adj,attn_bias_1)
-                c_hs_2 = self.gconv1[k](c_hs, data.A2,self.args.use_adj,attn_bias_2)
-                c_hs = c_hs_2-c_hs_1
-                c_hs = F.dropout(c_hs, p=self.args.dropout_rate, training=self.training)
-            c_hs = c_hs*data.V.unsqueeze(-1).repeat(1, 1, c_hs.size(-1))
-            c_hs = c_hs.sum(1)
-            
-            return c_hs
-        elif self.args.model == '1_2_H':
-            if self.args.share_layer:
-                for k in range(len(self.gconv1)):
-                    c_hs_1 = self.gconv1[k](c_hs_1,data.A1,self.args.use_adj,attn_bias_1)
-                    c_hs_2 = self.gconv1[k](c_hs_2,data.A2,self.args.use_adj,attn_bias_2)
-                    c_hs_1 = F.dropout(c_hs_1, p=self.args.dropout_rate, training=self.training)
-                    c_hs_2 = F.dropout(c_hs_2, p=self.args.dropout_rate, training=self.training2)
-            else:
-                for k in range(len(self.gconv1)):
-                    c_hs_1 = self.gconv1[k](c_hs_1,data.A1,self.args.use_adj,attn_bias_1)
-                    c_hs_2 = self.gconv2[k](c_hs_2,data.A2,self.args.use_adj,attn_bias_2)
-                    c_hs_1 = F.dropout(c_hs_1, p=self.args.dropout_rate, training=self.training)
-                    c_hs_2 = F.dropout(c_hs_2, p=self.args.dropout_rate, training=self.training2)
-            c_hs = c_hs_2-c_hs_1
-            # c_hs = F.dropout(c_hs, p=self.args.dropout_rate, training=self.training)
-            c_hs = c_hs*data.V.unsqueeze(-1).repeat(1, 1, c_hs.size(-1))
-            c_hs = c_hs.sum(1)
-            return c_hs
-        else:
-            raise ValueError('self.args.mode should one of 1_H 2_H 1_2_H! check your code and hyperpara')
-          
+            return c_hs         
         # return c_hs
     def GetATTMapOnce(self,data):
         c_hs_1 = self.GetNodeFea(data.H,data.in_degree_1,data.out_degree_1)

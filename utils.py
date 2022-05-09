@@ -371,9 +371,9 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss):
                 # print(model.deta*auxiliary_loss(pred,sample.Y.long().to(pred.device)))
             # add a logk auxiliary loss
             if args.grad_sum:
-                loss = loss/12
+                loss = loss/6
                 loss.backward()
-                if (i_batch + 1) % 12 == 0  or i_batch == len(train_dataloader) - 1:
+                if (i_batch + 1) % 6 == 0  or i_batch == len(train_dataloader) - 1:
                     optimizer.step()
                     model.zero_grad()
                     # print('batch_loss:',np.mean(train_losses))
@@ -382,7 +382,8 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss):
                 loss.backward()
                 optimizer.step()
                 model.zero_grad()
-            train_losses.append(loss.data.cpu().numpy())
+            loss = loss.data.cpu().numpy()*6 if args.grad_sum else loss.data.cpu().numpy()
+            train_losses.append(loss)
             train_true.append(sample.Y.data.cpu().numpy())
             if pred.dim() ==2:
                 pred = torch.softmax(pred,dim = -1)[:,1]
