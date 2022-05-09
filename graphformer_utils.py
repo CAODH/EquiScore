@@ -19,6 +19,7 @@ import joblib
 import numpy as np
 import math
 from scipy.spatial.distance import cdist
+from scipy.spatial import distance_matrix
 
 
 import pyximport
@@ -130,7 +131,6 @@ def get_atom_graphformer_feature(m,FP = False):
     # print('H in get func',H)
     return H      
 
-
 # ===================== BOND END =====================
 def convert_to_single_emb(x, offset=32):
     feature_num = x.size(1) if len(x.size()) > 1 else 1
@@ -167,43 +167,92 @@ def get_rel_pos(mol):
 #===================3d position end ========================
 #===================data attris start ========================
 # from dataset import *
-def getEdge(mol,adj = None,n1 = None,n2 = None):
-    num_bond_features = 5
+
+def molEdge(mol,n1,n2,adj_mol = None):
+    edges_list = []
+    edge_features_list = []
     if len(mol.GetBonds()) > 0: # mol has bonds
-        edges_list = []
-        edge_features_list = []
         for bond in mol.GetBonds():
-            i = bond.GetBeginAtomIdx()
+            i = bond.GetBeginAtomIdx() 
             j = bond.GetEndAtomIdx()
-
             edge_feature = bond_to_feature_vector(bond)
-
             # add edges in both directions
             edges_list.append((i, j))
             edge_features_list.append(edge_feature)
             edges_list.append((j, i))
             edge_features_list.append(edge_feature)
-    else:   # mol has no bonds
-        edge_index = np.empty((2, 0), dtype = np.int64)
-        edge_attr = np.empty((0, num_bond_features), dtype = np.int64)
-    if adj is not None:
-        #加入虚拟边，然后为虚拟边加入特征向量
-        dm = adj[:n1,n1:n2]
+    # add virtual aromatic nodes feature
+    # add mol 
+    if adj_mol is None:
+        return edges_list ,edge_features_list
+    else:
+        n = len(mol.GetAtoms())
+        adj_mol -= np.eye(len(adj_mol))
+        dm = adj_mol[n:n1,:n1]
+        # adj_mol += np.eye(len(adj_mol))
         edge_pos = np.where(dm ==1)
+        edges_list.extend([(i+ n,j) for (i,j) in zip(*edge_pos)])
+        edge_features_list.extend([[33,17,3,3,17] for edge_tuple in zip(*edge_pos)])
+        edges_list.extend([(j,i + n) for (i,j) in zip(*edge_pos)])
+        edge_features_list.extend([[33,17,3,3,17] for edge_tuple in zip(*edge_pos)])
+        adj_mol += np.eye(len(adj_mol))
+    return edges_list ,edge_features_list
+def pocketEdge(mol,n1,n2,adj_pocket = None):
+    edges_list = []
+    edge_features_list = []
+    if len(mol.GetBonds()) > 0: # mol has bonds
+        for bond in mol.GetBonds():
+            i = bond.GetBeginAtomIdx() + n1
+            j = bond.GetEndAtomIdx() + n1
+            edge_feature = bond_to_feature_vector(bond)
+            # add edges in both directions
+            edges_list.append((i, j))
+            edge_features_list.append(edge_feature)
+            edges_list.append((j, i))
+            edge_features_list.append(edge_feature)
+    if adj_pocket is  None :
+        return edges_list ,edge_features_list
+    # add virtual aromatic nodes feature
+    # add pocket
+    else:
+        n = len(mol.GetAtoms()) + n1
+        all_n = len(adj_pocket)
+        adj_pocket -= np.eye(all_n)
+        dm = adj_pocket[n:,n1:]
+        edge_pos = np.where(dm ==1)
+        edges_list.extend([(i+ n,j + n1) for (i,j) in zip(*edge_pos)])
+        edge_features_list.extend([[33,17,3,3,17] for edge_tuple in zip(*edge_pos)])
+        edges_list.extend([(j + n1,i + n) for (i,j) in zip(*edge_pos)])
+        edge_features_list.extend([[33,17,3,3,17] for edge_tuple in zip(*edge_pos)])
+        adj_pocket += np.eye(all_n)
+    return edges_list ,edge_features_list
+def getEdge(mols,n1,n2,adj_in = None):
+    num_bond_features = 5
+    mol,pocket = mols
+    mol1_edge_idxs,mol1_edge_attr = molEdge(mol,n1,n2,adj_mol = adj_in)
+    mol2_edge_idxs,mol2_edge_attr = pocketEdge(pocket,n1,n2,adj_pocket = adj_in)
+    edges_list = mol1_edge_idxs + mol2_edge_idxs
+    edge_features_list = mol1_edge_attr + mol2_edge_attr
+
+    if adj_in is  None:
+        pass
+    else:
+        #加入虚拟边，然后为虚拟边加入特征向量 add fingerprint edges features
+        dm = adj_in[:n1,n1:n2]
+        edge_pos = np.where(dm == 1)
         edges_list.extend([(i,j+n1) for (i,j) in zip(*edge_pos)])
         edge_features_list.extend([[32,16,2,2,16] for edge_tuple in zip(*edge_pos)])
-
         edges_list.extend([(j+n1,i) for (i,j) in zip(*edge_pos)])
         edge_features_list.extend([[32,16,2,2,16] for edge_tuple in zip(*edge_pos)])
-        
-     #邻接矩阵做这个
-     # data.edge_index: Graph connectivity in COO format with shape [2, num_edges]
-    edge_index = np.array(edges_list, dtype = np.int64).T
-    # data.edge_attr: Edge feature matrix with shape [num_edges, num_edge_features]
-    edge_attr = torch.tensor(edge_features_list, dtype = torch.int64)
+    if len(edges_list) == 0:
+        edge_index = np.empty((2, 0), dtype = np.int64)
+        edge_attr = np.empty((0, num_bond_features), dtype = np.int64)
+    else:
+        edge_index = np.array(edges_list, dtype = np.int64).T
+        edge_attr = torch.tensor(edge_features_list, dtype = torch.int64)
     return edge_index,edge_attr
 
-def mol2graph(mol,x,args,adj = None,n1 = None,n2 = None,dm = None):
+def mol2graph(mol,x,args,n1,n2,adj = None,dm = None):
     """
     Converts SMILES string to graph Data object
     :input: SMILES string (str)
@@ -211,20 +260,19 @@ def mol2graph(mol,x,args,adj = None,n1 = None,n2 = None,dm = None):
     """
     # x = get_atom_feature(mol,is_ligand=is_ligand)#array
     if args.edge_bias:
-
-        edge_index, edge_attr= getEdge(mol,adj = adj,n1 = n1,n2 = n2)
+        edge_index, edge_attr= getEdge(mol,adj_in = adj,n1 = n1,n2 = n2)
     else:
         edge_index, edge_attr= None,None
     # attn
 
     if args.rel_3d_pos_bias and dm is not None:
-        rel_pos_3d = np.zeros((n1+n2, n1+n2))
-        rel_pos_3d[:n1,n1:] = np.copy(dm)
-        rel_pos_3d[n1:,:n1] = np.copy(np.transpose(dm))
-        # rel_pos_3d = get_rel_pos(mol)
-        # add ligand_protein distance bias as 3d bias 
-
-
+        if len(dm) == 2:
+            d1,d2 = dm
+            rel_pos_3d = distance_matrix(np.concatenate([d1,d2],axis=0),np.concatenate([d1,d2],axis=0))
+        else:
+            rel_pos_3d = np.zeros((n1+n2, n1+n2))
+            rel_pos_3d[:n1,n1:] = np.copy(dm)
+            rel_pos_3d[n1:,:n1] = np.copy(np.transpose(dm))
     else:
         rel_pos_3d =  None
     graph = dict()
@@ -236,7 +284,6 @@ def mol2graph(mol,x,args,adj = None,n1 = None,n2 = None,dm = None):
     graph['rel_pos_3d'] = rel_pos_3d
     return graph 
 #=================== data attrs end ========================
-
 #===================all data attrs process start ========================
 
 def preprocess_item(item, args,file_path,adj,term='item_1',noise=False,size = None):
@@ -249,8 +296,8 @@ def preprocess_item(item, args,file_path,adj,term='item_1',noise=False,size = No
     adj = torch.tensor(adj,dtype=torch.long)
     # edge feature here
     all_rel_pos_3d_with_noise = torch.from_numpy(algos.bin_rel_pos_3d_1(item['rel_pos_3d'], noise=noise)).long() \
-        if args.rel_3d_pos_bias and  term == 'item_1' else item['rel_pos_3d']
-   
+        if args.rel_3d_pos_bias and  term == 'item_1' else None
+
     if args.rel_pos_bias and size:
         if os.path.exists(file_path):
             with open(file_path,'rb') as f:
@@ -268,37 +315,15 @@ def preprocess_item(item, args,file_path,adj,term='item_1',noise=False,size = No
 
     else:
         rel_pos = None
-
-    if args.edge_bias:
-        
+    if args.edge_bias and term == 'item_1':
         if len(edge_attr.shape) == 1:
             edge_attr = edge_attr[:, None]
-        
         # all_rel_pos_3d_with_noise = torch.from_numpy(algos.bin_rel_pos_3d_1(item['rel_pos_3d'], noise=noise)).long()
         # rel_pos_3d_attr = all_rel_pos_3d_with_noise[edge_index[0, :], edge_index[1, :]]
         # edge_attr = torch.cat([edge_attr, rel_pos_3d_attr[:, None]], dim=-1)
         attn_edge_type = torch.zeros([N, N, edge_attr.size(-1)], dtype=torch.long)
         attn_edge_type[edge_index[0, :], edge_index[1, :]] = convert_to_single_emb(edge_attr)# + 1#
-
-        if args.edge_type == 'multi_hop':
-            if os.path.exists(file_path):
-                with open(file_path,'rb') as f:
-                    if term == 'term_2':
-                        shortest_path_result, path,_,_ = pickle.load(f)
-                    else:
-                        _,_,shortest_path_result, path = pickle.load(f)
-            else:
-                shortest_path_result, path = algos.floyd_warshall(adj.numpy())
-
-            max_dist = np.amax(shortest_path_result)
-            if args.multi_hop_max_dist > 0:
-                max_dist = args.multi_hop_max_dist
-
-            edge_input = algos.gen_edge_input(max_dist, path, attn_edge_type.numpy())
-            # print('after algos.gen:',edge_input)
-            rel_pos = torch.from_numpy((shortest_path_result)).long()#用来给
-        else:
-            edge_input = None
+        edge_input = None
     else:
         attn_edge_type = None
         edge_input = None
@@ -313,6 +338,7 @@ def preprocess_item(item, args,file_path,adj,term='item_1',noise=False,size = No
     item['attn_edge_type'] = attn_edge_type#每条边的特征
     item['rel_pos'] = rel_pos
     adj_in,adj_out = adj.long().sum(dim=1).view(-1),adj.long().sum(dim=0).view(-1)
+
     item['in_degree'] = torch.where(adj_in > 8,9,adj_in) if args.in_degree_bias else None #每个结点的输入边的特征
     item['out_degree'] = torch.where(adj_out > 8,9,adj_out) if args.out_degree_bias else None
     item['edge_input'] = torch.from_numpy(edge_input).long() if edge_input is not None else None

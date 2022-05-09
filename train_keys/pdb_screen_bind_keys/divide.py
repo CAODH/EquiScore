@@ -96,8 +96,6 @@ valid_keys_screen += get_part_data_screen(cross_decoys_dir_screen,cross_decoys_s
 
 print(' pdd screen len of decoys: ',len(cross_decoys_screen))
 #-------------------------------------------------------------------------------
-
-
 print('removeing duplicated target from training data ..........')
 #------------------------------------------------------
 valid_keys = valid_keys_screen + valid_keys

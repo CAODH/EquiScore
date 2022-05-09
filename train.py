@@ -2,6 +2,7 @@ import pickle
 # import optuna
 # from optuna.trial import TrialState
 from gnn import gnn
+from gnn_edge import gnn_edge
 import time
 import numpy as np
 import utils
@@ -30,6 +31,7 @@ print (s)
 os.chdir(os.path.abspath(os.path.dirname(__file__)))
 # print(os.path.abspath(os.path.dirname(__file__)))
 # print(os.getcwd())
+# torch.autograd.set_detect_anomaly(True) # for debug
 def retract():
     pass
     # parser = argparse.ArgumentParser()
@@ -123,7 +125,7 @@ def get_args_from_json(json_file_path, args_dict):
     return args_dict
 parser = argparse.ArgumentParser(description='json param')
 parser.add_argument("--json_path", help="file path of param", type=str, \
-    default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/train_add_reg_logk.json')
+    default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/gnn_edge_3d_pos.json')
 
 # label_smoothing# temp_args = parser.parse_args()
 args_dict = vars(parser.parse_args())
@@ -190,7 +192,7 @@ def run(args):
         # print(cmd)
 
 
-    model = gnn(args)
+    model = gnn_edge(args) if args.gnn_edge else gnn(args) 
 
     print ('number of parameters : ', sum(p.numel() for p in model.parameters() if p.requires_grad))
 

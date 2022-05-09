@@ -126,7 +126,7 @@ def get_args_from_json(json_file_path, args_dict):
     return args_dict
 parser = argparse.ArgumentParser(description='json param')
 parser.add_argument("--json_path", help="file path of param", type=str, \
-    default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/train.json')
+    default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/ligand_shortest_path_3d_pos.json')
 # temp_args = parser.parse_args()
 args_dict = vars(parser.parse_args())
 args = get_args_from_json(args_dict['json_path'], args_dict)
@@ -151,7 +151,7 @@ if args.ngpu>0:
     else:
         os.environ['CUDA_VISIBLE_DEVICES']=cmd
     print(cmd)
-best_name = '/home/caoduanhua/score_function/GNN/train_result/ligand_shortest_path_bias/graphformer/GAT_gate/2022-04-11-09-29-29/save_best_model.pt'
+best_name = '/home/caoduanhua/score_function/GNN/train_result/ligand_shortest_path_3d_pos/graphformer/GAT_gate/2022-04-11-11-16-27/save_best_model.pt'
 save_path = best_name.replace('/save_best_model.pt','')
 if not os.path.exists(save_path):
     os.makedirs(save_path)
@@ -173,5 +173,5 @@ elif args.loss_fn == 'mse_loss':
 else:
     raise ValueError('not support this loss : %s'%args.loss_fn)
 # EF_file = save_path +'/EF_test' + time.strftime('%Y-%m-%d-%H-%M-%S')
-getEF(model,args,args.test_path,save_path,device,args.debug,args.batch_size,args.A2_limit,loss_fn,args.EF_rates,flag = '_pcba')
+getEF(model,args,args.test_path,save_path,device,args.debug,args.batch_size,args.A2_limit,loss_fn,args.EF_rates,flag = '_dekois')
 # getEF_from_MSE(model,args,args.test_path,save_path,device,args.debug,args.batch_size,args.A2_limit,loss_fn,args.EF_rates)

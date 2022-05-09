@@ -22,32 +22,26 @@ class gnn(torch.nn.Module):
             else:
                 self.deta = nn.Parameter(torch.Tensor([0.5]).float())
         if self.args.fundation_model  == 'paper':
-            # self.mu = nn.Parameter(torch.Tensor([args.initial_mu]).float())
-            # self.dev = nn.Parameter(torch.Tensor([args.initial_dev]).float())
             self.embede = nn.Linear(2*self.args.N_atom_features, self.args.n_in_feature, bias = False)
             #paper 在这里对特征做了映射；in_feature == d_graph_layer
-        # print('self.fundation_model is graphformer: ',self.fundation_model == 'graphformer')
         if self.args.fundation_model == 'graphformer':
             # print('+++++++++++++++++++++++++++++++++')
             atom_dim = 16*10 if self.args.FP else 10*5
             self.atom_encoder = nn.Embedding(atom_dim  + 1, self.args.n_out_feature, padding_idx=0)
         self.edge_encoder = nn.Embedding( 35* 5 + 1, self.args.head_size, padding_idx=0) if args.edge_bias is True else nn.Identity()
-        # self.edge_type = edge_type
-        if self.args.edge_type == 'multi_hop':
-            self.edge_dis_encoder = nn.Embedding(128 * self.args.head_size *self.args.head_size,1) if args.edge_bias is True else nn.Identity()#edge attr
         self.rel_pos_encoder = nn.Embedding(512, self.args.head_size, padding_idx=0) if args.rel_pos_bias is True else nn.Identity()#rel_pos
         self.in_degree_encoder = nn.Embedding(10, self.args.n_out_feature, padding_idx=0) if args.in_degree_bias is True else nn.Identity()
         self.out_degree_encoder = nn.Embedding(10, self.args.n_out_feature, padding_idx=0) if args.out_degree_bias is True else nn.Identity()
-        self.rel_3d_encoder = nn.Embedding(128, self.args.head_size, padding_idx=0) if args.rel_3d_pos_bias is True else nn.Identity()
+        self.rel_3d_encoder = nn.Embedding(20, self.args.head_size, padding_idx=0) if args.rel_3d_pos_bias is True else nn.Identity()
         #share layers
         self.layers1 = [self.args.n_out_feature for i in range(self.args.n_graph_layer+1)]
             #self.gconv1 = nn.ModuleList([GAT_gate(self.layers1[i], self.layers1[i+1]) for i in range(len(self.layers1)-1)]) 
-        self.gconv1 = nn.ModuleList([GetLayer(args) for i in range(len(self.layers1)-1)]) 
+        self.gconv1 = nn.ModuleList([GetLayer(args) for i in range(len(self.layers1)-1)]) #2层
         if not self.args.share_layer:
             self.gconv2 = nn.ModuleList([GetLayer(args) for i in range(len(self.layers1)-1)]) 
         self.FC = nn.ModuleList([nn.Linear(self.layers1[-1], self.args.d_FC_layer) if i==0 else
                                 nn.Linear(self.args.d_FC_layer, 2) if i==self.args.n_FC_layer-1  else
-                                nn.Linear(self.args.d_FC_layer, self.args.d_FC_layer) for i in range(self.args.n_FC_layer)])
+                                nn.Linear(self.args.d_FC_layer, self.args.d_FC_layer) for i in range(self.args.n_FC_layer)]) #4层
         # two layer to regress for -logka/ki
         if self.args.add_logk_reg:
             self.FC_reg = nn.ModuleList([
@@ -62,7 +56,6 @@ class gnn(torch.nn.Module):
 
         # rel pos
         if self.args.rel_pos_bias is True:
-
             rel_pos_bias = self.rel_pos_encoder(rel_pos).permute(0, 3, 1, 2)# # [n_graph, n_node, n_node, n_head] -> [n_graph, n_head, n_node, n_node]
             graph_attn_bias = graph_attn_bias + rel_pos_bias 
         # rel 3d pos
@@ -70,40 +63,13 @@ class gnn(torch.nn.Module):
 
             rel_3d_bias = self.rel_3d_encoder(all_rel_pos_3d_l).permute(0, 3, 1, 2)
             graph_attn_bias = graph_attn_bias + rel_3d_bias
-        
-        # edge feature
-        #那么多边,只取一部分
-        if self.args.edge_bias is True:
-            
-            if self.args.edge_type == 'multi_hop':
-                rel_pos_ = rel_pos.clone()
-                rel_pos_[rel_pos_ == 0] = 1 # set pad to 1
-                rel_pos_ = torch.where(rel_pos_ > 1, rel_pos_ - 1, rel_pos_) # set 1 to 1, x > 1 to x - 1
-                if self.args.multi_hop_max_dist > 0:
-                    rel_pos_ = rel_pos_.clamp(0, self.args.multi_hop_max_dist)#[0,max_dist]
-                    edge_input = edge_input[:, :, :, :self.args.multi_hop_max_dist, :]
-                    # print(edge_input.shape)
-                    # print(edge_input.flatten().max())
-                    # print(edge_input)
-                edge_input = self.edge_encoder(edge_input).mean(-2) #[n_graph, n_node, n_node, max_dist, n_head]
-                # print('edge_input before flatten and edge_dis_enoder: ',edge_input)
-                max_dist = edge_input.size(-2)
-                edge_input_flat = edge_input.permute(3,0,1,2,4).reshape(max_dist, -1, self.args.head_size)
 
-                edge_input_flat = torch.bmm(edge_input_flat, self.edge_dis_encoder.weight.reshape(-1, self.args.head_size, self.args.head_size)[:max_dist, :, :])
-                # print('edge_input after flatten and edge_dis_enoder: ',edge_input)
-                edge_input = edge_input_flat.reshape(max_dist, n_graph, n_node, n_node, self.args.head_size).permute(1,2,3,0,4)
-                edge_input = (edge_input.sum(-2) / (rel_pos_.float().unsqueeze(-1))).permute(0, 3, 1, 2)
-            else:
-                edge_input = self.edge_encoder(attn_edge_type).mean(-2).permute(0, 3, 1, 2) # [n_graph, n_node, n_node, n_head] -> [n_graph, n_head, n_node, n_node]
+        if self.args.edge_bias is True:
+            edge_input = self.edge_encoder(attn_edge_type).mean(-2).permute(0, 3, 1, 2) # [n_graph, n_node, n_node, n_head] -> [n_graph, n_head, n_node, n_node]
             # print('edge_input in get attn bias: ',edge_input)
             graph_attn_bias = graph_attn_bias + edge_input
-            # print('edge_input in 2 get attn bias: ',edge_input)
-        # graph_attn_bias = graph_attn_bias + attn_bias.unsqueeze(1) # reset
         if self.args.fundation_model == 'paper' and self.args.layer_type == 'GAT_gate' :
             graph_attn_bias = graph_attn_bias.sum(dim = 1)
-
-
         return graph_attn_bias
     def GetNodeFea(self,x,in_degree,out_degree):
         # print('x: ',x.device)
@@ -174,30 +140,15 @@ class gnn(torch.nn.Module):
         c_hs_2 = self.GetNodeFea(data.H,data.in_degree_2,data.out_degree_2)
         attn_bias_1 = self.GetAttnBias(data.rel_pos_1,data.attn_bias,data.edge_input_1,data.all_rel_pos_3d, data.attn_edge_type_1,bias_one = True)
         attn_bias_2 = self.GetAttnBias(data.rel_pos_2,data.attn_bias,data.edge_input_2,data.all_rel_pos_3d, data.attn_edge_type_2)
-        
-
-        if A2_limit:#by caoduanhua
-            for i ,item in enumerate(data.A2):
-                n1,n2 = data.key[i]
-                dm = item[:n1,n1:n2].clone()
-                dm_t = item[n1:n2,:n1].clone()
-            dm_adjust = torch.exp(-torch.pow(dm - self.mu.expand_as(dm),2)/self.dev)
-            dm_adjust = torch.where(dm.float() < 5.0,dm_adjust.float(),torch.tensor(0.0).to(dm.device).float())
-            dm_adjust_t = torch.exp(-torch.pow(dm_t - self.mu.expand_as(dm_t),2)/self.dev)
-            dm_adjust_t = torch.where(dm_t.float() < 5.0,dm_adjust_t.float(),torch.tensor(0.0).to(dm_t.device).float())
-            data.A2[i,:n1,n1:n2] = dm_adjust
-            data.A2[i,n1:n2,:n1] = dm_adjust_t
-        elif self.args.only_adj2:
-            # data.A2 = torch.where(data.A2 > 0,1,0)
-            data.A2 = data.A1
+    
+        if self.args.only_adj2:
+            data.A2 = torch.where(data.A2 > 0,1,0)
+            # data.A2 = data.A1
         elif self.args.only_dis_adj2:
             data.A2 = torch.where(data.A2 > self.mu,torch.exp(-torch.pow(data.A2-self.mu.expand_as(data.A2), 2)/(self.dev + 1e-6)),torch.tensor(1.0).to(self.dev.device))+ data.A1
         else:
             data.A2 = torch.exp(-torch.pow(data.A2-self.mu.expand_as(data.A2), 2)/self.dev + 1e-6) + data.A1
-
-        regularization = torch.empty(len(self.gconv1), device=data.H.device)
-        # else:
-        #     c_adjs1 = c_adjs2 = None
+        # regularization = torch.empty(len(self.gconv1), device=data.H.device)
         if self.args.mode == '1_H' :
             c_hs = c_hs_1
             for k in range(len(self.gconv1)):
