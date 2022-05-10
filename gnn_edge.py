@@ -31,8 +31,8 @@ class gnn_edge(torch.nn.Module):
         self.edge_encoder = nn.Embedding( 35* 5 + 1, self.args.n_out_feature, padding_idx=0) if args.edge_bias is True else nn.Identity()
         self.rel_pos_encoder = nn.Embedding(512, self.args.head_size, padding_idx=0) if args.rel_pos_bias is True else nn.Identity()#rel_pos
         self.in_degree_encoder = nn.Embedding(10, self.args.n_out_feature, padding_idx=0) if args.in_degree_bias is True else nn.Identity()
-        self.out_degree_encoder = nn.Embedding(10, self.args.n_out_feature, padding_idx=0) if args.out_degree_bias is True else nn.Identity()
-        self.rel_3d_encoder = nn.Embedding(20, self.args.head_size, padding_idx=0) if args.rel_3d_pos_bias is True else nn.Identity()
+        # self.out_degree_encoder = nn.Embedding(10, self.args.n_out_feature, padding_idx=0) if args.out_degree_bias is True else nn.Identity()
+        self.rel_3d_encoder = nn.Embedding(65, self.args.head_size, padding_idx=0) if args.rel_3d_pos_bias is True else nn.Identity()
         #share layers
         self.layers1 = [self.args.n_out_feature for i in range(self.args.n_graph_layer+1)]
             #self.gconv1 = nn.ModuleList([GAT_gate(self.layers1[i], self.layers1[i+1]) for i in range(len(self.layers1)-1)]) 

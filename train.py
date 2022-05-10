@@ -125,7 +125,7 @@ def get_args_from_json(json_file_path, args_dict):
     return args_dict
 parser = argparse.ArgumentParser(description='json param')
 parser.add_argument("--json_path", help="file path of param", type=str, \
-    default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/gnn_edge_3d_pos_deep.json')
+    default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/ligand_only_edge_attn.json')
 
 # label_smoothing# temp_args = parser.parse_args()
 args_dict = vars(parser.parse_args())

@@ -378,11 +378,11 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss):
                     model.zero_grad()
                     # print('batch_loss:',np.mean(train_losses))
             else:
-
                 loss.backward()
                 optimizer.step()
                 model.zero_grad()
-            train_losses.append(loss.data.cpu().numpy()*6)
+            loss = loss.data.cpu().numpy()*6 if args.grad_sum else loss.data.cpu().numpy()
+            train_losses.append(loss)
             train_true.append(sample.Y.data.cpu().numpy())
             if pred.dim() ==2:
                 pred = torch.softmax(pred,dim = -1)[:,1]
