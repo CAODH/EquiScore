@@ -29,7 +29,7 @@ class EncoderLayer(nn.Module):
         super(EncoderLayer, self).__init__()
         self.args = args
         self.self_attention_norm = GetGrpahNorm(self.args.n_out_feature,self.args.norm_type)
-        self.self_edge_norm = GetGrpahNorm(self.args.n_out_feature,norm_type = 'ln')
+        self.self_edge_norm = GetGrpahNorm(self.args.edge_dim,norm_type = 'ln')
 
         self.self_attention = GetAttMode(self.args)
         self.self_attention_dropout = nn.Dropout(self.args.attention_dropout_rate)
@@ -37,8 +37,8 @@ class EncoderLayer(nn.Module):
         self.ffn = FeedForwardNetwork(self.args.n_out_feature, self.args.ffn_size, self.args.dropout_rate)
         #edge projet 
         self.ffn_dropout_edge = nn.Dropout(self.args.dropout_rate)
-        self.ffn_edge_norm = GetGrpahNorm(self.args.n_out_feature,norm_type = 'ln')
-        self.ffn_edge = FeedForwardNetwork(self.args.n_out_feature, self.args.ffn_size, self.args.dropout_rate)
+        self.ffn_edge_norm = GetGrpahNorm(self.args.edge_dim,norm_type = 'ln')
+        self.ffn_edge = FeedForwardNetwork(self.args.edge_dim, self.args.ffn_size, self.args.dropout_rate)
 
         self.ffn_dropout = nn.Dropout(self.args.dropout_rate)
         # self.ffn_dropout_edge = nn.Dropout(self.args.dropout_rate)
@@ -84,7 +84,7 @@ class FeedForwardNetwork(nn.Module):
 
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, hidden_size, attention_dropout_rate, head_size):
+    def __init__(self, hidden_size, attention_dropout_rate, head_size,edge_dim):
         super(MultiHeadAttention, self).__init__()
 
         self.head_size = head_size
@@ -98,11 +98,11 @@ class MultiHeadAttention(nn.Module):
         self.att_dropout = nn.Dropout(attention_dropout_rate)
         
         # edge output project
-        self.attn_project = nn.Linear(head_size, head_size*att_size)
-        self.edge_project = nn.Linear(hidden_size, head_size * 1)
+        self.attn_project = nn.Linear(head_size, edge_dim)
+        self.edge_project = nn.Linear(edge_dim, head_size * 1)
         ############################# out put project
         self.output_layer = nn.Linear(head_size * att_size, hidden_size)
-        self.output_layer_edge = nn.Linear(head_size * att_size, hidden_size)
+        self.output_layer_edge = nn.Linear(edge_dim, edge_dim)
 
     def forward(self, q, k, v, adj,adj1,use_adj,edge_fea,attn_bias=None,):
         orig_q_size = q.size()
@@ -293,9 +293,9 @@ def GetGrpahNorm(hidden_size,norm_type = 'gn_mul'):
         raise ValueError('not support this mode norm mode! check the code plz!')
 def GetAttMode(args):
     if args.att_mode == 'DSA':
-        return DistangledMultiHeadAttention(args.n_out_feature, args.attention_dropout_rate, args.head_size)
+        return DistangledMultiHeadAttention(args.n_out_feature, args.attention_dropout_rate, args.head_size,args.edge_dim)
     elif args.att_mode == 'SA':
-        return MultiHeadAttention(args.n_out_feature, args.attention_dropout_rate, args.head_size)
+        return MultiHeadAttention(args.n_out_feature, args.attention_dropout_rate, args.head_size,args.edge_dim)
     else:
         raise ValueError('not support this mode attention! until now! check your param')
 def GetLayer(args):
