@@ -18,6 +18,7 @@ import argparse
 import time
 from torch.utils.data import DataLoader          
 # from torch.utils.data import DataLoader
+from dgl.dataloading import GraphDataLoader
 from prefetch_generator import BackgroundGenerator
 from graph_transformer_net import GraphTransformerNet
 class DataLoaderX(DataLoader):
@@ -133,13 +134,13 @@ def run(args):
         num_train_decoy = len([0 for k in train_keys if '_active' not in k])
         train_weights = [1/num_train_chembl if '_active' in k else 1/num_train_decoy for k in train_keys]
         train_sampler = DTISampler(train_weights, len(train_weights), replacement=True)                     
-        train_dataloader = DataLoaderX(train_dataset, args.batch_size, \
+        train_dataloader = GraphDataLoader(train_dataset, args.batch_size, \
             shuffle=False, num_workers = args.num_workers, collate_fn=train_dataset.collate,\
             sampler = train_sampler,pin_memory=True,drop_last = True)#动态采样
     else:
-        train_dataloader = DataLoaderX(train_dataset, args.batch_size, \
+        train_dataloader = GraphDataLoader(train_dataset, args.batch_size, \
             shuffle=True, num_workers = args.num_workers, collate_fn=train_dataset.collate,pin_memory=True)
-    val_dataloader = DataLoaderX(val_dataset, args.batch_size, \
+    val_dataloader = GraphDataLoader(val_dataset, args.batch_size, \
         shuffle=False, num_workers = args.num_workers, collate_fn=val_dataset.collate,pin_memory=True)
     # test_dataloader = DataLoaderX(test_dataset, args.batch_size, \
     #     shuffle=False, num_workers = args.num_workers, collate_fn=collate_fn,pin_memory=True)  测试集看不出什么东西，直接忽略

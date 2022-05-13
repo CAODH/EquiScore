@@ -56,6 +56,7 @@ class graphformerDataset(Dataset):
         self.data_dir = data_dir
         self.debug = debug
         self.args = args
+        self.graphs = []
         if self.args.add_logk_reg:
             with open('/home/caoduanhua/score_function/data/general_refineset/datapro/logk_match.pkl','rb') as f:
                 self.logk_match =  pickle.load(f)
@@ -66,13 +67,13 @@ class graphformerDataset(Dataset):
         return len(self.keys)
     def collate(self, samples):
         # The input samples is a list of pairs (graph, label).
-        g,full_g,Y = map(list, zip(*samples))
-        # print(Y)
-        Y = torch.tensor(Y).long()
+        ''' collate function for building graph dataloader'''
+        g,Y = map(list, zip(*samples))
 
         batch_g = dgl.batch(g)
-        batch_full_g = dgl.batch(full_g)
-        return batch_g,batch_full_g, Y
+        # batch_full_g = dgl.batch(full_g)
+        Y = torch.tensor(Y).long()
+        return batch_g, Y
     def __getitem__(self, idx):
         #idx = 0
         key = self.keys[idx]
@@ -138,7 +139,7 @@ class graphformerDataset(Dataset):
         
         item_1 = mol2graph(pocket,H,self.args,adj = adj_graph_1,n1 = n1,n2 = n2,\
             dm = (d1,d2) )
-        g,full_g = preprocess_item(item_1, self.args,file_path,adj_graph_1,noise=False,size = size)
+        g = preprocess_item(item_1, self.args,file_path,adj_graph_1,noise=False,size = size)
         #item, args,file_path,adj,term,noise=False
         valid = torch.zeros((n1+n2,))
         if self.args.pred_mode == 'ligand':
@@ -169,8 +170,8 @@ class graphformerDataset(Dataset):
                 Y =  0 
                 value = 0
         g.ndata['V'] = valid.long().reshape(-1,1)
-        full_g.edata['adj2'] = agg_adj2.view(-1,1).contiguous()
-        return g,full_g,Y
+        # full_g.edata['adj2'] = agg_adj2.view(-1,1).contiguous()
+        return g,Y
 
 if __name__ == "__main__":
 

@@ -350,12 +350,13 @@ def preprocess_item(item, args,file_path,adj,term='item_1',noise=False,size = No
         #     print('lp pos encoding ')
         # except:
         #     g.ndata['lap_pos_enc'] = torch.zeros(len(adj),args.pos_enc_dim)
+    time_s = time.time()
     g.ndata['x']  = x
     adj_in = adj.long().sum(dim=1).view(-1)
     g.ndata['in_degree'] = torch.where(adj_in > 8,9,adj_in) if args.in_degree_bias else None
     g.edata['edge_attr'] = edge_attr
     # full connect graph
-    full_g = dgl.from_networkx(nx.complete_graph(2))#g.number_of_nodes()
+    full_g = dgl.from_networkx(nx.complete_graph(g.number_of_nodes()))#g.number_of_nodes()
     full_g = full_g.add_self_loop() # add eye 
     # full_g.edata['rel_pos'] = rel_pos.view(-1,1) if 
     if rel_pos is not None:
@@ -363,7 +364,7 @@ def preprocess_item(item, args,file_path,adj,term='item_1',noise=False,size = No
     if args.rel_3d_pos_bias:
         full_g.edata['all_rel_pos_3d'] = all_rel_pos_3d_with_noise.view(-1,1).contiguous()#torch.long
     
-    return g,full_g
+    return g
 
 
 
