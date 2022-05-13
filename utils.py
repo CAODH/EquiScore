@@ -8,7 +8,7 @@ import math
 from dataset import *
 import random
 from collections import defaultdict
-from graphformer_dataset import *
+# from graphformer_dataset import *
 # from ase import Atoms, Atom
 from sklearn.metrics import roc_auc_score,confusion_matrix,roc_curve
 from sklearn.metrics import accuracy_score,auc,balanced_accuracy_score#g,l;x,y;g,l
@@ -17,6 +17,8 @@ from sklearn.metrics import confusion_matrix,f1_score#g,l;g,l
 #from rdkit.Contrib.SA_Score.sascorer import calculateScore
 #from rdkit.Contrib.SA_Score.sascorer
 #import deepchem as dc
+# import  multiprocessing as mp
+# mp.set_spawn_method("spawn")
 from torch.utils.data import DataLoader
 N_atom_features = 28
 import glob
@@ -24,7 +26,14 @@ import pickle
 from scipy.spatial import distance_matrix
 from rdkit.Chem.rdmolops import GetAdjacencyMatrix
 import rdkit
-
+def get_args_from_json(json_file_path, args_dict):
+    import json
+    summary_filename = json_file_path
+    with open(summary_filename) as f:
+        summary_dict = json.load(fp=f)
+    for key in summary_dict.keys():
+        args_dict[key] = summary_dict[key]
+    return args_dict
 
 def set_cuda_visible_device(ngpus):
     import subprocess
@@ -116,6 +125,7 @@ def add_atom_to_mol(mol,adj,H,d,n):
     '''docstring: 
     add virtual aromatic atom feature/adj/3d_positions to raw data
     '''
+    assert len(adj) == len(H),'adj nums not equal to nodes'
     rings = get_aromatic_rings(mol)
     num_aromatic = len(rings)
     
@@ -124,6 +134,7 @@ def add_atom_to_mol(mol,adj,H,d,n):
     # print(d.shape,H.shape)
     all_zeros = np.zeros((num_aromatic+h,num_aromatic+b))
     #add all zeros vector to bottom and right
+
     all_zeros[:h,:b] = adj
     for i,ring in enumerate(rings):
         all_zeros[h+i,:][ring] = 1
@@ -131,6 +142,7 @@ def add_atom_to_mol(mol,adj,H,d,n):
         all_zeros[h+i,:][h+i] = 1
         d = np.concatenate([d,np.mean(d[ring],axis = 0,keepdims=True)],axis = 0)
         H  = np.concatenate([H,np.array([0]*(H.shape[1]))[np.newaxis]],axis = 0)
+    assert len(all_zeros) == len(H),'adj nums not equal to nodes'
     return all_zeros,H,d,n+num_aromatic
 def get_mol_info(m1):
     n1 = m1.GetNumAtoms()
@@ -269,21 +281,34 @@ def evaluator(model,loader,loss_fn,args):
     with torch.no_grad():
 
         test_losses,test_true,test_pred = [], [],[]
-        for i_batch, sample in enumerate(loader):
+       
+        for i_batch, (g,full_g,Y) in enumerate(loader):
             model.zero_grad()
-            # data_flag,data = data_to_device(sample,args.device)
-            # num_flag = sum(data_flag)
-            pred = model(args.A2_limit,sample.to(args.device))
-            if  args.loss_fn == 'focal_loss' or args.r_drop:
-                pred  = torch.sigmoid(pred[:,1])
-                pred = pred.view(-1)
-            # pred = model(sample,args.A2_limit)
+            g = g.to(args.device)
+            full_g.to(args.device)
+            x = g.ndata['x']
+            e = g.edata['edge_attr']
+            if args.in_degree_bias:
+                in_degree = g.ndata['in_degree']
+            else:
+                in_degree = None
 
-            loss = loss_fn(pred if args.loss_fn == 'auc_loss' else pred, sample.Y.long().to(pred.device)) 
+            #g, full_g,h,e,in_degree=None,lap_pos_enc = None
+            if args.lap_pos_enc:
+
+                batch_lap_pos_enc = g.ndata['lap_pos_enc']
+                
+            else:
+                batch_lap_pos_enc = None
+            pred = model(g,full_g,x,e,in_degree,batch_lap_pos_enc)
+            # pred = model(g,full_g)
+
+
+            loss = loss_fn(pred ,Y.long().to(pred.device)) 
             
             #collect loss, true label and predicted label
             test_losses.append(loss.data.cpu().numpy())
-            test_true.append(sample.Y.long().data.cpu().numpy())
+            test_true.append(Y.long().data.cpu().numpy())
             if pred.dim()==2:
                 pred = torch.softmax(pred,dim = -1)[:,1]
             pred = pred if args.loss_fn == 'auc_loss' else pred
@@ -297,99 +322,65 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss):
     train_true = []
     train_pred = []
     model.train()
-    if args.r_drop:
-        for i_batch, sample in enumerate(train_dataloader):
-            model.zero_grad()
-        
-            # data_flag,data = data_to_device(sample,args.device)
-            # print('data_flag_1',data_flag)
-            logits = model(args.A2_limit,sample.to(args.device))
-            # print('data_flag_2',data_flag)
-            # new_flag,new_data = copy.deepcopy(data_flag),copy.deepcopy(data)
-            newlogits = model(args.A2_limit,sample.to(args.device))
-            # logits = 
+    time_s = time.time()
+    time_e = 0
+    for i_batch, (g,full_g,Y) in enumerate(train_dataloader):
+        time_s = time.time()
+        print('time updata to new batch data:',time_s - time_e)
+        # data_flag,data = data_to_device(sample,args.device)
+        g = g.to(args.device)
+        full_g = full_g.to(args.device)
+        x = g.ndata['x']
+        e = g.edata['edge_attr']
+        if args.in_degree_bias:
+            in_degree = g.ndata['in_degree']
+        else:
+            in_degree = None
 
-            if args.loss_fn == 'bce_loss'or args.loss_fn == 'auc_loss':
-                pred  = torch.sigmoid(logits[:,1])
-                pred = pred.view(-1)
-                # loss = loss_fn(pred, sample.Y.to(pred.device))
-                pred_1 = torch.sigmoid(newlogits[:,1])
-                pred_1 = pred_1.view(-1)
-                # loss += loss_fn(pred_1, sample.Y.to(pred.device))
-                label = sample.Y.to(pred.device)
-                new_label = copy.deepcopy(label)
-                loss = loss_fn(pred if args.loss_fn == 'auc_loss' else pred, label)
-                loss += loss_fn(pred_1 if args.loss_fn == 'auc_loss' else pred_1, new_label)
-            else:
-                label = sample.Y.to(pred.device)
-                new_label = copy.deepcopy(label)
-                loss = loss_fn(logits, label)
-                loss += loss_fn(newlogits, new_label)
-        
-            # kl div
-            p = torch.log_softmax(logits.view(-1,2), dim=-1)
-            p_tec = torch.softmax(logits.view(-1,2), dim=-1)
-            q = torch.log_softmax(newlogits.view(-1,2), dim=-1)
-            q_tec = torch.softmax(newlogits.view(-1,2), dim=-1)
-            kl_loss = torch.nn.functional.kl_div(p, q_tec, reduction='none').sum()
-            reverse_kl_loss = torch.nn.functional.kl_div(q, p_tec, reduction='none').sum()
-            #------------------------
-            # alpha = 5
-            loss += args.alpha*(kl_loss + reverse_kl_loss)/2
-            if args.auxiliary_loss:
-                aux_label = copy.deepcopy(label)
-                # aux_pred = copy.deepcopy(pred)
-                loss = loss  + model.deta*auxiliary_loss(pred,aux_label)
+        #g, full_g,h,e,in_degree=None,lap_pos_enc = None
+        if args.lap_pos_enc:
 
+            batch_lap_pos_enc = g.ndata['lap_pos_enc']
+            sign_flip = torch.rand(batch_lap_pos_enc.size(1)).to(args.device)
+            sign_flip[sign_flip>=0.5] = 1.0; sign_flip[sign_flip<0.5] = -1.0
+            batch_lap_pos_enc = batch_lap_pos_enc * sign_flip.unsqueeze(0)
+        else:
+            batch_lap_pos_enc = None
+        print('time updata to cuda:',time.time() -time_s)
 
+        pred = model(g,full_g,x,e,in_degree,batch_lap_pos_enc)
+        print('time updata to train:',time.time() -time_s)
+        loss = loss_fn(pred, Y.long().to(pred.device))
+        if args.add_logk_reg:
+            # print(model.reg_value.shape,sample.Y.shape,sample.value.shape)
+            loss += args.reg_lambda*torch.nn.functional.mse_loss\
+                (model.reg_value*Y.long().reshape(-1,1).to(pred.device), sample.value.reshape(-1,1).to(pred.device))
+        if args.auxiliary_loss:
+            assert args.loss_fn != 'mse_loss', 'mse_loss cant add auxiliary_loss check your code plz!'
+            loss = loss + model.deta*auxiliary_loss(pred,Y.long().to(pred.device))
+            # print(model.deta*auxiliary_loss(pred,sample.Y.long().to(pred.device)))
+        # add a logk auxiliary loss
+        if args.grad_sum:
+            loss = loss/6
             loss.backward()
-            optimizer.step()
-            train_losses.append(loss.data.cpu().numpy())
-            train_true.append(sample.Y.long().data.cpu().numpy())
-            if pred.dim() ==2:
-                pred = torch.softmax(pred,dim = -1)[:,1]
-            train_pred.append(pred.data.cpu().numpy())
-    else:
-
-        for i_batch, sample in enumerate(train_dataloader):
-            # data_flag,data = data_to_device(sample,args.device)
-            pred = model(args.A2_limit,sample.to(args.device))
-            if args.loss_fn == 'focal_loss':
-                pred  = torch.sigmoid(pred[:,1])
-                pred = pred.view(-1)
-            # print(pred)
-            # print(sample.Y.to(pred.device))
-            # print(sample.H)
-            loss = loss_fn(pred if args.loss_fn == 'auc_loss' else pred, sample.Y.long().to(pred.device))
-            if args.add_logk_reg:
-                # print(model.reg_value.shape,sample.Y.shape,sample.value.shape)
-                loss += args.reg_lambda*torch.nn.functional.mse_loss\
-                    (model.reg_value*sample.Y.long().reshape(-1,1).to(pred.device), sample.value.reshape(-1,1).to(pred.device))
-            if args.auxiliary_loss:
-                assert args.loss_fn != 'mse_loss', 'mse_loss cant add auxiliary_loss check your code plz!'
-                loss = loss + model.deta*auxiliary_loss(pred,sample.Y.long().to(pred.device))
-                # print(model.deta*auxiliary_loss(pred,sample.Y.long().to(pred.device)))
-            # add a logk auxiliary loss
-            if args.grad_sum:
-                loss = loss/6
-                loss.backward()
-                if (i_batch + 1) % 6 == 0  or i_batch == len(train_dataloader) - 1:
-                    optimizer.step()
-                    model.zero_grad()
-                    # print('batch_loss:',np.mean(train_losses))
-            else:
-                loss.backward()
+            if (i_batch + 1) % 6 == 0  or i_batch == len(train_dataloader) - 1:
                 optimizer.step()
                 model.zero_grad()
-            loss = loss.data.cpu().numpy()*6 if args.grad_sum else loss.data.cpu().numpy()
-            train_losses.append(loss)
-            train_true.append(sample.Y.data.cpu().numpy())
-            if pred.dim() ==2:
-                pred = torch.softmax(pred,dim = -1)[:,1]
-            train_pred.append(pred.data.cpu().numpy())
-            # print(loss)
-            # if (i_batch + 1) % 100 ==0:
-            #     print('batch_loss:',np.mean(train_losses))
+                # print('batch_loss:',np.mean(train_losses))
+        else:
+            loss.backward()
+            optimizer.step()
+            model.zero_grad()
+        # print('batch_loss:',loss)
+        print('time updata to loss backward pro:',time.time() -time_s)
+        loss = loss.data.cpu().numpy()*6 if args.grad_sum else loss.data.cpu().numpy()
+        train_losses.append(loss)
+        
+        train_true.append(Y.data.cpu().numpy())
+        if pred.dim() ==2:
+            pred = torch.softmax(pred,dim = -1)[:,1]
+        train_pred.append(pred.data.cpu().numpy())
+        time_e = time.time()
     return model,train_pred,train_losses,optimizer
 def getToyKey(train_keys):
     train_keys_toy_d = []

@@ -20,8 +20,8 @@ import numpy as np
 import math
 from scipy.spatial.distance import cdist
 from scipy.spatial import distance_matrix
-
-
+import networkx as nx
+import dgl
 import pyximport
 pyximport.install(setup_args={'include_dirs': np.get_include()})
 import algos
@@ -196,6 +196,7 @@ def molEdge(mol,n1,n2,adj_mol = None):
         edges_list.extend([(j,i + n) for (i,j) in zip(*edge_pos)])
         edge_features_list.extend([[33,17,3,3,17] for edge_tuple in zip(*edge_pos)])
         adj_mol += np.eye(len(adj_mol))
+    assert np.max(edges_list) < len(adj_mol),'edge_index must be less than nodes! ' 
     return edges_list ,edge_features_list
 def pocketEdge(mol,n1,n2,adj_pocket = None):
     edges_list = []
@@ -225,6 +226,7 @@ def pocketEdge(mol,n1,n2,adj_pocket = None):
         edges_list.extend([(j + n1,i + n) for (i,j) in zip(*edge_pos)])
         edge_features_list.extend([[33,17,3,3,17] for edge_tuple in zip(*edge_pos)])
         adj_pocket += np.eye(all_n)
+    assert np.max(edges_list) < len(adj_pocket),'edge_index must be less than nodes! ' 
     return edges_list ,edge_features_list
 def getEdge(mols,n1,n2,adj_in = None):
     num_bond_features = 5
@@ -250,6 +252,7 @@ def getEdge(mols,n1,n2,adj_in = None):
     else:
         edge_index = np.array(edges_list, dtype = np.int64).T
         edge_attr = torch.tensor(edge_features_list, dtype = torch.int64)
+        assert np.max(edge_index) < len(adj_in),'edge_index must be less than nodes! ' 
     return edge_index,edge_attr
 
 def mol2graph(mol,x,args,n1,n2,adj = None,dm = None):
@@ -260,7 +263,9 @@ def mol2graph(mol,x,args,n1,n2,adj = None,dm = None):
     """
     # x = get_atom_feature(mol,is_ligand=is_ligand)#array
     if args.edge_bias:
+        # time_s = time.time()
         edge_index, edge_attr= getEdge(mol,adj_in = adj,n1 = n1,n2 = n2)
+        # print()
     else:
         edge_index, edge_attr= None,None
     # attn
@@ -287,6 +292,18 @@ def mol2graph(mol,x,args,n1,n2,adj = None,dm = None):
 #===================all data attrs process start ========================
 import pandas as pd
 import numpy as np
+import scipy.sparse as sp
+def get_pos_lp_encoding(adj,pos_enc_dim = 8):
+    A = sp.coo_matrix(adj)
+    N = sp.diags(adj.sum(axis = 1).clip(1) ** -0.5, dtype=float)
+    L = sp.eye(len(adj)) - N * A * N
+
+    # Eigenvectors with numpy
+    EigVal, EigVec = np.linalg.eig(L.toarray())
+    idx = EigVal.argsort() # increasing order
+    EigVal, EigVec = EigVal[idx], np.real(EigVec[:,idx])
+    lap_pos_enc = torch.from_numpy(EigVec[:,1:pos_enc_dim+1]).float() 
+    return lap_pos_enc
 def pandas_bins(dis_matrix,num_bins = None,noise = False):
     if num_bins is None:
         num_bins = int((5-2.0)/0.05 + 1)
@@ -306,7 +323,6 @@ def preprocess_item(item, args,file_path,adj,term='item_1',noise=False,size = No
         x = convert_to_single_emb(x,offset = offset)
     adj = torch.tensor(adj,dtype=torch.long)
     # edge feature here
-
     all_rel_pos_3d_with_noise = torch.from_numpy(pandas_bins(item['rel_pos_3d'],num_bins = None,noise = False)).long() \
         if args.rel_3d_pos_bias and  term == 'item_1' else None
 
@@ -319,44 +335,35 @@ def preprocess_item(item, args,file_path,adj,term='item_1',noise=False,size = No
                     _,_,shortest_path_result, path = pickle.load(f)
         else:
             shortest_path_result, path = algos.floyd_warshall(adj[:size[0],:size[0]].numpy())
-            # print('shortest path result ',)
-
-        # max_dist = np.amax(shortest_path_result)
-        rel_pos = torch.from_numpy((shortest_path_result)).long() #if args.rel_pos else None
-        # print('shortest path result ',rel_pos.shape)
-
+        rel_pos = torch.zeros_like(adj)
+        rel_pos_ligand = torch.from_numpy((shortest_path_result)).long() #if args.rel_pos else None
+        rel_pos[:size[0],:size[0]] = rel_pos_ligand
     else:
         rel_pos = None
-    if args.edge_bias and term == 'item_1':
-        if len(edge_attr.shape) == 1:
-            edge_attr = edge_attr[:, None]
-        # all_rel_pos_3d_with_noise = torch.from_numpy(algos.bin_rel_pos_3d_1(item['rel_pos_3d'], noise=noise)).long()
-        # rel_pos_3d_attr = all_rel_pos_3d_with_noise[edge_index[0, :], edge_index[1, :]]
-        # edge_attr = torch.cat([edge_attr, rel_pos_3d_attr[:, None]], dim=-1)
-        attn_edge_type = torch.zeros([N, N, edge_attr.size(-1)], dtype=torch.long)
-        attn_edge_type[edge_index[0, :], edge_index[1, :]] = convert_to_single_emb(edge_attr)# + 1#
-        edge_input = None
-    else:
-        attn_edge_type = None
-        edge_input = None
-    # rel_pos = torch.from_numpy((shortest_path_result)).long() if args.rel_pos else None
-    # attn_bias = torch.zeros([N + 1, N + 1], dtype=torch.float) # with graph token
-    attn_bias = torch.zeros([N, N], dtype=torch.float) 
-    assert len(attn_bias.shape ) == 2 ,print('attn_bias:',attn_bias) 
-    # combine
-    item['x'] = x
-    # item['adj'] = adj
-    item['attn_bias'] = attn_bias
-    item['attn_edge_type'] = attn_edge_type#每条边的特征
-    item['rel_pos'] = rel_pos
-    adj_in,adj_out = adj.long().sum(dim=1).view(-1),adj.long().sum(dim=0).view(-1)
-
-    item['in_degree'] = torch.where(adj_in > 8,9,adj_in) if args.in_degree_bias else None #每个结点的输入边的特征
-    item['out_degree'] = torch.where(adj_out > 8,9,adj_out) if args.out_degree_bias else None
-    item['edge_input'] = torch.from_numpy(edge_input).long() if edge_input is not None else None
-    item['all_rel_pos_3d'] = all_rel_pos_3d_with_noise#torch.long
-    #item['all_rel_pos_3d'] = torch.from_numpy(all_rel_pos_3d_with_noise).float() if all_rel_pos_3d_with_noise is not None else None
-    return item
+        # sprse grpah 
+    g = dgl.graph((edge_index[0, :], edge_index[1, :]),num_nodes=len(adj))
+    # 这里不包含self loop
+    # g.add
+    if args.lap_pos_enc:
+        # try:
+        g.ndata['lap_pos_enc'] = get_pos_lp_encoding(adj.numpy(),pos_enc_dim = args.pos_enc_dim)
+        #     print('lp pos encoding ')
+        # except:
+        #     g.ndata['lap_pos_enc'] = torch.zeros(len(adj),args.pos_enc_dim)
+    g.ndata['x']  = x
+    adj_in = adj.long().sum(dim=1).view(-1)
+    g.ndata['in_degree'] = torch.where(adj_in > 8,9,adj_in) if args.in_degree_bias else None
+    g.edata['edge_attr'] = edge_attr
+    # full connect graph
+    full_g = dgl.from_networkx(nx.complete_graph(2))#g.number_of_nodes()
+    full_g = full_g.add_self_loop() # add eye 
+    # full_g.edata['rel_pos'] = rel_pos.view(-1,1) if 
+    if rel_pos is not None:
+        full_g.edata['rel_pos'] = rel_pos.view(-1,1).contiguous() 
+    if args.rel_3d_pos_bias:
+        full_g.edata['all_rel_pos_3d'] = all_rel_pos_3d_with_noise.view(-1,1).contiguous()#torch.long
+    
+    return g,full_g
 
 
 

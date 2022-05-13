@@ -6,10 +6,11 @@ from utils import *
 import time
 from multiprocessing import Pool
 from layers import *
-# from graphformer_dataset import Batch
+from graphformer_dataset import Batch
 from torch.autograd import Variable
 N_atom_features = 28
 import copy
+import dgl
 class gnn(torch.nn.Module):
     def __init__(self, args):
         super(gnn, self).__init__()

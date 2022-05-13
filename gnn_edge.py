@@ -6,7 +6,7 @@ from utils import *
 import time
 from multiprocessing import Pool
 from layers_edge_update import *
-from graphformer_dataset import Batch
+# from graphformer_dataset import Batch
 from torch.autograd import Variable
 N_atom_features = 28
 import copy
