@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from torch import distributed as dist
 from scipy import sparse
 import os.path
 import time
@@ -45,7 +46,7 @@ def set_cuda_visible_device(ngpus):
     return cmd
 
 
-def initialize_model(model, device, load_save_file=False,init_classifer = True):
+def initialize_model(model, device, args,load_save_file=False,init_classifer = True):
     for param in model.parameters():
         if param.dim() == 1:
             continue
@@ -67,12 +68,18 @@ def initialize_model(model, device, load_save_file=False,init_classifer = True):
         optimizer =state_dict['optimizer']
         epoch = state_dict['epoch']
         print('load save model!')
-    model.to(device)
-    if torch.cuda.device_count() > 1:
-      print("Let's use", torch.cuda.device_count(), "GPUs!")
-      # dim = 0 [30, xxx] -> [10, ...], [10, ...], [10, ...] on 3 GPUs
-      model = nn.DataParallel(model)
     # model.to(device)
+    if torch.cuda.device_count() > 1:
+        print("Let's use", torch.cuda.device_count(), "GPUs!")
+      
+        model = model.cuda(args.local_rank)
+        model = torch.nn.parallel.DistributedDataParallel(model, 
+                                                     device_ids=[args.local_rank], 
+                                                     output_device=args.local_rank, 
+                                                     find_unused_parameters=True, 
+                                                     broadcast_buffers=False)
+        return model
+    model.to(device)
     if load_save_file:
         return model ,optimizer,epoch
     return model
@@ -264,7 +271,17 @@ def data_to_device(sample,device):
             else:
                 data_flag.append(None)
         return data_flag,data
+def average_gradients(model):  ##每个gpu上的梯度求平均
+    size = float(dist.get_world_size())
+    for param in model.parameters():
+        if param.requires_grad and param.grad is not None:
+
+            dist.all_reduce(param.grad.data,op = torch.distributed.ReduceOp.SUM)
+            param.grad.data /= size
+
+
 def evaluator(model,loader,loss_fn,args):
+    
     model.eval()
     with torch.no_grad():
 
@@ -273,13 +290,13 @@ def evaluator(model,loader,loss_fn,args):
             model.zero_grad()
             # data_flag,data = data_to_device(sample,args.device)
             # num_flag = sum(data_flag)
-            pred = model(args.A2_limit,sample.to(args.device))
+            pred = model(args.A2_limit,sample.to(args.local_rank))
             if  args.loss_fn == 'focal_loss' or args.r_drop:
                 pred  = torch.sigmoid(pred[:,1])
                 pred = pred.view(-1)
             # pred = model(sample,args.A2_limit)
 
-            loss = loss_fn(pred if args.loss_fn == 'auc_loss' else pred, sample.Y.long().to(pred.device)) 
+            loss = loss_fn(pred if args.loss_fn == 'auc_loss' else pred, sample.Y.long().to(args.local_rank)) 
             
             #collect loss, true label and predicted label
             test_losses.append(loss.data.cpu().numpy())
@@ -300,14 +317,9 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss):
     if args.r_drop:
         for i_batch, sample in enumerate(train_dataloader):
             model.zero_grad()
-        
-            # data_flag,data = data_to_device(sample,args.device)
-            # print('data_flag_1',data_flag)
             logits = model(args.A2_limit,sample.to(args.device))
-            # print('data_flag_2',data_flag)
-            # new_flag,new_data = copy.deepcopy(data_flag),copy.deepcopy(data)
+
             newlogits = model(args.A2_limit,sample.to(args.device))
-            # logits = 
 
             if args.loss_fn == 'bce_loss'or args.loss_fn == 'auc_loss':
                 pred  = torch.sigmoid(logits[:,1])
@@ -350,46 +362,42 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss):
                 pred = torch.softmax(pred,dim = -1)[:,1]
             train_pred.append(pred.data.cpu().numpy())
     else:
-
         for i_batch, sample in enumerate(train_dataloader):
             # data_flag,data = data_to_device(sample,args.device)
-            pred = model(args.A2_limit,sample.to(args.device))
+            pred = model(args.A2_limit,sample.to(args.local_rank))
             if args.loss_fn == 'focal_loss':
                 pred  = torch.sigmoid(pred[:,1])
                 pred = pred.view(-1)
-            # print(pred)
-            # print(sample.Y.to(pred.device))
-            # print(sample.H)
-            loss = loss_fn(pred if args.loss_fn == 'auc_loss' else pred, sample.Y.long().to(pred.device))
+            loss = loss_fn(pred if args.loss_fn == 'auc_loss' else pred, sample.Y.long().to(args.local_rank))
+            # print(loss)
             if args.add_logk_reg:
-                # print(model.reg_value.shape,sample.Y.shape,sample.value.shape)
+
                 loss += args.reg_lambda*torch.nn.functional.mse_loss\
-                    (model.reg_value*sample.Y.long().reshape(-1,1).to(pred.device), sample.value.reshape(-1,1).to(pred.device))
+                    (model.reg_value*sample.Y.long().reshape(-1,1).to(args.local_rank), sample.value.reshape(-1,1).to(args.local_rank))
             if args.auxiliary_loss:
                 assert args.loss_fn != 'mse_loss', 'mse_loss cant add auxiliary_loss check your code plz!'
-                loss = loss + model.deta*auxiliary_loss(pred,sample.Y.long().to(pred.device))
-                # print(model.deta*auxiliary_loss(pred,sample.Y.long().to(pred.device)))
-            # add a logk auxiliary loss
+                loss = loss + model.deta*auxiliary_loss(pred,sample.Y.long().to(args.local_rank))
             if args.grad_sum:
                 loss = loss/6
                 loss.backward()
                 if (i_batch + 1) % 6 == 0  or i_batch == len(train_dataloader) - 1:
+                    average_gradients(model)
                     optimizer.step()
                     model.zero_grad()
                     # print('batch_loss:',np.mean(train_losses))
             else:
                 loss.backward()
+                average_gradients(model)
                 optimizer.step()
                 model.zero_grad()
+            # print('batch_loss:',loss,args.local_rank)
             loss = loss.data.cpu().numpy()*6 if args.grad_sum else loss.data.cpu().numpy()
             train_losses.append(loss)
             train_true.append(sample.Y.data.cpu().numpy())
             if pred.dim() ==2:
                 pred = torch.softmax(pred,dim = -1)[:,1]
             train_pred.append(pred.data.cpu().numpy())
-            # print(loss)
-            # if (i_batch + 1) % 100 ==0:
-            #     print('batch_loss:',np.mean(train_losses))
+
     return model,train_pred,train_losses,optimizer
 def getToyKey(train_keys):
     train_keys_toy_d = []
@@ -764,7 +772,7 @@ def save_model(model,optimizer,args,epoch,save_path,mode = 'best'):
     if args.debug:
         best_name = save_path + '/save_{}_model_debug'.format(mode)+'.pt'
 
-    torch.save({'model':model.module.state_dict() if isinstance(model,nn.DataParallel) else model.state_dict(),
+    torch.save({'model':model.module.state_dict() if isinstance(model,nn.parallel.DistributedDataParallel) else model.state_dict(),
             'optimizer':optimizer.state_dict(),
             'epoch':epoch}, best_name)
 
