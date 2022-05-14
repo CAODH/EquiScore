@@ -31,31 +31,7 @@ print (s)
 os.chdir(os.path.abspath(os.path.dirname(__file__)))
 
 
-def get_args_from_json(json_file_path, args_dict):
-    import json
-    summary_filename = json_file_path
-    with open(summary_filename) as f:
-        summary_dict = json.load(fp=f)
-    for key in summary_dict.keys():
-        args_dict[key] = summary_dict[key]
-    return args_dict
-parser = argparse.ArgumentParser(description='json param')
-parser.add_argument('--local_rank', default=-1, type=int) 
-parser.add_argument("--json_path", help="file path of param", type=str, \
-    default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/gnn_edge_3d_pos_dist.json')
-args = parser.parse_args()
-local_rank = args.local_rank
-# label_smoothing# temp_args = parser.parse_args()
-args_dict = vars(parser.parse_args())
-args = get_args_from_json(args_dict['json_path'], args_dict)
-args = argparse.Namespace(**args)
-# 下面这个参数需要加上，torch内部调用多进程时，会使用该参数，对每个gpu进程而言，其local_rank都是不同的；
-args.local_rank = local_rank
-# parser.add_argument('--local_rank', default=-1, type=int)  
-print(args.local_rank)
-torch.cuda.set_device(args.local_rank)  # 设置gpu编号为local_rank;此句也可能看出local_rank的值是什么
-# torch.nn.parallel.DistributedDataParallel()
-print (args)
+
 from torch.multiprocessing import Process
 def run(local_rank,args,*more_args,**kwargs):
     # seed_everything()

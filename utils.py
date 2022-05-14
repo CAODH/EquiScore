@@ -274,8 +274,7 @@ def data_to_device(sample,device):
 def average_gradients(model):  ##每个gpu上的梯度求平均
     size = float(dist.get_world_size())
     for param in model.parameters():
-        if param.requires_grad and param.grad is not None:
-
+        if param.requires_grad:
             dist.all_reduce(param.grad.data,op = torch.distributed.ReduceOp.SUM)
             param.grad.data /= size
 
@@ -378,16 +377,18 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss):
             if args.auxiliary_loss:
                 assert args.loss_fn != 'mse_loss', 'mse_loss cant add auxiliary_loss check your code plz!'
                 loss = loss + model.deta*auxiliary_loss(pred,sample.Y.long().to(args.local_rank))
-            if args.grad_sum:
-                loss = loss/6
-                loss.backward()
-                if (i_batch + 1) % 6 == 0  or i_batch == len(train_dataloader) - 1:
+            loss = loss/args.grad_sum
+            loss.backward()
+            if args.grad_sum + 1 > 1:
+                # loss = loss/args.grad_sum
+                # loss.backward()
+                if (i_batch + 1) % args.grad_sum == 0  or i_batch == len(train_dataloader) - 1:
                     # average_gradients(model) # backward is averaged grad
                     optimizer.step()
                     model.zero_grad()
                     # print('batch_loss:',np.mean(train_losses))
             else:
-                loss.backward() # auto borastcast
+                # loss.backward() # auto borastcast
                 # average_gradients(model)
                 optimizer.step()
                 model.zero_grad()
@@ -395,10 +396,8 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss):
             dist.all_reduce(loss.data,op = torch.distributed.ReduceOp.SUM)
             loss /= float(dist.get_world_size()) # get all loss value
 
-            loss = loss.data.cpu().numpy()*6 if args.grad_sum else loss.data.cpu().numpy()
+            loss = loss.data.cpu().numpy()*args.grad_sum if args.grad_sum else loss.data.cpu().numpy()
             train_losses.append(loss)
-
-
     return model,train_losses,optimizer
 def getToyKey(train_keys):
     train_keys_toy_d = []
