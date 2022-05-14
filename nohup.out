@@ -1,0 +1,158 @@
+/home/caoduanhua/anaconda3/lib/python3.7/site-packages/torch/distributed/launch.py:186: FutureWarning: The module torch.distributed.launch is deprecated
+and will be removed in future. Use torchrun.
+Note that --use_env is set by default in torchrun.
+If your script expects `--local_rank` argument to be set, please
+change it to read from `os.environ['LOCAL_RANK']` instead. See 
+https://pytorch.org/docs/stable/distributed.html#launch-utility for 
+further instructions
+
+  FutureWarning,
+WARNING:torch.distributed.run:
+*****************************************
+Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+*****************************************
+2022-05-13 11:43:23
+2022-05-13 11:43:23
+2022-05-13 11:43:23
+2022-05-13 11:43:23
+world_size 4
+world_size 4
+2
+0
+world_size 4
+1
+world_size 4
+3
+Namespace(A2_limit=False, EF_rates=[0.001, 0.002, 0.005, 0.01, 0.02, 0.05], FP=False, add_logk_reg=False, alpha=5, att_mode='SA', attention_dropout_rate=0.2, auxiliary_loss=False, batch_size=6, d_FC_layer=128, data_path='/home/caoduanhua/score_function/data/general_refineset', debug=False, deta_const=False, dis_adj2_with_adj1=False, dropout_rate=0.2, edge_bias=True, edge_dim=16, edge_type='single', embed_graph='single_graph', embed_graph_mode='ligand_protein', epoch=400, ffn_size=180, fundation_model='graphformer', gate=False, gnn_edge=True, grad_sum=True, head_size=8, hot_start=True, in_degree_bias=True, initial_dev=4.0, initial_mu=2.5, json_path='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/gnn_edge_3d_pos_dist.json', label_smothing=0.0, layer_type='GAT_gate', local_rank=2, loss_fn='cross_entry', lr=0.0001, lr_decay=False, mode='1_H', multi_hop_max_dist=10, n_FC_layer=4, n_graph_layer=2, n_in_feature=80, n_out_feature=40, ngpu=3, norm_type='gn_mul', num_workers=3, only_adj2=False, only_dis_adj2=True, out_degree_bias=False, path_data_dir='../../data/pocket_data_path', patience=25, pred_mode='ligand', r_drop=False, reg_lambda=0.1, rel_3d_pos_bias=True, rel_pos_bias=False, sampler=False, save_dir='/home/caoduanhua/score_function/GNN/train_result/ligand_gnn_edge_dist/', save_model='/home/caoduanhua/score_function/GNN/train_result/ligand_gnn_edge_dist/graphformer/GAT_gate/2022-05-13-10-46-29/save_best_model.pt', seed=42, share_layer=True, supernode=False, test=True, test_keys='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/refine_generalcrossdecoy_1_5/test_keys.pkl', test_path='/home/caoduanhua/score_function/data/independent/dekois_pocket', train_keys='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/refine_generalcrossdecoy_1_5/train_keys.pkl', use_adj=True, virtual_aromatic_atom=True)
+Namespace(A2_limit=False, EF_rates=[0.001, 0.002, 0.005, 0.01, 0.02, 0.05], FP=False, add_logk_reg=False, alpha=5, att_mode='SA', attention_dropout_rate=0.2, auxiliary_loss=False, batch_size=6, d_FC_layer=128, data_path='/home/caoduanhua/score_function/data/general_refineset', debug=False, deta_const=False, dis_adj2_with_adj1=False, dropout_rate=0.2, edge_bias=True, edge_dim=16, edge_type='single', embed_graph='single_graph', embed_graph_mode='ligand_protein', epoch=400, ffn_size=180, fundation_model='graphformer', gate=False, gnn_edge=True, grad_sum=True, head_size=8, hot_start=True, in_degree_bias=True, initial_dev=4.0, initial_mu=2.5, json_path='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/gnn_edge_3d_pos_dist.json', label_smothing=0.0, layer_type='GAT_gate', local_rank=0, loss_fn='cross_entry', lr=0.0001, lr_decay=False, mode='1_H', multi_hop_max_dist=10, n_FC_layer=4, n_graph_layer=2, n_in_feature=80, n_out_feature=40, ngpu=3, norm_type='gn_mul', num_workers=3, only_adj2=False, only_dis_adj2=True, out_degree_bias=False, path_data_dir='../../data/pocket_data_path', patience=25, pred_mode='ligand', r_drop=False, reg_lambda=0.1, rel_3d_pos_bias=True, rel_pos_bias=False, sampler=False, save_dir='/home/caoduanhua/score_function/GNN/train_result/ligand_gnn_edge_dist/', save_model='/home/caoduanhua/score_function/GNN/train_result/ligand_gnn_edge_dist/graphformer/GAT_gate/2022-05-13-10-46-29/save_best_model.pt', seed=42, share_layer=True, supernode=False, test=True, test_keys='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/refine_generalcrossdecoy_1_5/test_keys.pkl', test_path='/home/caoduanhua/score_function/data/independent/dekois_pocket', train_keys='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/refine_generalcrossdecoy_1_5/train_keys.pkl', use_adj=True, virtual_aromatic_atom=True)
+Namespace(A2_limit=False, EF_rates=[0.001, 0.002, 0.005, 0.01, 0.02, 0.05], FP=False, add_logk_reg=False, alpha=5, att_mode='SA', attention_dropout_rate=0.2, auxiliary_loss=False, batch_size=6, d_FC_layer=128, data_path='/home/caoduanhua/score_function/data/general_refineset', debug=False, deta_const=False, dis_adj2_with_adj1=False, dropout_rate=0.2, edge_bias=True, edge_dim=16, edge_type='single', embed_graph='single_graph', embed_graph_mode='ligand_protein', epoch=400, ffn_size=180, fundation_model='graphformer', gate=False, gnn_edge=True, grad_sum=True, head_size=8, hot_start=True, in_degree_bias=True, initial_dev=4.0, initial_mu=2.5, json_path='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/gnn_edge_3d_pos_dist.json', label_smothing=0.0, layer_type='GAT_gate', local_rank=1, loss_fn='cross_entry', lr=0.0001, lr_decay=False, mode='1_H', multi_hop_max_dist=10, n_FC_layer=4, n_graph_layer=2, n_in_feature=80, n_out_feature=40, ngpu=3, norm_type='gn_mul', num_workers=3, only_adj2=False, only_dis_adj2=True, out_degree_bias=False, path_data_dir='../../data/pocket_data_path', patience=25, pred_mode='ligand', r_drop=False, reg_lambda=0.1, rel_3d_pos_bias=True, rel_pos_bias=False, sampler=False, save_dir='/home/caoduanhua/score_function/GNN/train_result/ligand_gnn_edge_dist/', save_model='/home/caoduanhua/score_function/GNN/train_result/ligand_gnn_edge_dist/graphformer/GAT_gate/2022-05-13-10-46-29/save_best_model.pt', seed=42, share_layer=True, supernode=False, test=True, test_keys='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/refine_generalcrossdecoy_1_5/test_keys.pkl', test_path='/home/caoduanhua/score_function/data/independent/dekois_pocket', train_keys='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/refine_generalcrossdecoy_1_5/train_keys.pkl', use_adj=True, virtual_aromatic_atom=True)Namespace(A2_limit=False, EF_rates=[0.001, 0.002, 0.005, 0.01, 0.02, 0.05], FP=False, add_logk_reg=False, alpha=5, att_mode='SA', attention_dropout_rate=0.2, auxiliary_loss=False, batch_size=6, d_FC_layer=128, data_path='/home/caoduanhua/score_function/data/general_refineset', debug=False, deta_const=False, dis_adj2_with_adj1=False, dropout_rate=0.2, edge_bias=True, edge_dim=16, edge_type='single', embed_graph='single_graph', embed_graph_mode='ligand_protein', epoch=400, ffn_size=180, fundation_model='graphformer', gate=False, gnn_edge=True, grad_sum=True, head_size=8, hot_start=True, in_degree_bias=True, initial_dev=4.0, initial_mu=2.5, json_path='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/gnn_edge_3d_pos_dist.json', label_smothing=0.0, layer_type='GAT_gate', local_rank=3, loss_fn='cross_entry', lr=0.0001, lr_decay=False, mode='1_H', multi_hop_max_dist=10, n_FC_layer=4, n_graph_layer=2, n_in_feature=80, n_out_feature=40, ngpu=3, norm_type='gn_mul', num_workers=3, only_adj2=False, only_dis_adj2=True, out_degree_bias=False, path_data_dir='../../data/pocket_data_path', patience=25, pred_mode='ligand', r_drop=False, reg_lambda=0.1, rel_3d_pos_bias=True, rel_pos_bias=False, sampler=False, save_dir='/home/caoduanhua/score_function/GNN/train_result/ligand_gnn_edge_dist/', save_model='/home/caoduanhua/score_function/GNN/train_result/ligand_gnn_edge_dist/graphformer/GAT_gate/2022-05-13-10-46-29/save_best_model.pt', seed=42, share_layer=True, supernode=False, test=True, test_keys='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/refine_generalcrossdecoy_1_5/test_keys.pkl', test_path='/home/caoduanhua/score_function/data/independent/dekois_pocket', train_keys='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/refine_generalcrossdecoy_1_5/train_keys.pkl', use_adj=True, virtual_aromatic_atom=True)
+
+Number of train data: 62343
+Number of val data: 6927
+Number of test data: 23986
+Number of train data: 62343Number of train data: 62343
+
+Number of val data: 6927Number of val data: 6927
+
+Number of test data: 23986Number of test data: 23986
+
+Number of train data: 62343
+Number of val data: 6927
+Number of test data: 23986
+Available GPU List
+id	utilization.gpu(%)	memory.free(MiB)
+1 	0                 	32510           
+4 	0                 	32506           
+5 	0                 	32506           
+6 	0                 	32506           
+7 	0                 	32506           
+Select id #1, 4, 5 for you.
+Available GPU List
+id	utilization.gpu(%)	memory.free(MiB)
+1 	0                 	32510           
+4 	0                 	32506           
+5 	0                 	32506           
+6 	0                 	32506           
+7 	0                 	32506           
+Select id #1, 4, 5 for you.
+Available GPU List
+id	utilization.gpu(%)	memory.free(MiB)
+1 	0                 	32510           
+4 	0                 	32506           
+5 	0                 	32506           
+6 	0                 	32506           
+7 	0                 	32506           
+Select id #1, 4, 5 for you.
+number of parameters :  100940
+Available GPU List
+id	utilization.gpu(%)	memory.free(MiB)
+1 	0                 	32510           
+4 	0                 	32506           
+5 	0                 	32506           
+6 	0                 	32506           
+7 	0                 	32506           
+Select id #1, 4, 5 for you.
+number of parameters :  100940
+number of parameters :  100940
+number of parameters :  100940
+load save model!
+Let's use 4 GPUs!
+load save model!
+Let's use 4 GPUs!
+load save model!
+Let's use 4 GPUs!
+load save model!
+Let's use 4 GPUs!
+WARNING:torch.distributed.elastic.agent.server.api:Received 2 death signal, shutting down workers
+WARNING:torch.distributed.elastic.multiprocessing.api:Sending process 75846 closing signal SIGINT
+WARNING:torch.distributed.elastic.multiprocessing.api:Sending process 75847 closing signal SIGINT
+WARNING:torch.distributed.elastic.multiprocessing.api:Sending process 75848 closing signal SIGINT
+WARNING:torch.distributed.elastic.multiprocessing.api:Sending process 75849 closing signal SIGINT
+WARNING:torch.distributed.elastic.multiprocessing.api:Sending process 75846 closing signal SIGTERM
+WARNING:torch.distributed.elastic.multiprocessing.api:Sending process 75847 closing signal SIGTERM
+WARNING:torch.distributed.elastic.multiprocessing.api:Sending process 75848 closing signal SIGTERM
+WARNING:torch.distributed.elastic.multiprocessing.api:Sending process 75849 closing signal SIGTERM
+Traceback (most recent call last):
+  File "/home/caoduanhua/anaconda3/lib/python3.7/site-packages/torch/distributed/elastic/agent/server/api.py", line 709, in run
+    result = self._invoke_run(role)
+  File "/home/caoduanhua/anaconda3/lib/python3.7/site-packages/torch/distributed/elastic/agent/server/api.py", line 850, in _invoke_run
+    time.sleep(monitor_interval)
+  File "/home/caoduanhua/anaconda3/lib/python3.7/site-packages/torch/distributed/elastic/multiprocessing/api.py", line 60, in _terminate_process_handler
+    raise SignalException(f"Process {os.getpid()} got signal: {sigval}", sigval=sigval)
+torch.distributed.elastic.multiprocessing.api.SignalException: Process 75778 got signal: 2
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/caoduanhua/anaconda3/lib/python3.7/site-packages/torch/distributed/elastic/agent/server/api.py", line 716, in run
+    self._shutdown(e.sigval)
+  File "/home/caoduanhua/anaconda3/lib/python3.7/site-packages/torch/distributed/elastic/agent/server/local_elastic_agent.py", line 190, in _shutdown
+    self._pcontext.close(death_sig)
+  File "/home/caoduanhua/anaconda3/lib/python3.7/site-packages/torch/distributed/elastic/multiprocessing/api.py", line 330, in close
+    self._close(death_sig=death_sig, timeout=timeout)
+  File "/home/caoduanhua/anaconda3/lib/python3.7/site-packages/torch/distributed/elastic/multiprocessing/api.py", line 720, in _close
+    handler.proc.wait(time_to_wait)
+  File "/home/caoduanhua/anaconda3/lib/python3.7/subprocess.py", line 990, in wait
+    return self._wait(timeout=timeout)
+  File "/home/caoduanhua/anaconda3/lib/python3.7/subprocess.py", line 1618, in _wait
+    time.sleep(delay)
+  File "/home/caoduanhua/anaconda3/lib/python3.7/site-packages/torch/distributed/elastic/multiprocessing/api.py", line 60, in _terminate_process_handler
+    raise SignalException(f"Process {os.getpid()} got signal: {sigval}", sigval=sigval)
+torch.distributed.elastic.multiprocessing.api.SignalException: Process 75778 got signal: 2
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/caoduanhua/anaconda3/lib/python3.7/runpy.py", line 193, in _run_module_as_main
+    "__main__", mod_spec)
+  File "/home/caoduanhua/anaconda3/lib/python3.7/runpy.py", line 85, in _run_code
+    exec(code, run_globals)
+  File "/home/caoduanhua/anaconda3/lib/python3.7/site-packages/torch/distributed/launch.py", line 193, in <module>
+    main()
+  File "/home/caoduanhua/anaconda3/lib/python3.7/site-packages/torch/distributed/launch.py", line 189, in main
+    launch(args)
+  File "/home/caoduanhua/anaconda3/lib/python3.7/site-packages/torch/distributed/launch.py", line 174, in launch
+    run(args)
+  File "/home/caoduanhua/anaconda3/lib/python3.7/site-packages/torch/distributed/run.py", line 718, in run
+    )(*cmd_args)
+  File "/home/caoduanhua/anaconda3/lib/python3.7/site-packages/torch/distributed/launcher/api.py", line 131, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+  File "/home/caoduanhua/anaconda3/lib/python3.7/site-packages/torch/distributed/launcher/api.py", line 236, in launch_agent
+    result = agent.run()
+  File "/home/caoduanhua/anaconda3/lib/python3.7/site-packages/torch/distributed/elastic/metrics/api.py", line 125, in wrapper
+    result = f(*args, **kwargs)
+  File "/home/caoduanhua/anaconda3/lib/python3.7/site-packages/torch/distributed/elastic/agent/server/api.py", line 721, in run
+    self._shutdown()
+  File "/home/caoduanhua/anaconda3/lib/python3.7/site-packages/torch/distributed/elastic/agent/server/local_elastic_agent.py", line 190, in _shutdown
+    self._pcontext.close(death_sig)
+  File "/home/caoduanhua/anaconda3/lib/python3.7/site-packages/torch/distributed/elastic/multiprocessing/api.py", line 330, in close
+    self._close(death_sig=death_sig, timeout=timeout)
+  File "/home/caoduanhua/anaconda3/lib/python3.7/site-packages/torch/distributed/elastic/multiprocessing/api.py", line 720, in _close
+    handler.proc.wait(time_to_wait)
+  File "/home/caoduanhua/anaconda3/lib/python3.7/subprocess.py", line 990, in wait
+    return self._wait(timeout=timeout)
+  File "/home/caoduanhua/anaconda3/lib/python3.7/subprocess.py", line 1618, in _wait
+    time.sleep(delay)
+  File "/home/caoduanhua/anaconda3/lib/python3.7/site-packages/torch/distributed/elastic/multiprocessing/api.py", line 60, in _terminate_process_handler
+    raise SignalException(f"Process {os.getpid()} got signal: {sigval}", sigval=sigval)
+torch.distributed.elastic.multiprocessing.api.SignalException: Process 75778 got signal: 2

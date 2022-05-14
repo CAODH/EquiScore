@@ -78,6 +78,8 @@ def initialize_model(model, device, args,load_save_file=False,init_classifer = T
                                                      output_device=args.local_rank, 
                                                      find_unused_parameters=True, 
                                                      broadcast_buffers=False)
+        if load_save_file:
+            return model ,optimizer,epoch
         return model
     model.to(device)
     if load_save_file:
@@ -226,13 +228,13 @@ def seed_torch(seed=42):
 
 
 def get_metrics(train_true,train_pred):
-
-    train_pred = np.concatenate(np.array(train_pred,dtype=object), 0).astype(np.float)
+    try:
+        train_pred = np.concatenate(np.array(train_pred,dtype=object), 0).astype(np.float)
+        train_true = np.concatenate(np.array(train_true,dtype=object), 0).astype(np.long)
+    except:
+        pass
     train_pred_label = np.where(train_pred > 0.5,1,0).astype(np.long)
-    train_true = np.concatenate(np.array(train_true,dtype=object), 0).astype(np.long)
-    # print(train_true)
-    # print(train_pred_label)
-    # print(confusion_matrix(train_true,train_pred_label).ravel())
+
     tn, fp, fn, tp = confusion_matrix(train_true,train_pred_label).ravel()
     train_auroc = roc_auc_score(train_true, train_pred) 
     train_acc = accuracy_score(train_true,train_pred_label)
@@ -246,8 +248,6 @@ def get_metrics(train_true,train_pred):
     fp,tp,_ = roc_curve(train_true,train_pred)
     train_adjusted_logauroc = get_logauc(fp,tp)
     return train_auroc,train_adjusted_logauroc,train_auprc,train_balanced_acc,train_acc,train_precision,train_sensitity,train_specifity,train_f1
-
-
 
 #by caoduanhua
 def random_split(train_keys, split_ratio=0.9, seed=0, shuffle=True):
@@ -279,40 +279,42 @@ def average_gradients(model):  ##每个gpu上的梯度求平均
             dist.all_reduce(param.grad.data,op = torch.distributed.ReduceOp.SUM)
             param.grad.data /= size
 
-
-def evaluator(model,loader,loss_fn,args):
-    
+from dist_utils import *
+def evaluator(model,loader,loss_fn,args,test_sampler):
     model.eval()
     with torch.no_grad():
-
         test_losses,test_true,test_pred = [], [],[]
         for i_batch, sample in enumerate(loader):
             model.zero_grad()
-            # data_flag,data = data_to_device(sample,args.device)
-            # num_flag = sum(data_flag)
             pred = model(args.A2_limit,sample.to(args.local_rank))
             if  args.loss_fn == 'focal_loss' or args.r_drop:
                 pred  = torch.sigmoid(pred[:,1])
                 pred = pred.view(-1)
-            # pred = model(sample,args.A2_limit)
 
             loss = loss_fn(pred if args.loss_fn == 'auc_loss' else pred, sample.Y.long().to(args.local_rank)) 
-            
-            #collect loss, true label and predicted label
+            # need all node to test/val
+            dist.all_reduce(loss.data,op = torch.distributed.ReduceOp.SUM)
+            loss /= float(dist.get_world_size()) # get all loss value 
             test_losses.append(loss.data.cpu().numpy())
-            test_true.append(sample.Y.long().data.cpu().numpy())
+            test_true.append(sample.Y.long().data)
             if pred.dim()==2:
                 pred = torch.softmax(pred,dim = -1)[:,1]
             pred = pred if args.loss_fn == 'auc_loss' else pred
-            test_pred.append(pred.data.cpu().numpy())
+            test_pred.append(pred.data)
+        # gather ngpu result to single tensor
+        test_true = distributed_concat(torch.concat(test_true, dim=0), 
+                                         len(test_sampler.dataset)).cpu().numpy()
+        test_pred = distributed_concat(torch.concat(test_pred, dim=0), 
+                                         len(test_sampler.dataset)).cpu().numpy()
+
     return test_losses,test_true,test_pred
 import copy
 def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss):
 # 加入辅助函数和r_drop 方式
         #collect losses of each iteration
     train_losses = [] 
-    train_true = []
-    train_pred = []
+    # train_true = []
+    # train_pred = []
     model.train()
     if args.r_drop:
         for i_batch, sample in enumerate(train_dataloader):
@@ -371,7 +373,6 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss):
             loss = loss_fn(pred if args.loss_fn == 'auc_loss' else pred, sample.Y.long().to(args.local_rank))
             # print(loss)
             if args.add_logk_reg:
-
                 loss += args.reg_lambda*torch.nn.functional.mse_loss\
                     (model.reg_value*sample.Y.long().reshape(-1,1).to(args.local_rank), sample.value.reshape(-1,1).to(args.local_rank))
             if args.auxiliary_loss:
@@ -381,24 +382,24 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss):
                 loss = loss/6
                 loss.backward()
                 if (i_batch + 1) % 6 == 0  or i_batch == len(train_dataloader) - 1:
-                    average_gradients(model)
+                    # average_gradients(model) # backward is averaged grad
                     optimizer.step()
                     model.zero_grad()
                     # print('batch_loss:',np.mean(train_losses))
             else:
-                loss.backward()
-                average_gradients(model)
+                loss.backward() # auto borastcast
+                # average_gradients(model)
                 optimizer.step()
                 model.zero_grad()
-            # print('batch_loss:',loss,args.local_rank)
+
+            dist.all_reduce(loss.data,op = torch.distributed.ReduceOp.SUM)
+            loss /= float(dist.get_world_size()) # get all loss value
+
             loss = loss.data.cpu().numpy()*6 if args.grad_sum else loss.data.cpu().numpy()
             train_losses.append(loss)
-            train_true.append(sample.Y.data.cpu().numpy())
-            if pred.dim() ==2:
-                pred = torch.softmax(pred,dim = -1)[:,1]
-            train_pred.append(pred.data.cpu().numpy())
 
-    return model,train_pred,train_losses,optimizer
+
+    return model,train_losses,optimizer
 def getToyKey(train_keys):
     train_keys_toy_d = []
     train_keys_toy_a = []

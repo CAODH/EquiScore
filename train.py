@@ -29,10 +29,7 @@ RDLogger.DisableLog('rdApp.*')
 s = "%04d-%02d-%02d %02d:%02d:%02d" % (now.tm_year, now.tm_mon, now.tm_mday, now.tm_hour, now.tm_min, now.tm_sec)
 print (s)
 os.chdir(os.path.abspath(os.path.dirname(__file__)))
-from torch import distributed as dist
 
-torch.distributed.init_process_group(backend="nccl")  # 并行训练初始化，'nccl'模式
-print('world_size', torch.distributed.get_world_size()) # 打印当前进程数
 
 def get_args_from_json(json_file_path, args_dict):
     import json
@@ -59,9 +56,17 @@ print(args.local_rank)
 torch.cuda.set_device(args.local_rank)  # 设置gpu编号为local_rank;此句也可能看出local_rank的值是什么
 # torch.nn.parallel.DistributedDataParallel()
 print (args)
-def run(args):
+from torch.multiprocessing import Process
+def run(local_rank,args,*more_args,**kwargs):
     # seed_everything()
-    seed_torch(seed = args.seed)
+    # rank = torch.distributed.get_rank()
+    args.local_rank = local_rank
+    # print('in run args',local_rank,args.local_rank)
+    torch.distributed.init_process_group(backend="nccl",init_method='env://',rank = args.local_rank,world_size = args.ngpu)  # 并行训练初始化，'nccl'模式
+    torch.cuda.set_device(args.local_rank) 
+    # rank = torch.distributed.get_rank()
+    # print('seed seed to single process')
+    seed_torch(seed = args.seed + args.local_rank)
     args_dict = vars(args)
     if args.FP:
         args.N_atom_features = 39
@@ -106,18 +111,6 @@ def run(args):
     print (f'Number of val data: {len(val_keys)}')
     print (f'Number of test data: {len(test_keys)}')
 
-    #initialize model
-    if args.ngpu>0:
-        cmd = get_available_gpu(num_gpu=args.ngpu, min_memory=30000, sample=3, nitro_restriction=False, verbose=True)
-        # cmd = '1,'
-        #cmd = utils.set_cuda_visible_device(args.ngpu)
-        if cmd[-1] == ',':
-
-            os.environ['CUDA_VISIBLE_DEVICES']=cmd[:-1]
-        else:
-            os.environ['CUDA_VISIBLE_DEVICES']=cmd
-        # print(cmd)
-
 
     model = gnn_edge(args) if args.gnn_edge else gnn(args) 
 
@@ -148,7 +141,7 @@ def run(args):
     # test_dataset = graphformerDataset(test_keys,args, args.data_path,args.debug) 测试集看不出什么东西，直接忽略
     # test_dataset = MolDataset(test_keys, args.data_path,args.debug)
     train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
-    val_sampler = torch.utils.data.distributed.DistributedSampler(val_dataset)
+    val_sampler = SequentialDistributedSampler(val_dataset,args.batch_size)
     if args.sampler:
 
         num_train_chembl = len([0 for k in train_keys if '_active' in k])
@@ -182,58 +175,106 @@ def run(args):
         raise ValueError('not support this loss : %s'%args.loss_fn)
     best_loss = 1000000000#by caodunahua
     counter = 0
-    
     for epoch in range(epoch_start,num_epochs):
         st = time.time()
         #collect losses of each iteration
         train_sampler.set_epoch(epoch)
-        model,train_pred,train_losses,optimizer = train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss)
+        model,train_losses,optimizer = train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss)
+        # print('train func len of train loss',len(train_losses))
+        val_losses,val_true,val_pred = evaluator(model,val_dataloader,loss_fn,args,val_sampler)
         if args.lr_decay:
             scheduler.step()
-        if epoch >0:
-            if local_rank == 0:
-                val_losses,val_true,val_pred = evaluator(model,val_dataloader,loss_fn,args)
-                # test_losses,test_true,test_pred = evaluator(model,test_dataloader,loss_fn,args)
-                train_losses = np.mean(np.array(train_losses))
-                # test_losses = np.mean(np.array(test_losses))
-                val_losses = np.mean(np.array(val_losses))
-                #by caoduanhua under this line
-                # train_auroc,train_adjust_logauroc,train_auprc,train_balanced_acc,train_acc,train_precision,train_sensitity,train_specifity,train_f1 = get_metrics(train_true,train_pred)
-                #计算test
-                if args.loss_fn == 'mse_loss':
-                    end = time.time()
-                    with open(log_path,'a') as f:
-                        f.write(str(epoch)+ '\t'+str(train_losses)+ '\t'+str(val_losses)+ '\t'+str(test_losses) + str(end-st)+ '\n')
-                        f.close()
-                else:
+        dist.barrier()
+        # if epoch >-1:
+        if local_rank == 0:
+            train_losses = np.mean(np.array(train_losses))
+            # test_losses = np.mean(np.array(test_losses))
+            val_losses = np.mean(np.array(val_losses))
+            if args.loss_fn == 'mse_loss':
+                end = time.time()
+                with open(log_path,'a') as f:
+                    f.write(str(epoch)+ '\t'+str(train_losses)+ '\t'+str(val_losses)+ '\t'+str(test_losses) + str(end-st)+ '\n')
+                    f.close()
+            else:
+                test_auroc,test_adjust_logauroc,test_auprc,test_balanced_acc,test_acc,test_precision,test_sensitity,test_specifity,test_f1 = get_metrics(val_true,val_pred)
 
-                    test_auroc,test_adjust_logauroc,test_auprc,test_balanced_acc,test_acc,test_precision,test_sensitity,test_specifity,test_f1 = get_metrics(val_true,val_pred)
+                end = time.time()
+                with open(log_path,'a') as f:
+                    f.write(str(epoch)+ '\t'+str(train_losses)+ '\t'+str(val_losses)+ '\t'+str(0.0)\
+                        #'\t'+str(train_auroc)+ '\t'+str(train_adjust_logauroc)+ '\t'+str(train_auprc)+ '\t'+str(train_balanced_acc)+ '\t'+str(train_acc)+ '\t'+str(train_precision)+ '\t'+str(train_sensitity)+ '\t'+str(train_specifity)+ '\t'+str(train_f1)\
 
-                    end = time.time()
-                    with open(log_path,'a') as f:
-                        f.write(str(epoch)+ '\t'+str(train_losses)+ '\t'+str(val_losses)+ '\t'+str(0.0)\
-                            #'\t'+str(train_auroc)+ '\t'+str(train_adjust_logauroc)+ '\t'+str(train_auprc)+ '\t'+str(train_balanced_acc)+ '\t'+str(train_acc)+ '\t'+str(train_precision)+ '\t'+str(train_sensitity)+ '\t'+str(train_specifity)+ '\t'+str(train_f1)\
+                    + '\t'+str(test_auroc)+ '\t'+str(test_adjust_logauroc)+ '\t'+str(test_auprc)+ '\t'+str(test_balanced_acc)+ '\t'+str(test_acc)+ '\t'+str(test_precision)+ '\t'+str(test_sensitity)+ '\t'+str(test_specifity)+ '\t'+str(test_f1) +'\t'\
 
-                        + '\t'+str(test_auroc)+ '\t'+str(test_adjust_logauroc)+ '\t'+str(test_auprc)+ '\t'+str(test_balanced_acc)+ '\t'+str(test_acc)+ '\t'+str(test_precision)+ '\t'+str(test_sensitity)+ '\t'+str(test_specifity)+ '\t'+str(test_f1) +'\t'\
-
-                        + str(end-st)+ '\n')
-                        f.close()
-                counter +=1 
-                if val_losses < best_loss:
-                    best_loss = val_losses
-                    counter = 0
-                    save_model(model,optimizer,args,epoch,save_path,mode = 'best')
-                if counter > args.patience:
-                    save_model(model,optimizer,args,epoch,save_path,mode = 'early_stop')
-                    print('model early stop !')
-                    break
-                if epoch == num_epochs-1:
-                    save_model(model,optimizer,args,epoch,save_path,mode = 'end')
-    
+                    + str(end-st)+ '\n')
+                    f.close()
+            counter +=1 
+            if val_losses < best_loss:
+                best_loss = val_losses
+                counter = 0
+                save_model(model,optimizer,args,epoch,save_path,mode = 'best')
+            if counter > args.patience:
+                save_model(model,optimizer,args,epoch,save_path,mode = 'early_stop')
+                print('model early stop !')
+                break
+            if epoch == num_epochs-1:
+                save_model(model,optimizer,args,epoch,save_path,mode = 'end')
         dist.barrier()
     print('training done!')
     
 if '__main__' == __name__:
+    from torch import distributed as dist
+    import torch.multiprocessing as mp
+    from dist_utils import *
+    def get_args_from_json(json_file_path, args_dict):
+        import json
+        summary_filename = json_file_path
+        with open(summary_filename) as f:
+            summary_dict = json.load(fp=f)
+        for key in summary_dict.keys():
+            args_dict[key] = summary_dict[key]
+        return args_dict
+    parser = argparse.ArgumentParser(description='json param')
+    parser.add_argument('--local_rank', default=-1, type=int) 
+    parser.add_argument("--json_path", help="file path of param", type=str, \
+        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/gnn_edge_3d_pos_dist.json')
+    args = parser.parse_args()
+    local_rank = args.local_rank
+    # label_smoothing# temp_args = parser.parse_args()
+    args_dict = vars(parser.parse_args())
+    args = get_args_from_json(args_dict['json_path'], args_dict)
+    args = argparse.Namespace(**args)
+    # 下面这个参数需要加上，torch内部调用多进程时，会使用该参数，对每个gpu进程而言，其local_rank都是不同的；
+    args.local_rank = local_rank
+    
+    # parser.add_argument('--local_rank', default=-1, type=int)  
+    # print(args.local_rank)
+    # torch.cuda.set_device(args.local_rank)  # 设置gpu编号为local_rank;此句也可能看出local_rank的值是什么
+    # torch.nn.parallel.DistributedDataParallel()
+    # print (args)
+    # torch.distributed.init_process_group(backend="nccl",init_method='env://',rank = local_rank,world_size = args.ngpu)  # 并行训练初始化，'nccl'模式
+    # print('world_size', torch.distributed.get_world_size()) # 打印当前进程数
+    if args.ngpu>0:
+        cmd = get_available_gpu(num_gpu=args.ngpu, min_memory=30000, sample=3, nitro_restriction=False, verbose=True)
+        if cmd[-1] == ',':
+            os.environ['CUDA_VISIBLE_DEVICES']=cmd[:-1]
+        else:
+            os.environ['CUDA_VISIBLE_DEVICES']=cmd
+    os.environ["MASTER_ADDR"] = "localhost"
+    os.environ["MASTER_PORT"] = "29501"
+    # os.environ["TORCH_CPP_LOG_LEVEL"]="INFO"
+    # os.environ[
+    #     "TORCH_DISTRIBUTED_DEBUG"
+    # ] = "DETAIL"  # set to DETAIL for runtime logging.
+    
+    # mp.spawn(run, nprocs=args.ngpu, args=(args,)) slow than lanch 
+    from torch.multiprocessing import Process
+    world_size = args.ngpu
+    processes = []
+    for rank in range(world_size):
+        p = Process(target=run, args=(rank, args))
+        p.start()
+        processes.append(p)
+    for p in processes:
+        p.join()
 
-    run(args)
-    exit()
+
