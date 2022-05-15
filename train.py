@@ -160,7 +160,7 @@ def run(local_rank,args,*more_args,**kwargs):
         val_losses,val_true,val_pred = evaluator(model,val_dataloader,loss_fn,args,val_sampler)
         if args.lr_decay:
             scheduler.step()
-        dist.barrier()
+        # dist.barrier()
         # if epoch >-1:
         if local_rank == 0:
             train_losses = np.mean(np.array(train_losses))
