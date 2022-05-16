@@ -2,6 +2,7 @@ import pickle
 # import optuna
 # from optuna.trial import TrialState
 from gnn import gnn
+from gnn_edge_gated import gnn_edge_gated
 from gnn_edge import gnn_edge
 import time
 import numpy as np
@@ -87,7 +88,12 @@ def run(local_rank,args,*more_args,**kwargs):
     print (f'Number of val data: {len(val_keys)}')
     print (f'Number of test data: {len(test_keys)}')
 
-
+    if args.gnn_edge == 'gnn':
+        model = gnn(args) 
+    elif args.gnn_edge == 'gnn_edge':
+        model = gnn_edge(args)
+    else:
+        model = gnn_edge_gated(args)
     model = gnn_edge(args) if args.gnn_edge else gnn(args) 
 
     print ('number of parameters : ', sum(p.numel() for p in model.parameters() if p.requires_grad))
@@ -156,12 +162,11 @@ def run(local_rank,args,*more_args,**kwargs):
         #collect losses of each iteration
         train_sampler.set_epoch(epoch)
         model,train_losses,optimizer = train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss)
-        # print('train func len of train loss',len(train_losses))
+
         val_losses,val_true,val_pred = evaluator(model,val_dataloader,loss_fn,args,val_sampler)
         if args.lr_decay:
             scheduler.step()
-        # dist.barrier()
-        # if epoch >-1:
+
         if local_rank == 0:
             train_losses = np.mean(np.array(train_losses))
             # test_losses = np.mean(np.array(test_losses))
@@ -212,7 +217,7 @@ if '__main__' == __name__:
     parser = argparse.ArgumentParser(description='json param')
     parser.add_argument('--local_rank', default=-1, type=int) 
     parser.add_argument("--json_path", help="file path of param", type=str, \
-        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/gnn_edge_3d_pos_dist.json')
+        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/gnn_edge_3d_pos_dist_large_gated.json')
     args = parser.parse_args()
     local_rank = args.local_rank
     # label_smoothing# temp_args = parser.parse_args()
@@ -221,14 +226,7 @@ if '__main__' == __name__:
     args = argparse.Namespace(**args)
     # 下面这个参数需要加上，torch内部调用多进程时，会使用该参数，对每个gpu进程而言，其local_rank都是不同的；
     args.local_rank = local_rank
-    
-    # parser.add_argument('--local_rank', default=-1, type=int)  
-    # print(args.local_rank)
-    # torch.cuda.set_device(args.local_rank)  # 设置gpu编号为local_rank;此句也可能看出local_rank的值是什么
-    # torch.nn.parallel.DistributedDataParallel()
-    # print (args)
-    # torch.distributed.init_process_group(backend="nccl",init_method='env://',rank = local_rank,world_size = args.ngpu)  # 并行训练初始化，'nccl'模式
-    # print('world_size', torch.distributed.get_world_size()) # 打印当前进程数
+
     if args.ngpu>0:
         cmd = get_available_gpu(num_gpu=args.ngpu, min_memory=30000, sample=3, nitro_restriction=False, verbose=True)
         if cmd[-1] == ',':
@@ -236,7 +234,7 @@ if '__main__' == __name__:
         else:
             os.environ['CUDA_VISIBLE_DEVICES']=cmd
     os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = "29501"
+    os.environ["MASTER_PORT"] = "29502"
     # os.environ["TORCH_CPP_LOG_LEVEL"]="INFO"
     # os.environ[
     #     "TORCH_DISTRIBUTED_DEBUG"

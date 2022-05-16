@@ -3,12 +3,14 @@ import torch.nn.functional as F
 import torch.nn as nn
 from utils import *
 import time
+import torch
 '''
 paper 
 paper_with_A2_limit
 paper_with_multi_head
 paper_with_multi_head_A2_limit
 paper_with_transformer
+
 paper_with_transformer_A2_limit
 paper_with_transformer_gate
 config should have :
@@ -91,13 +93,15 @@ class MultiHeadAttention(nn.Module):
         self.linear_k = nn.Linear(hidden_size, head_size * att_size)
         self.linear_v = nn.Linear(hidden_size, head_size * att_size)
         self.att_dropout = nn.Dropout(attention_dropout_rate)
+        self.att_dropout_local = nn.Dropout(attention_dropout_rate)
         
         # edge output project
+        # self.attn = torch.nn.Sequential()
         self.attn_project = nn.Linear(head_size, edge_dim)
         self.edge_project = nn.Linear(edge_dim, head_size * 1)
         ############################# out put project
         self.output_layer = nn.Linear(head_size * att_size, hidden_size)
-        self.output_layer_edge = nn.Linear(edge_dim, edge_dim)
+        self.output_layer_edge = nn.Linear(edge_dim, edge_dim,bias=False)
 
     def forward(self, q, k, v, adj,adj1,use_adj,edge_fea,attn_bias=None,):
         orig_q_size = q.size()
@@ -126,20 +130,35 @@ class MultiHeadAttention(nn.Module):
             x = x*adj.unsqueeze(1)
         if attn_bias is not None:
             # print('MH ATT: ',x.shape,attn_bias.shape)
-            x = x + attn_bias
+            # gated attn
+            x_long = x*attn_bias
+
+        # get long-range interaction
+        x_long = F.softmax(x_long, dim=-1)
+        x_long = self.att_dropout(x_long)
+        x_long = x_long.matmul(v)  # [b, h, q_len, attn]
+        # get local interaction
+
         # add edge attn bias and project edge fea
         edge_bias = self.edge_project(edge_fea).transpose(1,3).contiguous()# [bs,heads,n,n]
-        #.view(batch_size, -1, self.head_size, 1)
+
+        # edge get node information
+       
         x_project = self.attn_project(x.transpose(1,3).contiguous())# [bs,n,n,hiddensize]
         # only get adj1== 1 informations
         x_project = x_project.transpose(1,3).contiguous()*adj1.unsqueeze(1) # adj must ba the adj1 
         edge_fea = edge_fea +  x_project.transpose(1,3).contiguous()
+
         edge_fea = self.output_layer_edge(edge_fea)
-        x  = x + edge_bias
-        x = F.softmax(x, dim=-1)
+
+        x_local  = x * edge_bias*adj1.unsqueeze(1)
+
+        x_local = F.softmax(x_local, dim=-1)
         # x = torch.softmax(x, dim=-1)
-        x = self.att_dropout(x)
-        x = x.matmul(v)  # [b, h, q_len, attn]
+        x_local = self.att_dropout_local(x_local)
+        x_local = x_local.matmul(v)  # [b, h, q_len, attn]
+        # add long_range local_range interaction
+        x = x_local + x_long
         x = x.transpose(1, 2).contiguous()  # [b, q_len, h, attn]
         x = x.view(batch_size, -1, self.head_size * d_v)
         x = self.output_layer(x)

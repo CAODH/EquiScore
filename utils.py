@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 from torch import distributed as dist
+import torch.multiprocessing as mp
 from scipy import sparse
 import os.path
 import time
@@ -25,7 +26,10 @@ import pickle
 from scipy.spatial import distance_matrix
 from rdkit.Chem.rdmolops import GetAdjacencyMatrix
 import rdkit
-
+from prefetch_generator import BackgroundGenerator
+class DataLoaderX(DataLoader):
+    def __iter__(self):
+        return BackgroundGenerator(super().__iter__())   
 
 def set_cuda_visible_device(ngpus):
     import subprocess
@@ -422,11 +426,8 @@ def getToyKey(train_keys):
     return train_keys_toy_a[:300] + train_keys_toy_d[:(max_all-300)]
 
 def getEF(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_fn,rates = 0.01,flag = ''):
-
-        
         save_file = save_path + '/EF_test' + flag
         test_keys = [key for key in os.listdir(test_path) if '.' not in key]
-        
         pros = defaultdict(list)
         for key in test_keys:
             key_split = key.split('_')
@@ -445,82 +446,69 @@ def getEF(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_f
         for rate in rates:
             rate_str += str(rate)+ '\t'
         for pro in pros.keys():
-            # with open(save_file,'a') as f:
-
-            #     # f.write('')
-            #     f.write(pro+ '\n'+'EF:'+rate_str+ '\t'+'test_auroc'+ '\t'+'test_adjust_logauroc'+ '\t'+'test_auprc'+ '\t'+'test_balanced_acc'+ '\t'+'test_acc'+ '\t'+'test_precision'+ '\t'+'test_sensitity'+ '\t'+'test_specifity'+ '\t'+'test_f1' +'\t' +'time'+ '\n')
-            #     f.close()
             try :
-            # if True:
-
                 test_keys_pro = pros[pro]
-
-                # test_keys_pro =  getToyKey(test_keys_pro)#just for test
                 if test_keys_pro is None:
                     continue
-                # print(test_keys_pro)
-
                 test_dataset = graphformerDataset(test_keys_pro,args, test_path,debug)
-                test_dataloader = DataLoader(test_dataset, batch_size = batch_size, \
-                shuffle=False, num_workers = 8, collate_fn=collate_fn,pin_memory = True)
-                test_losses,test_true,test_pred = evaluator(model,test_dataloader,loss_fn,args)
-                test_auroc,test_adjust_logauroc,test_auprc,test_balanced_acc,test_acc,test_precision,test_sensitity,test_specifity,test_f1 = get_metrics(test_true,test_pred)
-                test_losses = np.mean(np.array(test_losses))
-                Y_sum = 0
-                for key in test_keys_pro:
-                    key_split = key.split('_')
-                    if 'active' in key_split:
-                        Y_sum += 1
-                actions = int(Y_sum)
-                action_rate = actions/len(test_keys_pro)
-    #保存logits 进行下一步分析
-                
-                test_pred = np.concatenate(np.array(test_pred), 0)
-                # if args.save_logits:
+                val_sampler = SequentialDistributedSampler(test_dataset,args.batch_size)
+                test_dataloader = DataLoaderX(test_dataset, batch_size = batch_size, \
+                shuffle=False, num_workers = 8, collate_fn=collate_fn,pin_memory = True,sampler = val_sampler)
 
-                #     with open(save_path + '/pcba_{}_logits'.format(pro),'wb') as f:
-                #         pickle.dump((test_pred,test_keys_pro),f)
-                #         f.close()
-    
-                EF = []
-                hits_list = []
-                for rate in rates:
-                    find_limit = int(len(test_keys_pro)*rate)
-                    # print(find_limit)
-                    _,indices = torch.sort(torch.tensor(test_pred),descending = True)
-                    hits = torch.sum(indices[:find_limit] < actions)
-                    EF.append((hits/find_limit)/action_rate)
-                    hits_list.append(hits)
-                    # print(hits,actions,action_rate)
-                
-                EF_str = '['
-                hits_str = '['
-                for ef,hits in zip(EF,hits_list):
-                    EF_str += '%.3f'%ef+'\t'
-                    hits_str += ' %d '%hits
-                EF_str += ']'
-                hits_str += ']'
-                end = time.time()
-                with open(save_file,'a') as f:
-                    f.write(pro+ '\t'+'actions: '+str(actions)+ '\t' + 'actions_rate: '+str(action_rate)+ '\t' + 'hits: '+ hits_str +'\t'+'loss:' + str(test_losses)+'\n'\
-                        +'EF:'+rate_str+ '\t'+'test_auroc'+ '\t'+'test_adjust_logauroc'+ '\t'+'test_auprc'+ '\t'+'test_balanced_acc'+ '\t'+'test_acc'+ '\t'+'test_precision'+ '\t'+'test_sensitity'+ '\t'+'test_specifity'+ '\t'+'test_f1' +'\t' +'time'+ '\n')
-                    f.write( EF_str + '\t'+str(test_auroc)+ '\t'+str(test_adjust_logauroc)+ '\t'+str(test_auprc)+ '\t'+str(test_balanced_acc)+ '\t'+str(test_acc)+ '\t'+str(test_precision)+ '\t'+str(test_sensitity)+ '\t'+str(test_specifity)+ '\t'+str(test_f1) +'\t'+ str(end-st)+ '\n')
-                    f.close()
-                EFs.append(EF)
+                test_losses,test_true,test_pred = evaluator(model,test_dataloader,loss_fn,args,val_sampler)
+                if args.local_rank == 0:
+                    test_auroc,test_adjust_logauroc,test_auprc,test_balanced_acc,test_acc,test_precision,test_sensitity,test_specifity,test_f1 = get_metrics(test_true,test_pred)
+                    test_losses = np.mean(np.array(test_losses))
+                    Y_sum = 0
+                    for key in test_keys_pro:
+                        key_split = key.split('_')
+                        if 'active' in key_split:
+                            Y_sum += 1
+                    actions = int(Y_sum)
+                    action_rate = actions/len(test_keys_pro)
+                    #保存logits 进行下一步分析
+                    # test_pred = np.concatenate(np.array(test_pred), 0)
+                    EF = []
+                    hits_list = []
+                    for rate in rates:
+                        find_limit = int(len(test_keys_pro)*rate)
+                        # print(find_limit)
+                        _,indices = torch.sort(torch.tensor(test_pred),descending = True)
+                        hits = torch.sum(indices[:find_limit] < actions)
+                        EF.append((hits/find_limit)/action_rate)
+                        hits_list.append(hits)
+                        # print(hits,actions,action_rate)
+                    
+                    EF_str = '['
+                    hits_str = '['
+                    for ef,hits in zip(EF,hits_list):
+                        EF_str += '%.3f'%ef+'\t'
+                        hits_str += ' %d '%hits
+                    EF_str += ']'
+                    hits_str += ']'
+                    end = time.time()
+                    with open(save_file,'a') as f:
+                        f.write(pro+ '\t'+'actions: '+str(actions)+ '\t' + 'actions_rate: '+str(action_rate)+ '\t' + 'hits: '+ hits_str +'\t'+'loss:' + str(test_losses)+'\n'\
+                            +'EF:'+rate_str+ '\t'+'test_auroc'+ '\t'+'test_adjust_logauroc'+ '\t'+'test_auprc'+ '\t'+'test_balanced_acc'+ '\t'+'test_acc'+ '\t'+'test_precision'+ '\t'+'test_sensitity'+ '\t'+'test_specifity'+ '\t'+'test_f1' +'\t' +'time'+ '\n')
+                        f.write( EF_str + '\t'+str(test_auroc)+ '\t'+str(test_adjust_logauroc)+ '\t'+str(test_auprc)+ '\t'+str(test_balanced_acc)+ '\t'+str(test_acc)+ '\t'+str(test_precision)+ '\t'+str(test_sensitity)+ '\t'+str(test_specifity)+ '\t'+str(test_f1) +'\t'+ str(end-st)+ '\n')
+                        f.close()
+                    EFs.append(EF)
             except:
                 print(pro,':skip for some bug')
                 continue
-        EFs = list(np.sum(np.array(EFs),axis=0)/len(EFs))
-        EFs_str = '['
-        for ef in EFs:
-            EFs_str += str(ef)+'\t'
-        EFs_str += ']'
-        args_dict = vars(args)
-        with open(save_file,'a') as f:
-                f.write( 'average EF for different EF_rate:' + EFs_str +'\n')
-                for item in args_dict.keys():
-                    f.write(item + ' : '+str(args_dict[item]) + '\n')
-                f.close()
+        if args.local_rank == 0:
+            EFs = list(np.sum(np.array(EFs),axis=0)/len(EFs))
+            EFs_str = '['
+            for ef in EFs:
+                EFs_str += str(ef)+'\t'
+            EFs_str += ']'
+            args_dict = vars(args)
+            with open(save_file,'a') as f:
+                    f.write( 'average EF for different EF_rate:' + EFs_str +'\n')
+                    for item in args_dict.keys():
+                        f.write(item + ' : '+str(args_dict[item]) + '\n')
+                    f.close()
+        dist.barrier()
 def getEF_from_MSE(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_fn,rates = 0.01):
 
         

@@ -1,4 +1,4 @@
-from layers_edge_update import GetLayer
+from layers_edge_update_gated import GetLayer
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
@@ -10,7 +10,7 @@ from graphformer_dataset import Batch
 from torch.autograd import Variable
 N_atom_features = 28
 import copy
-class gnn_edge(torch.nn.Module):
+class gnn_edge_gated(torch.nn.Module):
     def __init__(self, args):
         super().__init__()
         self.args = args
@@ -29,13 +29,14 @@ class gnn_edge(torch.nn.Module):
             atom_dim = 16*10 if self.args.FP else 10*5
             self.atom_encoder = nn.Embedding(atom_dim  + 1, self.args.n_out_feature, padding_idx=0)
         self.edge_encoder = nn.Embedding( 35* 5 + 1, self.args.edge_dim, padding_idx=0) if args.edge_bias is True else nn.Identity()
-        self.rel_pos_encoder = nn.Embedding(512, self.args.head_size, padding_idx=0) if args.rel_pos_bias is True else nn.Identity()#rel_pos
+        self.rel_pos_encoder = nn.Embedding(512, self.args.edge_dim, padding_idx=0) if args.rel_pos_bias is True else nn.Identity()#rel_pos
         self.in_degree_encoder = nn.Embedding(10, self.args.n_out_feature, padding_idx=0) if args.in_degree_bias is True else nn.Identity()
         # self.out_degree_encoder = nn.Embedding(10, self.args.n_out_feature, padding_idx=0) if args.out_degree_bias is True else nn.Identity()
         self.rel_3d_encoder = nn.Embedding(65, self.args.edge_dim, padding_idx=0) if args.rel_3d_pos_bias is True else nn.Identity()
         #share layers
         self.linear_3d_pos =  nn.Linear(self.args.edge_dim, self.args.head_size)
-
+        self.linear_rel_pos =  nn.Linear(self.args.edge_dim, self.args.head_size) if args.rel_pos_bias is True else nn.Identity()
+        
         self.layers1 = [self.args.n_out_feature for i in range(self.args.n_graph_layer+1)]
             #self.gconv1 = nn.ModuleList([GAT_gate(self.layers1[i], self.layers1[i+1]) for i in range(len(self.layers1)-1)]) 
         self.gconv1 = nn.ModuleList([GetLayer(args) for i in range(len(self.layers1)-1)]) #2层
@@ -57,7 +58,9 @@ class gnn_edge(torch.nn.Module):
         # rel pos
         if self.args.rel_pos_bias is True:
             # have to fix#
-            rel_pos_bias = self.rel_pos_encoder(rel_pos).permute(0, 3, 1, 2)# # [n_graph, n_node, n_node, n_head] -> [n_graph, n_head, n_node, n_node]
+            rel_pos_bias = self.rel_pos_encoder(rel_pos)#.permute(0, 3, 1, 2)# # [n_graph, n_node, n_node, n_head] -> [n_graph, n_head, n_node, n_node]
+            rel_pos_bias = nn.functional.relu(rel_pos_bias)
+            rel_pos_bias = self.linear_3d_pos(rel_pos_bias).permute(0, 3, 1, 2)
             graph_attn_bias = graph_attn_bias + rel_pos_bias 
         # rel 3d pos
         if self.args.rel_3d_pos_bias is True :
@@ -78,9 +81,6 @@ class gnn_edge(torch.nn.Module):
             node_feature = self.atom_encoder(x.long()).mean(-2)
         if self.args.in_degree_bias:
             node_feature = node_feature + self.in_degree_encoder(in_degree)
-        # if self.args.out_degree_bias:
-        #     node_feature = node_feature + self.out_degree_encoder(out_degree)
-        # self.out_degree_encoder(out_degree)
         return node_feature 
     def embede_single_graph(self, data):
         c_hs_2 = self.GetNodeFea(data.H,data.in_degree_1)
@@ -95,6 +95,7 @@ class gnn_edge(torch.nn.Module):
         # regularization = torch.empty(len(self.gconv1), device=data.H.device)
         for k in range(len(self.gconv1)):
             # x, adj,adj1,use_adj,edge_fea,attn_bias=None
+            
             c_hs_2,edge_input = self.gconv1[k](c_hs_2, data.A2,data.A1,self.args.use_adj,edge_input,attn_bias_2)
             c_hs_2 = F.dropout(c_hs_2, p=self.args.dropout_rate, training=self.training)
             edge_input = F.dropout(edge_input, p=self.args.dropout_rate, training=self.training)
