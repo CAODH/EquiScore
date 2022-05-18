@@ -1,0 +1,17 @@
+2022-05-18 08:00:31
+Available GPU List
+id	utilization.gpu(%)	memory.free(MiB)
+3 	0                 	32506           
+4 	0                 	32506           
+5 	0                 	32506           
+6 	0                 	32506           
+7 	0                 	32506           
+Select id #3, 4, 5, 6 for you.
+load save model!
+Let's use 4 GPUs!
+load save model!
+Let's use 4 GPUs!
+load save model!
+Let's use 4 GPUs!
+load save model!
+Let's use 4 GPUs!
