@@ -92,9 +92,12 @@ def run(local_rank,args,*more_args,**kwargs):
         model = gnn(args) 
     elif args.gnn_edge == 'gnn_edge':
         model = gnn_edge(args)
-    else:
+    elif args.gnn_edge == 'gnn_edge_gated':
         model = gnn_edge_gated(args)
-    model = gnn_edge(args) if args.gnn_edge else gnn(args) 
+    else:
+        print('no this model type')
+        exit()
+    # model = gnn_edge(args) if args.gnn_edge else gnn(args) 
 
     print ('number of parameters : ', sum(p.numel() for p in model.parameters() if p.requires_grad))
 
@@ -218,7 +221,7 @@ if '__main__' == __name__:
     parser = argparse.ArgumentParser(description='json param')
     parser.add_argument('--local_rank', default=-1, type=int) 
     parser.add_argument("--json_path", help="file path of param", type=str, \
-        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/gnn_edge_3d_pos_dist_large_screen.json')
+        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/gnn_edge_3d_pos_dist_large_gated.json')
     args = parser.parse_args()
     local_rank = args.local_rank
     # label_smoothing# temp_args = parser.parse_args()
@@ -235,7 +238,7 @@ if '__main__' == __name__:
         else:
             os.environ['CUDA_VISIBLE_DEVICES']=cmd
     os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = "29502"
+    os.environ["MASTER_PORT"] = "29512"
     # os.environ["TORCH_CPP_LOG_LEVEL"]="INFO"
     # os.environ[
     #     "TORCH_DISTRIBUTED_DEBUG"

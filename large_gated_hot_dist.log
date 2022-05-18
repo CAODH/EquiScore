@@ -1,0 +1,26 @@
+2022-05-18 09:27:21
+Available GPU List
+id	utilization.gpu(%)	memory.free(MiB)
+4 	0                 	32506           
+5 	0                 	32506           
+6 	0                 	32506           
+7 	0                 	32510           
+Select id #4, 5, 6 for you.
+Number of train data: 62343
+Number of val data: 6927
+Number of test data: 23986
+number of parameters :  215388
+load save model!
+Let's use 3 GPUs!
+Number of train data: 62343
+Number of val data: 6927
+Number of test data: 23986
+number of parameters :  215388
+load save model!
+Let's use 3 GPUs!
+Number of train data: 62343
+Number of val data: 6927
+Number of test data: 23986
+number of parameters :  215388
+load save model!
+Let's use 3 GPUs!

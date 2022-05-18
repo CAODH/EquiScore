@@ -3,7 +3,7 @@
     "label_smothing":0.0,
     "add_logk_reg":false,
     "reg_lambda":0.1,
-    "gnn_edge":true,
+    "gnn_edge":"gnn_edge",
     "epoch": 400,
     "ngpu": 4,
     "batch_size":4,
