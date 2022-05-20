@@ -3,6 +3,7 @@ import pickle
 # from optuna.trial import TrialState
 from gnn import gnn
 from gnn_edge import gnn_edge
+from gnn_edge_gated import gnn_edge_gated
 import time
 import numpy as np
 import utils
@@ -44,8 +45,18 @@ def run(local_rank,args,*more_args,**kwargs):
         args.N_atom_features = 39
     else:
         args.N_atom_features = 28
-        
-    model = gnn_edge(args) if args.gnn_edge else gnn(args) 
+    # model select
+    if args.gnn_edge == 'gnn':
+        model = gnn(args) 
+    elif args.gnn_edge == 'gnn_edge':
+        model = gnn_edge(args)
+    elif args.gnn_edge == 'gnn_edge_gated':
+        model = gnn_edge_gated(args)
+    else:
+        print('no this model type')
+        exit()
+    # model = gnn_edge(args) if args.gnn_edge else gnn(args) 
+   
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     args.device = device
@@ -84,7 +95,7 @@ if '__main__' == __name__:
     parser = argparse.ArgumentParser(description='json param')
     parser.add_argument('--local_rank', default=-1, type=int) 
     parser.add_argument("--json_path", help="file path of param", type=str, \
-        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/gnn_edge_3d_pos_dist_large.json')
+        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/gnn_edge_3d_pos_dist_large_gated.json')
     args = parser.parse_args()
     local_rank = args.local_rank
     # label_smoothing# temp_args = parser.parse_args()
