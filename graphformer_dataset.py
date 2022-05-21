@@ -141,6 +141,7 @@ class graphformerDataset(Dataset):
             dm = (d1,d2) )
         # print('item_time:',time.time()-time_s)
         g ,full_g= preprocess_item(item_1, self.args,file_path,adj_graph_1,noise=False,size = size)
+        full_g.edata['adj2'] = torch.tensor(dm_all).view(-1,1).contiguous()
         # print('item_g:',time.time()-time_s)
         #item, args,file_path,adj,term,noise=False
         valid = torch.zeros((n1+n2,))

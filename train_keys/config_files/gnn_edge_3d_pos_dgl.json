@@ -39,7 +39,7 @@
     "head_size": 8,
     "patience": 25,
     "gate": false,
-    "debug": false,
+    "debug": true,
     "test": true,
     "sampler": false,
     "A2_limit": false,

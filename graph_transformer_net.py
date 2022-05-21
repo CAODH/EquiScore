@@ -39,26 +39,29 @@ class GraphTransformerNet(nn.Module):
         # self.layers.append(GraphTransformerLayer(hidden_dim, out_dim, num_heads, dropout, self.layer_norm, self.batch_norm, self.residual))
         self.MLP_layer = MLPReadout(self.args.n_out_feature, 2)   # 1 out dim since regression problem        
         
-    def forward(self, g, full_g,h,e,in_degree=None,lap_pos_enc = None):
+    def forward(self, g, full_g):
 
         # input embedding
-        # h = g.ndata['x']
+        h = g.ndata['x']
 
         h = self.atom_encoder(h.long()).mean(-2)
         h = self.in_feat_dropout(h)
         if self.args.lap_pos_enc:
-            # h_lap_pos_enc = g.ndata['pos_lp_enc']
-            h_lap_pos_enc = self.embedding_lap_pos_enc(lap_pos_enc.float()) 
+            h_lap_pos_enc = g.ndata['pos_lp_enc']
+            h_lap_pos_enc = self.embedding_lap_pos_enc(h_lap_pos_enc.float()) 
             h = h + h_lap_pos_enc
         if self.args.in_degree_bias:
-            h = h+ self.in_degree_encoder(in_degree)
-        e = self.edge_encoder(e).mean(-2)
-        
-        
+            h = h+ self.in_degree_encoder(g.ndata['in_degree'])
+        e = self.edge_encoder(g.edata['edge_attr']).mean(-2)
+        # full_g and rel_pos or 3d pos 
+        if self.args.rel_pos_bias:
+
+            full_g['rel_pos_bias'] = None
+        if self.args.args.rel_3d_pos_bias:
+            full_g['args.rel_3d_pos_bias'] = None
         # convnets
         for conv in self.layers:
             h, e = conv(g, h, e)
-
         # select ligand atom for predict
         g.ndata['h'] = h * g.ndata['V']
 

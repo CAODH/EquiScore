@@ -286,21 +286,21 @@ def evaluator(model,loader,loss_fn,args):
             model.zero_grad()
             g = g.to(args.device)
             full_g.to(args.device)
-            x = g.ndata['x']
-            e = g.edata['edge_attr']
-            if args.in_degree_bias:
-                in_degree = g.ndata['in_degree']
-            else:
-                in_degree = None
+            # x = g.ndata['x']
+            # e = g.edata['edge_attr']
+            # if args.in_degree_bias:
+            #     in_degree = g.ndata['in_degree']
+            # else:
+            #     in_degree = None
 
             #g, full_g,h,e,in_degree=None,lap_pos_enc = None
-            if args.lap_pos_enc:
+            # if args.lap_pos_enc:
 
-                batch_lap_pos_enc = g.ndata['lap_pos_enc']
+            #     batch_lap_pos_enc = g.ndata['lap_pos_enc']
                 
-            else:
-                batch_lap_pos_enc = None
-            pred = model(g,full_g,x,e,in_degree,batch_lap_pos_enc)
+            # else:
+            #     batch_lap_pos_enc = None
+            pred = model(g,full_g)
             # pred = model(g,full_g)
 
 
@@ -330,12 +330,12 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss):
         # data_flag,data = data_to_device(sample,args.device)
         g = g.to(args.device)
         full_g = full_g.to(args.device)
-        x = g.ndata['x']
-        e = g.edata['edge_attr']
-        if args.in_degree_bias:
-            in_degree = g.ndata['in_degree']
-        else:
-            in_degree = None
+        # x = g.ndata['x']
+        # e = g.edata['edge_attr']
+        # if args.in_degree_bias:
+        #     in_degree = g.ndata['in_degree']
+        # else:
+        #     in_degree = None
 
         #g, full_g,h,e,in_degree=None,lap_pos_enc = None
         if args.lap_pos_enc:
@@ -343,13 +343,14 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss):
             batch_lap_pos_enc = g.ndata['lap_pos_enc']
             sign_flip = torch.rand(batch_lap_pos_enc.size(1)).to(args.device)
             sign_flip[sign_flip>=0.5] = 1.0; sign_flip[sign_flip<0.5] = -1.0
-            batch_lap_pos_enc = batch_lap_pos_enc * sign_flip.unsqueeze(0)
-        else:
-            batch_lap_pos_enc = None
-        print('time updata to cuda:',time.time() -time_s)
+            g.ndata['lap_pos_enc'] = batch_lap_pos_enc * sign_flip.unsqueeze(0)
 
-        pred = model(g,full_g,x,e,in_degree,batch_lap_pos_enc)
-        print('time updata to train:',time.time() -time_s)
+        # else:
+        #     # batch_lap_pos_enc = None
+        # print('time updata to cuda:',time.time() -time_s)
+
+        pred = model(g,full_g)
+        # print('time updata to train:',time.time() -time_s)
         loss = loss_fn(pred, Y.long().to(pred.device))
         if args.add_logk_reg:
             # print(model.reg_value.shape,sample.Y.shape,sample.value.shape)
@@ -372,7 +373,7 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss):
             optimizer.step()
             model.zero_grad()
         # print('batch_loss:',loss)
-        print('time updata to loss backward pro:',time.time() -time_s)
+        # print('time updata to loss backward pro:',time.time() -time_s)
         loss = loss.data.cpu().numpy()*6 if args.grad_sum else loss.data.cpu().numpy()
         train_losses.append(loss)
         
