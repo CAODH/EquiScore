@@ -3,7 +3,7 @@
     "label_smothing":0.0,
     "add_logk_reg":false,
     "gnn_model":"graph_transformer_dgl",
-    "lap_pos_enc":true,
+    "lap_pos_enc":false,
     "pos_enc_dim":16,
     "reg_lambda":0.1,
     "layer_norm":true,

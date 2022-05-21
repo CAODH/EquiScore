@@ -338,16 +338,12 @@ def preprocess_item(item, args,file_path,adj,term='item_1',noise=False,size = No
     g.ndata['in_degree'] = torch.where(adj_in > 8,9,adj_in) if args.in_degree_bias else None
     g.edata['edge_attr'] = edge_attr
 
-    full_g = dgl.from_networkx(nx.complete_graph(g.number_of_nodes()))#g.number_of_nodes()
     src,dst = np.where(np.ones_like(adj)==1)
     full_g = dgl.graph((src,dst))
-    # # print('get full graph : ',time.time()-time_s)
-    # full_g = full_g.add_self_loop() # add eye 
-    # # full_g.edata['rel_pos'] = rel_pos.view(-1,1) if 
+
     if args.rel_3d_pos_bias:
         all_rel_pos_3d_with_noise = torch.from_numpy(pandas_bins(item['rel_pos_3d'],num_bins = None,noise = False)).long() 
         full_g.edata['all_rel_pos_3d'] = all_rel_pos_3d_with_noise.view(-1,1).contiguous()#torch.long
-    # # print('get 3d rel pos for full graph: ',time.time()-time_s)
     
     return g,full_g
 
