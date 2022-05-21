@@ -68,12 +68,12 @@ class graphformerDataset(Dataset):
     def collate(self, samples):
         # The input samples is a list of pairs (graph, label).
         ''' collate function for building graph dataloader'''
-        g,Y = map(list, zip(*samples))
+        g,full_g,Y = map(list, zip(*samples))
 
         batch_g = dgl.batch(g)
-        # batch_full_g = dgl.batch(full_g)
+        batch_full_g = dgl.batch(full_g)
         Y = torch.tensor(Y).long()
-        return batch_g, Y
+        return batch_g, batch_full_g,Y
     def __getitem__(self, idx):
         #idx = 0
         key = self.keys[idx]
@@ -136,10 +136,12 @@ class graphformerDataset(Dataset):
             agg_adj1 = torch.cat([agg_adj1, torch.zeros_like(agg_adj1[:,0].reshape(-1,1))], dim = 1)
             agg_adj2 = torch.cat([agg_adj2, torch.ones_like(agg_adj2[0].unsqueeze(0))], dim = 0)
             agg_adj2 = torch.cat([agg_adj2, torch.ones_like(agg_adj2[:,0].reshape(-1,1))], dim = 1)
-        
+        # time_s = time.time()
         item_1 = mol2graph(pocket,H,self.args,adj = adj_graph_1,n1 = n1,n2 = n2,\
             dm = (d1,d2) )
-        g = preprocess_item(item_1, self.args,file_path,adj_graph_1,noise=False,size = size)
+        # print('item_time:',time.time()-time_s)
+        g ,full_g= preprocess_item(item_1, self.args,file_path,adj_graph_1,noise=False,size = size)
+        # print('item_g:',time.time()-time_s)
         #item, args,file_path,adj,term,noise=False
         valid = torch.zeros((n1+n2,))
         if self.args.pred_mode == 'ligand':
@@ -171,12 +173,14 @@ class graphformerDataset(Dataset):
                 value = 0
         g.ndata['V'] = valid.long().reshape(-1,1)
         # full_g.edata['adj2'] = agg_adj2.view(-1,1).contiguous()
-        return g,Y
+        return g,full_g,Y
 
 if __name__ == "__main__":
 
     import argparse
     from rdkit import RDLogger
+    from dgl import save_graphs, load_graphs
+    import dgl
     RDLogger.DisableLog('rdApp.*')
     # from train import get_args_from_json
     from torch.utils.data import DataLoader
@@ -194,63 +198,42 @@ if __name__ == "__main__":
     args = get_args_from_json(args_dict['json_path'], args_dict)
     args = argparse.Namespace(**args)
     # print (args)
-    with open (args.train_keys, 'rb') as fp:
-        train_keys = pickle.load(fp)
-    train_keys,val_keys = random_split(train_keys, split_ratio=0.9, seed=0, shuffle=True)
-    val_dataset = graphformerDataset(val_keys,args, args.data_path,args.debug)
-    # print(val_dataset)
-    val_dataloader = DataLoaderX(val_dataset, args.batch_size, \
-        shuffle=False, num_workers = args.num_workers, collate_fn=val_dataset.collate,pin_memory=True)
-    for g,full_g,Y in val_dataloader:
+    train_keys = glob.glob('/home/caoduanhua/score_function/data/general_refineset/refineset_active_pocket_without_h/*')
+    save_dir = '/home/caoduanhua/score_function/data/dgl_full_graph/'
+    
+    pbar = tqdm(train_keys)
+    for i,key in enumerate(pbar):
         try:
-            print(g.num_nodes(),g.num_edges())
-            print(full_g.num_nodes(),full_g.num_edges())
-            # print(Y)/
-        except :
-            print('something error!')
-    # data_dir = '../../data/pocket_data/'
-    # save_dir = '../../data/pocket_data_path/'
-    # if not os.path.exists(save_dir):
-    #     os.makedirs(save_dir)
-    # keys = os.listdir(data_dir)
-    # pbar = tqdm(keys)
-    # for i,key in enumerate(pbar):
-    #     if not os.path.exists(save_dir + key):
+            with open(key, 'rb') as f:
+                m1,m2= pickle.load(f)
+        except:
+            print('file: {} is not a valid file！'.format(key))
+        n1,d1,adj1 = utils.get_mol_info(m1)
+        n2,d2,adj2 = utils.get_mol_info(m2)
+        # pocket = Chem.CombineMols(m1,m2)
+        H1 = get_atom_graphformer_feature(m1,FP = args.FP)
+        H2 = get_atom_graphformer_feature(m2,FP = args.FP)
+        if args.virtual_aromatic_atom:
+            adj1,H1,d1,n1 = utils.add_atom_to_mol(m1,adj1,H1,d1,n1)
+            # print( adj1,H1,d1,n1)
+            adj2,H2,d2,n2 = utils.add_atom_to_mol(m2,adj2,H2,d2,n2)
+            # print( adj2,H2,d2,n2)
+        # H = torch.from_numpy(np.concatenate([H1, H2], 0))
+ 
+        dm = distance_matrix(d1,d2)
+        dm_all = distance_matrix(np.concatenate([d1,d2],axis=0),np.concatenate([d1,d2],axis=0))
 
-    #         with open(data_dir+key, 'rb') as f:
-    #             m1,_,m2,_ = pickle.load(f)
-
-            
-    #         n1 = m1.GetNumAtoms()
-    #         c1 = m1.GetConformers()[0]
-    #         d1 = np.array(c1.GetPositions())
-    #         adj1 = GetAdjacencyMatrix(m1)+np.eye(n1)
-            
-    #         n2 = m2.GetNumAtoms()
-    #         c2 = m2.GetConformers()[0]
-    #         d2 = np.array(c2.GetPositions())
-    #         adj2 = GetAdjacencyMatrix(m2)+np.eye(n2)
-            
-    #         agg_adj1 = np.zeros((n1+n2, n1+n2))
-    #         agg_adj1[:n1, :n1] = adj1
-    #         agg_adj1[n1:, n1:] = adj2
-    #         agg_adj2 = np.copy(agg_adj1)
-    #         dm = distance_matrix(d1,d2)
-    #         dm = np.where(dm <5.0 ,1,0)
-
-    #         agg_adj2[:n1,n1:] = np.copy(dm)
-    #         agg_adj2[n1:,:n1] = np.copy(np.transpose(dm))
-            
-    #         shortest_path_result_mol, path_mol = algos.floyd_warshall(agg_adj1)
-    #         shortest_path_result_pro, path_pro = algos.floyd_warshall(agg_adj2)
-    #         with open(save_dir+key ,'ab') as f:
-    #             pickle.dump((shortest_path_result_mol, path_mol,shortest_path_result_pro, path_pro),f)
-    #             f.close()
+        full_g = dgl.from_networkx(nx.complete_graph(n1 + n2))#g.number_of_nodes()
+        full_g = full_g.add_self_loop() 
+        all_rel_pos_3d_with_noise = torch.from_numpy(pandas_bins(dm_all,num_bins = None,noise = False)).long()
+        full_g.edata['all_rel_pos_3d'] = all_rel_pos_3d_with_noise.view(-1,1).contiguous()
+        with open(os.path.join(save_dir,key.split('/')[-1]),'wb') as f:
+            pickle.dump(full_g,f)
+            f.close()
         
-    #     if i %10 == 0:
-
-    #         pbar.update(10)
-    #         pbar.set_description("Processing %d remain %d "%(i,len(pbar)- i))
+        if i %100 == 0:
+            pbar.update(100)
+            pbar.set_description("Processing %d remain %d "%(i,len(pbar)- i))
 
 
         

@@ -196,7 +196,7 @@ def molEdge(mol,n1,n2,adj_mol = None):
         edges_list.extend([(j,i + n) for (i,j) in zip(*edge_pos)])
         edge_features_list.extend([[33,17,3,3,17] for edge_tuple in zip(*edge_pos)])
         adj_mol += np.eye(len(adj_mol))
-    assert np.max(edges_list) < len(adj_mol),'edge_index must be less than nodes! ' 
+    # assert np.max(edges_list) < len(adj_mol),'edge_index must be less than nodes! ' 
     return edges_list ,edge_features_list
 def pocketEdge(mol,n1,n2,adj_pocket = None):
     edges_list = []
@@ -226,7 +226,7 @@ def pocketEdge(mol,n1,n2,adj_pocket = None):
         edges_list.extend([(j + n1,i + n) for (i,j) in zip(*edge_pos)])
         edge_features_list.extend([[33,17,3,3,17] for edge_tuple in zip(*edge_pos)])
         adj_pocket += np.eye(all_n)
-    assert np.max(edges_list) < len(adj_pocket),'edge_index must be less than nodes! ' 
+    # assert np.max(edges_list) < len(adj_pocket),'edge_index must be less than nodes! ' 
     return edges_list ,edge_features_list
 def getEdge(mols,n1,n2,adj_in = None):
     num_bond_features = 5
@@ -252,7 +252,7 @@ def getEdge(mols,n1,n2,adj_in = None):
     else:
         edge_index = np.array(edges_list, dtype = np.int64).T
         edge_attr = torch.tensor(edge_features_list, dtype = torch.int64)
-        assert np.max(edge_index) < len(adj_in),'edge_index must be less than nodes! ' 
+        # assert np.max(edge_index) < len(adj_in),'edge_index must be less than nodes! ' 
     return edge_index,edge_attr
 
 def mol2graph(mol,x,args,n1,n2,adj = None,dm = None):
@@ -315,7 +315,9 @@ def pandas_bins(dis_matrix,num_bins = None,noise = False):
     bins_index = np.array(pd.cut(dis_matrix.flatten(),bins = bins,labels = [i for i in range(len(bins) -1)])).reshape(shape)
     return bins_index
 def preprocess_item(item, args,file_path,adj,term='item_1',noise=False,size = None):
+    # time_s = time.time()
     edge_attr, edge_index, x  = item['edge_feat'], item['edge_index'], item['node_feat']
+    # print('get edge from  molgraph: ',time.time()-time_s)
     N = x.size(0)
     # print('num features:',N)
     if args.fundation_model == 'graphformer':
@@ -323,48 +325,31 @@ def preprocess_item(item, args,file_path,adj,term='item_1',noise=False,size = No
         x = convert_to_single_emb(x,offset = offset)
     adj = torch.tensor(adj,dtype=torch.long)
     # edge feature here
-    all_rel_pos_3d_with_noise = torch.from_numpy(pandas_bins(item['rel_pos_3d'],num_bins = None,noise = False)).long() \
-        if args.rel_3d_pos_bias and  term == 'item_1' else None
-
-    if args.rel_pos_bias and size:
-        if os.path.exists(file_path):
-            with open(file_path,'rb') as f:
-                if term == 'term_2':
-                    shortest_path_result, path,_,_ = pickle.load(f)
-                else:
-                    _,_,shortest_path_result, path = pickle.load(f)
-        else:
-            shortest_path_result, path = algos.floyd_warshall(adj[:size[0],:size[0]].numpy())
-        rel_pos = torch.zeros_like(adj)
-        rel_pos_ligand = torch.from_numpy((shortest_path_result)).long() #if args.rel_pos else None
-        rel_pos[:size[0],:size[0]] = rel_pos_ligand
-    else:
-        rel_pos = None
-        # sprse grpah 
     g = dgl.graph((edge_index[0, :], edge_index[1, :]),num_nodes=len(adj))
+    # print('get dgl_graph: ',time.time()-time_s)
     # 这里不包含self loop
     # g.add
     if args.lap_pos_enc:
-        # try:
+
         g.ndata['lap_pos_enc'] = get_pos_lp_encoding(adj.numpy(),pos_enc_dim = args.pos_enc_dim)
-        #     print('lp pos encoding ')
-        # except:
-        #     g.ndata['lap_pos_enc'] = torch.zeros(len(adj),args.pos_enc_dim)
-    time_s = time.time()
+ 
     g.ndata['x']  = x
     adj_in = adj.long().sum(dim=1).view(-1)
     g.ndata['in_degree'] = torch.where(adj_in > 8,9,adj_in) if args.in_degree_bias else None
     g.edata['edge_attr'] = edge_attr
-    # full connect graph
+
     full_g = dgl.from_networkx(nx.complete_graph(g.number_of_nodes()))#g.number_of_nodes()
-    full_g = full_g.add_self_loop() # add eye 
-    # full_g.edata['rel_pos'] = rel_pos.view(-1,1) if 
-    if rel_pos is not None:
-        full_g.edata['rel_pos'] = rel_pos.view(-1,1).contiguous() 
+    src,dst = np.where(np.ones_like(adj)==1)
+    full_g = dgl.graph((src,dst))
+    # # print('get full graph : ',time.time()-time_s)
+    # full_g = full_g.add_self_loop() # add eye 
+    # # full_g.edata['rel_pos'] = rel_pos.view(-1,1) if 
     if args.rel_3d_pos_bias:
+        all_rel_pos_3d_with_noise = torch.from_numpy(pandas_bins(item['rel_pos_3d'],num_bins = None,noise = False)).long() 
         full_g.edata['all_rel_pos_3d'] = all_rel_pos_3d_with_noise.view(-1,1).contiguous()#torch.long
+    # # print('get 3d rel pos for full graph: ',time.time()-time_s)
     
-    return g
+    return g,full_g
 
 
 
