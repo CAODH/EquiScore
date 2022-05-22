@@ -88,7 +88,7 @@ def run(args):
 
     #initialize model
     if args.ngpu>0:
-        cmd = get_available_gpu(num_gpu=args.ngpu, min_memory=10000, sample=3, nitro_restriction=False, verbose=True)
+        cmd = get_available_gpu(num_gpu=args.ngpu, min_memory=8000, sample=3, nitro_restriction=False, verbose=True)
         # cmd = '1,'
         #cmd = utils.set_cuda_visible_device(args.ngpu)
         if cmd[-1] == ',':

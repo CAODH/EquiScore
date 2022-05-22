@@ -27,10 +27,12 @@ class GraphTransformerNet(nn.Module):
         self.in_feat_dropout = nn.Dropout(self.args.dropout)
         self.atom_encoder = nn.Embedding(atom_dim  + 1, self.args.n_out_feature, padding_idx=0)
         self.edge_encoder = nn.Embedding( 35* 5 + 1, self.args.edge_dim, padding_idx=0) if args.edge_bias is True else nn.Identity()
-        self.rel_pos_encoder = nn.Embedding(512, self.args.head_size, padding_idx=0) if args.rel_pos_bias is True else nn.Identity()#rel_pos
+        self.rel_pos_encoder = nn.Embedding(512, self.args.edge_dim, padding_idx=0) if args.rel_pos_bias is True else nn.Identity()#rel_pos
         self.in_degree_encoder = nn.Embedding(10, self.args.n_out_feature, padding_idx=0) if args.in_degree_bias is True else nn.Identity()
         self.rel_3d_encoder = nn.Embedding(65, self.args.edge_dim, padding_idx=0) if args.rel_3d_pos_bias is True else nn.Identity()
-        self.linear_3d_pos =  nn.Linear(self.args.edge_dim, self.args.head_size,bias = False)
+        self.linear_3d_pos =  nn.Linear(self.args.edge_dim, self.args.head_size)
+        if args.rel_pos_bias:
+            self.linear_rel_pos =  nn.Linear(self.args.edge_dim, self.args.head_size) 
         if self.args.lap_pos_enc:
             self.embedding_lap_pos_enc = nn.Linear(self.args.pos_enc_dim, self.args.n_out_feature)
         self.layers = nn.ModuleList([ GraphTransformerLayer(self.args.n_out_feature,self.args.n_out_feature, \
@@ -52,16 +54,21 @@ class GraphTransformerNet(nn.Module):
             h = h + h_lap_pos_enc
         if self.args.in_degree_bias:
             h = h+ self.in_degree_encoder(g.ndata['in_degree'])
-        e = self.edge_encoder(g.edata['edge_attr']).mean(-2)
-        # full_g and rel_pos or 3d pos 
-        if self.args.rel_pos_bias:
 
-            full_g['rel_pos_bias'] = None
-        if self.args.args.rel_3d_pos_bias:
-            full_g['args.rel_3d_pos_bias'] = None
+
+        e = self.edge_encoder(g.edata['edge_attr']).mean(-2)
+        try:
+            full_g.edata['adj2'] = torch.exp(-torch.pow(full_g.edata['adj2']-self.mu.expand_as(full_g.edata['adj2']), 2)/self.dev + 1e-6).float()
+        except:
+            print(full_g.edata['adj2'].device,self.dev.device)
+        if self.args.rel_3d_pos_bias:
+            rel_3d_bias = self.rel_3d_encoder(full_g.edata['rel_pos_3d'])#.permute(0, 3, 1, 2)
+            rel_3d_bias = nn.functional.relu(rel_3d_bias)
+            full_g.edata['rel_pos_3d'] = self.linear_3d_pos(rel_3d_bias).view(-1,self.args.head_size).contiguous().float()
+
         # convnets
         for conv in self.layers:
-            h, e = conv(g, h, e)
+            h, e = conv(g,full_g,h,e)
         # select ligand atom for predict
         g.ndata['h'] = h * g.ndata['V']
 

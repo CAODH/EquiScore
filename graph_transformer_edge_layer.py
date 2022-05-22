@@ -44,8 +44,21 @@ def out_edge_features(edge_feat):
 def exp(field):
     def func(edges):
         # clamp for softmax numerical stability
-        return {field: torch.exp((edges.data[field].sum(-1, keepdim=True)).clamp(-5, 5))}
+         return {field: torch.exp((edges.data[field].sum(-1, keepdim=True)).clamp(-5, 5))}
+        # return {field: torch.exp((edges.data[field].sum(-1, keepdim=True)).clamp(-5, 5))}
     return func
+# for global decoy func
+def dot_exp(field,adj,rel_pos):
+    def func(edges):
+        # clamp for softmax numerical stability
+        # print('shape')
+        # print(edges.data[field].sum(-1, keepdim=True).shape)
+        # print(edges.data[rel_pos].unsqueeze(-1).shape)
+        # print(edges.data[adj].shape)
+        return {field: torch.exp((edges.data[field].sum(-1, keepdim=True) + edges.data[rel_pos].unsqueeze(-1)).clamp(-5, 5)*edges.data[adj].unsqueeze(1))}
+        # return {field: torch.exp((edges.data[field].sum(-1, keepdim=True)).clamp(-5, 5))}
+    return func
+
 
 
 
@@ -72,28 +85,42 @@ class MultiHeadAttentionLayer(nn.Module):
             self.V = nn.Linear(in_dim, out_dim * num_heads, bias=False)
             self.proj_e = nn.Linear(in_dim, out_dim * num_heads, bias=False)
     
-    def propagate_attention(self, g):
+    def propagate_attention(self, g,full_g):
+        ############### local module start ################################
         # Compute attention score
         g.apply_edges(src_dot_dst('K_h', 'Q_h', 'score')) #, edges)
-        
         # scaling
         g.apply_edges(scaling('score', np.sqrt(self.out_dim)))
-        
-        # Use available edge features to modify the scores
         g.apply_edges(imp_exp_attn('score', 'proj_e'))
-        
         # Copy edge features as e_out to be passed to FFN_e
         g.apply_edges(out_edge_features('score'))
-        
         # softmax
         g.apply_edges(exp('score')) # not div 
-
         # Send weighted values to target nodes
         eids = g.edges()
         g.send_and_recv(eids, fn.src_mul_edge('V_h', 'score', 'V_h'), fn.sum('V_h', 'wV'))
         g.send_and_recv(eids, fn.copy_edge('score', 'score'), fn.sum('score', 'z')) # div
+
+        ############### local module start ################################
+
+        ############### global module start ################################
+        # apply sparse graph nodes fea to dense graph for global attention module
+        full_g.ndata['Q_h'] = g.ndata['Q_h']
+        full_g.ndata['K_h'] = g.ndata['K_h']
+        full_g.ndata['V_h'] = g.ndata['V_h']
+        # Compute attention score
+        full_g.apply_edges(src_dot_dst('K_h', 'Q_h', 'score')) #, edges)
+        # scaling
+        full_g.apply_edges(scaling('score', np.sqrt(self.out_dim)))
+        full_g.apply_edges(dot_exp('score', 'adj2','rel_pos_3d'))# distance decay
+        eids = full_g.edges()
+        full_g.send_and_recv(eids, fn.src_mul_edge('V_h', 'score', 'V_h'), fn.sum('V_h', 'wV'))
+        full_g.send_and_recv(eids, fn.copy_edge('score', 'score'), fn.sum('score', 'z')) # div
+
+        ############### global module end ################################
+
     
-    def forward(self, g, h, e):
+    def forward(self, g, full_g,h, e):
         
         Q_h = self.Q(h)
         K_h = self.K(h)
@@ -107,11 +134,12 @@ class MultiHeadAttentionLayer(nn.Module):
         g.ndata['V_h'] = V_h.view(-1, self.num_heads, self.out_dim)
         g.edata['proj_e'] = proj_e.view(-1, self.num_heads, self.out_dim)
         
-        self.propagate_attention(g)
+        self.propagate_attention(g,full_g)
         
         h_out = g.ndata['wV'] / (g.ndata['z'] + torch.full_like(g.ndata['z'], 1e-6)) # adding eps to all values here
         e_out = g.edata['e_out']
-        
+        h_out += full_g.ndata['wV'] / (full_g.ndata['z'] + torch.full_like(full_g.ndata['z'], 1e-6)) # adding eps to all values here
+
         return h_out, e_out
     
 
@@ -159,12 +187,12 @@ class GraphTransformerLayer(nn.Module):
             self.batch_norm2_h = nn.BatchNorm1d(out_dim)
             self.batch_norm2_e = nn.BatchNorm1d(out_dim)
         
-    def forward(self, g, h, e):
+    def forward(self, g, full_g,h, e):
         h_in1 = h # for first residual connection
         e_in1 = e # for first residual connection
         
         # multi-head attention out
-        h_attn_out, e_attn_out = self.attention(g, h, e)
+        h_attn_out, e_attn_out = self.attention(g,full_g, h, e)
         
         h = h_attn_out.view(-1, self.out_channels)
         e = e_attn_out.view(-1, self.out_channels)

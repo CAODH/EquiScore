@@ -11,7 +11,7 @@
     "residual":true,
     "epoch": 400,
     "ngpu": 1,
-    "batch_size": 64,
+    "batch_size":2,
     "num_workers": 4,
     "n_graph_layer": 2,
     "n_FC_layer": 4,

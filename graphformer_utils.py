@@ -343,7 +343,7 @@ def preprocess_item(item, args,file_path,adj,term='item_1',noise=False,size = No
 
     if args.rel_3d_pos_bias:
         all_rel_pos_3d_with_noise = torch.from_numpy(pandas_bins(item['rel_pos_3d'],num_bins = None,noise = False)).long() 
-        full_g.edata['all_rel_pos_3d'] = all_rel_pos_3d_with_noise.view(-1,1).contiguous()#torch.long
+        full_g.edata['rel_pos_3d'] = all_rel_pos_3d_with_noise.view(-1,1).contiguous()#torch.long
     
     return g,full_g
 
