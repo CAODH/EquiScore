@@ -246,6 +246,7 @@ def get_metrics(train_true,train_pred):
         train_true = np.concatenate(np.array(train_true,dtype=object), 0).astype(np.long)
     except:
         pass
+    # print(train_pred,train_true)
     train_pred_label = np.where(train_pred > 0.5,1,0).astype(np.long)
 
     tn, fp, fn, tp = confusion_matrix(train_true,train_pred_label).ravel()
@@ -308,22 +309,28 @@ def evaluator(model,loader,loss_fn,args,test_sampler):
             pred = model(g,full_g)
 
             loss = loss_fn(pred ,Y.long().to(pred.device)) 
-            dist.all_reduce(loss.data,op = torch.distributed.ReduceOp.SUM)
-            loss /= float(dist.get_world_size()) # get all loss value 
+            if args.ngpu > 1:
+            # dist.barrier() 
+                dist.all_reduce(loss.data,op = torch.distributed.ReduceOp.SUM)
+                loss /= float(dist.get_world_size()) # get all loss value 
             #collect loss, true label and predicted label
             test_losses.append(loss.data.cpu().numpy())
-            test_true.append(Y.long().to(pred.device).data)
+            if args.ngpu > 1:
+                test_true.append(Y.long().to(pred.device).data)
+            else:
+                test_true.append(Y.long().data.cpu().numpy())
             # print(test_true)
             if pred.dim()==2:
                 pred = torch.softmax(pred,dim = -1)[:,1]
             pred = pred if args.loss_fn == 'auc_loss' else pred
-            test_pred.append(pred.data)
+            test_pred.append(pred.data) if args.ngpu > 1 else test_pred.append(pred.data.cpu().numpy())
             # print(test_pred)
         # gather ngpu result to single tensor
-        test_true = distributed_concat(torch.concat(test_true, dim=0), 
-                                         len(test_sampler.dataset)).cpu().numpy()
-        test_pred = distributed_concat(torch.concat(test_pred, dim=0), 
-                                         len(test_sampler.dataset)).cpu().numpy()
+        if args.ngpu > 1:
+            test_true = distributed_concat(torch.concat(test_true, dim=0), 
+                                            len(test_sampler.dataset)).cpu().numpy()
+            test_pred = distributed_concat(torch.concat(test_pred, dim=0), 
+                                            len(test_sampler.dataset)).cpu().numpy()
 
     return test_losses,test_true,test_pred
 import copy
@@ -364,17 +371,14 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss):
             model.zero_grad()
         # print('batch_loss:',loss)
         # print('time updata to loss backward pro:',time.time() -time_s)
-        dist.all_reduce(loss.data,op = torch.distributed.ReduceOp.SUM)
-        loss /= float(dist.get_world_size()) # get all loss value 
+        if args.ngpu > 1:
+            # dist.barrier() 
+            dist.all_reduce(loss.data,op = torch.distributed.ReduceOp.SUM)
+            loss /= float(dist.get_world_size()) # get all loss value 
         loss = loss.data.cpu().numpy()*6 if args.grad_sum else loss.data.cpu().numpy()
         
         train_losses.append(loss)
-        
-        # train_true.append(Y.data.cpu().numpy())
-        # if pred.dim() ==2:
-            # pred = torch.softmax(pred,dim = -1)[:,1]
-        # train_pred.append(pred.data.cpu().numpy())
-        # time_e = time.time()
+
     return model,train_losses,optimizer
 def getToyKey(train_keys):
     train_keys_toy_d = []
@@ -424,7 +428,7 @@ def getEF(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_f
                 if test_keys_pro is None:
                     continue
                 test_dataset = graphformerDataset(test_keys_pro,args, test_path,debug)
-                val_sampler = SequentialDistributedSampler(test_dataset,args.batch_size)
+                val_sampler = SequentialDistributedSampler(test_dataset,args.batch_size) if args.ngpu > 1 else None
                 test_dataloader = DataLoaderX(test_dataset, batch_size = batch_size, \
                 shuffle=False, num_workers = 8, collate_fn=collate_fn,pin_memory = True,sampler = val_sampler)
 

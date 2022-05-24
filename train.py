@@ -130,8 +130,8 @@ def run(local_rank,args):
     val_dataset = graphformerDataset(val_keys,args, args.data_path,args.debug)
     # test_dataset = graphformerDataset(test_keys,args, args.data_path,args.debug) 测试集看不出什么东西，直接忽略
     # test_dataset = MolDataset(test_keys, args.data_path,args.debug)
-    train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
-    val_sampler = SequentialDistributedSampler(val_dataset,args.batch_size)
+    train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset) if args.ngpu > 1 else None
+    val_sampler = SequentialDistributedSampler(val_dataset,args.batch_size) if args.ngpu > 1 else None
     if args.sampler:
 
         num_train_chembl = len([0 for k in train_keys if '_active' in k])
@@ -142,9 +142,9 @@ def run(local_rank,args):
             shuffle=False, num_workers = args.num_workers, collate_fn=train_dataset.collate,\
             sampler = train_sampler,pin_memory=True,drop_last = True)#动态采样
     else:
-        train_dataloader = DataLoaderX(train_dataset, args.batch_size, \
-            shuffle=True, num_workers = args.num_workers, collate_fn=train_dataset.collate,pin_memory=True)
-    val_dataloader = DataLoaderX(val_dataset, args.batch_size, \
+        train_dataloader = DataLoaderX(train_dataset, args.batch_size, sampler = train_sampler,\
+            shuffle=False, num_workers = args.num_workers, collate_fn=train_dataset.collate,pin_memory=True)
+    val_dataloader = DataLoaderX(val_dataset, args.batch_size, sampler=val_sampler,\
         shuffle=False, num_workers = args.num_workers, collate_fn=val_dataset.collate,pin_memory=True)
     # test_dataloader = DataLoaderX(test_dataset, args.batch_size, \
     #     shuffle=False, num_workers = args.num_workers, collate_fn=collate_fn,pin_memory=True)  测试集看不出什么东西，直接忽略
@@ -168,11 +168,14 @@ def run(local_rank,args):
     for epoch in range(epoch_start,num_epochs):
         st = time.time()
         #collect losses of each iteration
-        train_sampler.set_epoch(epoch)
+        if args.ngpu > 1:
+            train_sampler.set_epoch(epoch) 
         model,train_losses,optimizer = train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss)
-        dist.barrier()
+        if args.ngpu > 1:
+            dist.barrier() 
         val_losses,val_true,val_pred = evaluator(model,val_dataloader,loss_fn,args,val_sampler)
-        dist.barrier()
+        if args.ngpu > 1:
+            dist.barrier() 
         if args.lr_decay:
             scheduler.step()
 
@@ -208,7 +211,8 @@ def run(local_rank,args):
                 break
             if epoch == num_epochs-1:
                 save_model(model,optimizer,args,epoch,save_path,mode = 'end')
-        dist.barrier()
+        if args.ngpu > 1:
+            dist.barrier() 
     print('training done!')
     
 if '__main__' == __name__:
