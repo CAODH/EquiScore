@@ -86,7 +86,7 @@ class graphformerDataset(Dataset):
             except:
                 with open(key, 'rb') as f:
         
-                    m1,_,m2,_= pickle.load(f)
+                    m1,m2,_,_= pickle.load(f)
         except:
             print('file: {} is not a valid file！'.format(key))
             return None

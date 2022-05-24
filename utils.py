@@ -1,5 +1,7 @@
 import numpy as np
 import torch
+from torch import distributed as dist
+import torch.multiprocessing as mp
 from scipy import sparse
 import os.path
 import time
@@ -54,7 +56,7 @@ def set_cuda_visible_device(ngpus):
     return cmd
 
 
-def initialize_model(model, device, load_save_file=False,init_classifer = True):
+def initialize_model(model, device, args,load_save_file=False,init_classifer = True):
     for param in model.parameters():
         if param.dim() == 1:
             continue
@@ -76,12 +78,20 @@ def initialize_model(model, device, load_save_file=False,init_classifer = True):
         optimizer =state_dict['optimizer']
         epoch = state_dict['epoch']
         print('load save model!')
-    model.to(device)
-    if torch.cuda.device_count() > 1:
-      print("Let's use", torch.cuda.device_count(), "GPUs!")
-      # dim = 0 [30, xxx] -> [10, ...], [10, ...], [10, ...] on 3 GPUs
-      model = nn.DataParallel(model)
     # model.to(device)
+    if torch.cuda.device_count() > 1:
+        print("Let's use", torch.cuda.device_count(), "GPUs!")
+      
+        model = model.cuda(args.local_rank)
+        model = torch.nn.parallel.DistributedDataParallel(model, 
+                                                     device_ids=[args.local_rank], 
+                                                     output_device=args.local_rank, 
+                                                     find_unused_parameters=True, 
+                                                     broadcast_buffers=False)
+        if load_save_file:
+            return model ,optimizer,epoch
+        return model
+    model.to(args.local_rank)
     if load_save_file:
         return model ,optimizer,epoch
     return model
@@ -231,13 +241,13 @@ def seed_torch(seed=42):
 
 
 def get_metrics(train_true,train_pred):
-
-    train_pred = np.concatenate(np.array(train_pred,dtype=object), 0).astype(np.float)
+    try:
+        train_pred = np.concatenate(np.array(train_pred,dtype=object), 0).astype(np.float)
+        train_true = np.concatenate(np.array(train_true,dtype=object), 0).astype(np.long)
+    except:
+        pass
     train_pred_label = np.where(train_pred > 0.5,1,0).astype(np.long)
-    train_true = np.concatenate(np.array(train_true,dtype=object), 0).astype(np.long)
-    # print(train_true)
-    # print(train_pred_label)
-    # print(confusion_matrix(train_true,train_pred_label).ravel())
+
     tn, fp, fn, tp = confusion_matrix(train_true,train_pred_label).ravel()
     train_auroc = roc_auc_score(train_true, train_pred) 
     train_acc = accuracy_score(train_true,train_pred_label)
@@ -251,8 +261,6 @@ def get_metrics(train_true,train_pred):
     fp,tp,_ = roc_curve(train_true,train_pred)
     train_adjusted_logauroc = get_logauc(fp,tp)
     return train_auroc,train_adjusted_logauroc,train_auprc,train_balanced_acc,train_acc,train_precision,train_sensitity,train_specifity,train_f1
-
-
 
 #by caoduanhua
 def random_split(train_keys, split_ratio=0.9, seed=0, shuffle=True):
@@ -276,10 +284,17 @@ def data_to_device(sample,device):
             else:
                 data_flag.append(None)
         return data_flag,data
-def evaluator(model,loader,loss_fn,args):
+def average_gradients(model):  ##每个gpu上的梯度求平均
+    size = float(dist.get_world_size())
+    for param in model.parameters():
+        if param.requires_grad:
+            dist.all_reduce(param.grad.data,op = torch.distributed.ReduceOp.SUM)
+            param.grad.data /= size
+
+from dist_utils import *
+def evaluator(model,loader,loss_fn,args,test_sampler):
     model.eval()
     with torch.no_grad():
-
         test_losses,test_true,test_pred = [], [],[]
        
         for i_batch, (g,full_g,Y) in enumerate(loader):
@@ -293,22 +308,31 @@ def evaluator(model,loader,loss_fn,args):
             pred = model(g,full_g)
 
             loss = loss_fn(pred ,Y.long().to(pred.device)) 
-            
+            dist.all_reduce(loss.data,op = torch.distributed.ReduceOp.SUM)
+            loss /= float(dist.get_world_size()) # get all loss value 
             #collect loss, true label and predicted label
             test_losses.append(loss.data.cpu().numpy())
-            test_true.append(Y.long().data.cpu().numpy())
+            test_true.append(Y.long().to(pred.device).data)
+            # print(test_true)
             if pred.dim()==2:
                 pred = torch.softmax(pred,dim = -1)[:,1]
             pred = pred if args.loss_fn == 'auc_loss' else pred
-            test_pred.append(pred.data.cpu().numpy())
+            test_pred.append(pred.data)
+            # print(test_pred)
+        # gather ngpu result to single tensor
+        test_true = distributed_concat(torch.concat(test_true, dim=0), 
+                                         len(test_sampler.dataset)).cpu().numpy()
+        test_pred = distributed_concat(torch.concat(test_pred, dim=0), 
+                                         len(test_sampler.dataset)).cpu().numpy()
+
     return test_losses,test_true,test_pred
 import copy
 def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss):
 # 加入辅助函数和r_drop 方式
         #collect losses of each iteration
     train_losses = [] 
-    train_true = []
-    train_pred = []
+    # train_true = []
+    # train_pred = []
     model.train()
     time_s = time.time()
     time_e = 0
@@ -326,15 +350,7 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss):
         pred = model(g,full_g)
         # print('time updata to train:',time.time() -time_s)
         loss = loss_fn(pred, Y.long().to(pred.device))
-        if args.add_logk_reg:
-            # print(model.reg_value.shape,sample.Y.shape,sample.value.shape)
-            loss += args.reg_lambda*torch.nn.functional.mse_loss\
-                (model.reg_value*Y.long().reshape(-1,1).to(pred.device), sample.value.reshape(-1,1).to(pred.device))
-        if args.auxiliary_loss:
-            assert args.loss_fn != 'mse_loss', 'mse_loss cant add auxiliary_loss check your code plz!'
-            loss = loss + model.deta*auxiliary_loss(pred,Y.long().to(pred.device))
-            # print(model.deta*auxiliary_loss(pred,sample.Y.long().to(pred.device)))
-        # add a logk auxiliary loss
+
         if args.grad_sum:
             loss = loss/6
             loss.backward()
@@ -348,15 +364,18 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss):
             model.zero_grad()
         # print('batch_loss:',loss)
         # print('time updata to loss backward pro:',time.time() -time_s)
+        dist.all_reduce(loss.data,op = torch.distributed.ReduceOp.SUM)
+        loss /= float(dist.get_world_size()) # get all loss value 
         loss = loss.data.cpu().numpy()*6 if args.grad_sum else loss.data.cpu().numpy()
+        
         train_losses.append(loss)
         
-        train_true.append(Y.data.cpu().numpy())
-        if pred.dim() ==2:
-            pred = torch.softmax(pred,dim = -1)[:,1]
-        train_pred.append(pred.data.cpu().numpy())
-        time_e = time.time()
-    return model,train_pred,train_losses,optimizer
+        # train_true.append(Y.data.cpu().numpy())
+        # if pred.dim() ==2:
+            # pred = torch.softmax(pred,dim = -1)[:,1]
+        # train_pred.append(pred.data.cpu().numpy())
+        # time_e = time.time()
+    return model,train_losses,optimizer
 def getToyKey(train_keys):
     train_keys_toy_d = []
     train_keys_toy_a = []
@@ -380,11 +399,8 @@ def getToyKey(train_keys):
     return train_keys_toy_a[:300] + train_keys_toy_d[:(max_all-300)]
 
 def getEF(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_fn,rates = 0.01,flag = ''):
-
-        
         save_file = save_path + '/EF_test' + flag
         test_keys = [key for key in os.listdir(test_path) if '.' not in key]
-        
         pros = defaultdict(list)
         for key in test_keys:
             key_split = key.split('_')
@@ -403,82 +419,69 @@ def getEF(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_f
         for rate in rates:
             rate_str += str(rate)+ '\t'
         for pro in pros.keys():
-            # with open(save_file,'a') as f:
-
-            #     # f.write('')
-            #     f.write(pro+ '\n'+'EF:'+rate_str+ '\t'+'test_auroc'+ '\t'+'test_adjust_logauroc'+ '\t'+'test_auprc'+ '\t'+'test_balanced_acc'+ '\t'+'test_acc'+ '\t'+'test_precision'+ '\t'+'test_sensitity'+ '\t'+'test_specifity'+ '\t'+'test_f1' +'\t' +'time'+ '\n')
-            #     f.close()
             try :
-            # if True:
-
                 test_keys_pro = pros[pro]
-
-                # test_keys_pro =  getToyKey(test_keys_pro)#just for test
                 if test_keys_pro is None:
                     continue
-                # print(test_keys_pro)
-
                 test_dataset = graphformerDataset(test_keys_pro,args, test_path,debug)
-                test_dataloader = DataLoader(test_dataset, batch_size = batch_size, \
-                shuffle=False, num_workers = 8, collate_fn=collate_fn,pin_memory = True)
-                test_losses,test_true,test_pred = evaluator(model,test_dataloader,loss_fn,args)
-                test_auroc,test_adjust_logauroc,test_auprc,test_balanced_acc,test_acc,test_precision,test_sensitity,test_specifity,test_f1 = get_metrics(test_true,test_pred)
-                test_losses = np.mean(np.array(test_losses))
-                Y_sum = 0
-                for key in test_keys_pro:
-                    key_split = key.split('_')
-                    if 'active' in key_split:
-                        Y_sum += 1
-                actions = int(Y_sum)
-                action_rate = actions/len(test_keys_pro)
-    #保存logits 进行下一步分析
-                
-                test_pred = np.concatenate(np.array(test_pred), 0)
-                # if args.save_logits:
+                val_sampler = SequentialDistributedSampler(test_dataset,args.batch_size)
+                test_dataloader = DataLoaderX(test_dataset, batch_size = batch_size, \
+                shuffle=False, num_workers = 8, collate_fn=collate_fn,pin_memory = True,sampler = val_sampler)
 
-                #     with open(save_path + '/pcba_{}_logits'.format(pro),'wb') as f:
-                #         pickle.dump((test_pred,test_keys_pro),f)
-                #         f.close()
-    
-                EF = []
-                hits_list = []
-                for rate in rates:
-                    find_limit = int(len(test_keys_pro)*rate)
-                    # print(find_limit)
-                    _,indices = torch.sort(torch.tensor(test_pred),descending = True)
-                    hits = torch.sum(indices[:find_limit] < actions)
-                    EF.append((hits/find_limit)/action_rate)
-                    hits_list.append(hits)
-                    # print(hits,actions,action_rate)
-                
-                EF_str = '['
-                hits_str = '['
-                for ef,hits in zip(EF,hits_list):
-                    EF_str += '%.3f'%ef+'\t'
-                    hits_str += ' %d '%hits
-                EF_str += ']'
-                hits_str += ']'
-                end = time.time()
-                with open(save_file,'a') as f:
-                    f.write(pro+ '\t'+'actions: '+str(actions)+ '\t' + 'actions_rate: '+str(action_rate)+ '\t' + 'hits: '+ hits_str +'\t'+'loss:' + str(test_losses)+'\n'\
-                        +'EF:'+rate_str+ '\t'+'test_auroc'+ '\t'+'test_adjust_logauroc'+ '\t'+'test_auprc'+ '\t'+'test_balanced_acc'+ '\t'+'test_acc'+ '\t'+'test_precision'+ '\t'+'test_sensitity'+ '\t'+'test_specifity'+ '\t'+'test_f1' +'\t' +'time'+ '\n')
-                    f.write( EF_str + '\t'+str(test_auroc)+ '\t'+str(test_adjust_logauroc)+ '\t'+str(test_auprc)+ '\t'+str(test_balanced_acc)+ '\t'+str(test_acc)+ '\t'+str(test_precision)+ '\t'+str(test_sensitity)+ '\t'+str(test_specifity)+ '\t'+str(test_f1) +'\t'+ str(end-st)+ '\n')
-                    f.close()
-                EFs.append(EF)
+                test_losses,test_true,test_pred = evaluator(model,test_dataloader,loss_fn,args,val_sampler)
+                if args.local_rank == 0:
+                    test_auroc,test_adjust_logauroc,test_auprc,test_balanced_acc,test_acc,test_precision,test_sensitity,test_specifity,test_f1 = get_metrics(test_true,test_pred)
+                    test_losses = np.mean(np.array(test_losses))
+                    Y_sum = 0
+                    for key in test_keys_pro:
+                        key_split = key.split('_')
+                        if 'active' in key_split:
+                            Y_sum += 1
+                    actions = int(Y_sum)
+                    action_rate = actions/len(test_keys_pro)
+                    #保存logits 进行下一步分析
+                    # test_pred = np.concatenate(np.array(test_pred), 0)
+                    EF = []
+                    hits_list = []
+                    for rate in rates:
+                        find_limit = int(len(test_keys_pro)*rate)
+                        # print(find_limit)
+                        _,indices = torch.sort(torch.tensor(test_pred),descending = True)
+                        hits = torch.sum(indices[:find_limit] < actions)
+                        EF.append((hits/find_limit)/action_rate)
+                        hits_list.append(hits)
+                        # print(hits,actions,action_rate)
+                    
+                    EF_str = '['
+                    hits_str = '['
+                    for ef,hits in zip(EF,hits_list):
+                        EF_str += '%.3f'%ef+'\t'
+                        hits_str += ' %d '%hits
+                    EF_str += ']'
+                    hits_str += ']'
+                    end = time.time()
+                    with open(save_file,'a') as f:
+                        f.write(pro+ '\t'+'actions: '+str(actions)+ '\t' + 'actions_rate: '+str(action_rate)+ '\t' + 'hits: '+ hits_str +'\t'+'loss:' + str(test_losses)+'\n'\
+                            +'EF:'+rate_str+ '\t'+'test_auroc'+ '\t'+'test_adjust_logauroc'+ '\t'+'test_auprc'+ '\t'+'test_balanced_acc'+ '\t'+'test_acc'+ '\t'+'test_precision'+ '\t'+'test_sensitity'+ '\t'+'test_specifity'+ '\t'+'test_f1' +'\t' +'time'+ '\n')
+                        f.write( EF_str + '\t'+str(test_auroc)+ '\t'+str(test_adjust_logauroc)+ '\t'+str(test_auprc)+ '\t'+str(test_balanced_acc)+ '\t'+str(test_acc)+ '\t'+str(test_precision)+ '\t'+str(test_sensitity)+ '\t'+str(test_specifity)+ '\t'+str(test_f1) +'\t'+ str(end-st)+ '\n')
+                        f.close()
+                    EFs.append(EF)
             except:
                 print(pro,':skip for some bug')
                 continue
-        EFs = list(np.sum(np.array(EFs),axis=0)/len(EFs))
-        EFs_str = '['
-        for ef in EFs:
-            EFs_str += str(ef)+'\t'
-        EFs_str += ']'
-        args_dict = vars(args)
-        with open(save_file,'a') as f:
-                f.write( 'average EF for different EF_rate:' + EFs_str +'\n')
-                for item in args_dict.keys():
-                    f.write(item + ' : '+str(args_dict[item]) + '\n')
-                f.close()
+        if args.local_rank == 0:
+            EFs = list(np.sum(np.array(EFs),axis=0)/len(EFs))
+            EFs_str = '['
+            for ef in EFs:
+                EFs_str += str(ef)+'\t'
+            EFs_str += ']'
+            args_dict = vars(args)
+            with open(save_file,'a') as f:
+                    f.write( 'average EF for different EF_rate:' + EFs_str +'\n')
+                    for item in args_dict.keys():
+                        f.write(item + ' : '+str(args_dict[item]) + '\n')
+                    f.close()
+        dist.barrier()
 def getEF_from_MSE(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_fn,rates = 0.01):
 
         
@@ -730,7 +733,7 @@ def save_model(model,optimizer,args,epoch,save_path,mode = 'best'):
     if args.debug:
         best_name = save_path + '/save_{}_model_debug'.format(mode)+'.pt'
 
-    torch.save({'model':model.module.state_dict() if isinstance(model,nn.DataParallel) else model.state_dict(),
+    torch.save({'model':model.module.state_dict() if isinstance(model,nn.parallel.DistributedDataParallel) else model.state_dict(),
             'optimizer':optimizer.state_dict(),
             'epoch':epoch}, best_name)
 
