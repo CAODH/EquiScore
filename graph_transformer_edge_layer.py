@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from graphnorm import GraphNorm
 import dgl
 import dgl.function as fn
 import numpy as np
@@ -50,13 +50,7 @@ def exp(field):
 # for global decoy func
 def dot_exp(field,adj,rel_pos):
     def func(edges):
-        # clamp for softmax numerical stability
-        # print('shape')
-        # print(edges.data[field].sum(-1, keepdim=True).shape)
-        # print(edges.data[rel_pos].unsqueeze(-1).shape)
-        # print(edges.data[adj].shape)
         return {field: torch.exp((edges.data[field].sum(-1, keepdim=True) + edges.data[rel_pos].unsqueeze(-1)).clamp(-5, 5)*edges.data[adj].unsqueeze(1))}
-        # return {field: torch.exp((edges.data[field].sum(-1, keepdim=True)).clamp(-5, 5))}
     return func
 
 
@@ -147,7 +141,7 @@ class GraphTransformerLayer(nn.Module):
     """
         Param: 
     """
-    def __init__(self, in_dim, out_dim, num_heads, dropout=0.0, layer_norm=False, batch_norm=True, residual=True, use_bias=False):
+    def __init__(self, in_dim, out_dim, num_heads, dropout=0.0, layer_norm=True, graph_norm=True, residual=True, use_bias=True):
         super().__init__()
 
         self.in_channels = in_dim
@@ -156,20 +150,18 @@ class GraphTransformerLayer(nn.Module):
         self.dropout = dropout
         self.residual = residual
         self.layer_norm = layer_norm     
-        self.batch_norm = batch_norm
+        self.graph_norm = graph_norm
         
         self.attention = MultiHeadAttentionLayer(in_dim, out_dim//num_heads, num_heads, use_bias)
         
         self.O_h = nn.Linear(out_dim, out_dim)
         self.O_e = nn.Linear(out_dim, out_dim)
 
-        if self.layer_norm:
-            self.layer_norm1_h = nn.LayerNorm(out_dim)
+        if self.layer_norm and self.graph_norm:
+            self.layer_norm1_h = GraphNorm(out_dim)
             self.layer_norm1_e = nn.LayerNorm(out_dim)
             
-        if self.batch_norm:
-            self.batch_norm1_h = nn.BatchNorm1d(out_dim)
-            self.batch_norm1_e = nn.BatchNorm1d(out_dim)
+
         
         # FFN for h
         self.FFN_h_layer1 = nn.Linear(out_dim, out_dim*2)
@@ -179,13 +171,12 @@ class GraphTransformerLayer(nn.Module):
         self.FFN_e_layer1 = nn.Linear(out_dim, out_dim*2)
         self.FFN_e_layer2 = nn.Linear(out_dim*2, out_dim)
 
-        if self.layer_norm:
-            self.layer_norm2_h = nn.LayerNorm(out_dim)
+        # if self.layer_norm:
+        if self.layer_norm and self.graph_norm:
+            self.layer_norm2_h = GraphNorm(out_dim)
             self.layer_norm2_e = nn.LayerNorm(out_dim)
             
-        if self.batch_norm:
-            self.batch_norm2_h = nn.BatchNorm1d(out_dim)
-            self.batch_norm2_e = nn.BatchNorm1d(out_dim)
+
         
     def forward(self, g, full_g,h, e):
         h_in1 = h # for first residual connection
@@ -207,13 +198,11 @@ class GraphTransformerLayer(nn.Module):
             h = h_in1 + h # residual connection
             e = e_in1 + e # residual connection
 
-        if self.layer_norm:
-            h = self.layer_norm1_h(h)
+        if self.layer_norm and self.graph_norm:
+            h = self.layer_norm1_h(g,h)
             e = self.layer_norm1_e(e)
 
-        if self.batch_norm:
-            h = self.batch_norm1_h(h)
-            e = self.batch_norm1_e(e)
+
 
         h_in2 = h # for second residual connection
         e_in2 = e # for second residual connection
@@ -234,13 +223,9 @@ class GraphTransformerLayer(nn.Module):
             h = h_in2 + h # residual connection       
             e = e_in2 + e # residual connection  
 
-        if self.layer_norm:
-            h = self.layer_norm2_h(h)
+        if self.layer_norm and self.graph_norm:
+            h = self.layer_norm2_h(g,h)
             e = self.layer_norm2_e(e)
-
-        if self.batch_norm:
-            h = self.batch_norm2_h(h)
-            e = self.batch_norm2_e(e)             
 
         return h, e
         

@@ -1,9 +1,7 @@
 import pickle
 # import optuna
 # from optuna.trial import TrialState
-from gnn import gnn
-from gnn_edge import gnn_edge
-from gnn_edge_gated import gnn_edge_gated
+
 import time
 import numpy as np
 import utils
@@ -20,6 +18,7 @@ import time
 from torch.utils.data import DataLoader          
 # from torch.utils.data import DataLoader
 from prefetch_generator import BackgroundGenerator
+from graph_transformer_net import GraphTransformerNet
 class DataLoaderX(DataLoader):
     def __iter__(self):
         return BackgroundGenerator(super().__iter__())                            
@@ -45,28 +44,19 @@ def run(local_rank,args,*more_args,**kwargs):
         args.N_atom_features = 39
     else:
         args.N_atom_features = 28
-    # model select
-    if args.gnn_edge == 'gnn':
-        model = gnn(args) 
-    elif args.gnn_edge == 'gnn_edge':
-        model = gnn_edge(args)
-    elif args.gnn_edge == 'gnn_edge_gated':
-        model = gnn_edge_gated(args)
-    else:
-        print('no this model type')
-        exit()
-    # model = gnn_edge(args) if args.gnn_edge else gnn(args) 
+
+    model = GraphTransformerNet(args) if args.gnn_model == 'graph_transformer_dgl' else None
    
 
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    args.device = device
+    # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    args.device = args.local_rank
     best_name = args.save_model
     save_path = best_name.replace('/save_best_model.pt','')
     if not os.path.exists(save_path):
         os.makedirs(save_path)
     args.test_path = os.path.join(args.test_path,args.test_name)
     #model, args.device,args,args.save_model
-    model = utils.initialize_model(model, device,args, load_save_file = best_name )[0]
+    model = utils.initialize_model(model, args.device,args, load_save_file = best_name )[0]
 
     if args.loss_fn == 'bce_loss':
         loss_fn = nn.BCELoss().to(args.device)# 
@@ -78,7 +68,7 @@ def run(local_rank,args,*more_args,**kwargs):
         loss_fn = nn.MSELoss().to(args.device)
     else:
         raise ValueError('not support this loss : %s'%args.loss_fn)
-    getEF(model,args,args.test_path,save_path,device,args.debug,args.batch_size,args.A2_limit,loss_fn,args.EF_rates,flag = '_' + args.test_name)
+    getEF(model,args,args.test_path,save_path,args.device,args.debug,args.batch_size,args.A2_limit,loss_fn,args.EF_rates,flag = '_' + args.test_name)
     
 if '__main__' == __name__:
     from torch import distributed as dist
@@ -95,7 +85,7 @@ if '__main__' == __name__:
     parser = argparse.ArgumentParser(description='json param')
     parser.add_argument('--local_rank', default=-1, type=int) 
     parser.add_argument("--json_path", help="file path of param", type=str, \
-        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/gnn_edge_3d_pos_dist_large_screen.json')
+        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/gnn_edge_3d_pos_dgl.json')
     args = parser.parse_args()
     local_rank = args.local_rank
     # label_smoothing# temp_args = parser.parse_args()

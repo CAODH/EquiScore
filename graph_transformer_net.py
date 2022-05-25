@@ -36,7 +36,7 @@ class GraphTransformerNet(nn.Module):
         if self.args.lap_pos_enc:
             self.embedding_lap_pos_enc = nn.Linear(self.args.pos_enc_dim, self.args.n_out_feature)
         self.layers = nn.ModuleList([ GraphTransformerLayer(self.args.n_out_feature,self.args.n_out_feature, \
-            self.args.head_size, self.args.dropout,self.args.layer_norm, self.args.batch_norm, self.args.residual) \
+            self.args.head_size, self.args.dropout,self.args.layer_norm, self.args.graph_norm, self.args.residual) \
                 for _ in range(self.args.n_graph_layer) ]) 
         # self.layers.append(GraphTransformerLayer(hidden_dim, out_dim, num_heads, dropout, self.layer_norm, self.batch_norm, self.residual))
         self.MLP_layer = MLPReadout(self.args.n_out_feature, 2)   # 1 out dim since regression problem        

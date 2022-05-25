@@ -3,7 +3,7 @@ import sys
 # sys.path.append("/home/caoduanhua/score_function/GNN/")
 # sys.path.append("/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg")
 import pickle
-from gnn import gnn
+# from gnn import gnn
 import time
 import numpy as np
 import utils

@@ -21,7 +21,12 @@ from sklearn.metrics import confusion_matrix,f1_score#g,l;g,l
 #import deepchem as dc
 # import  multiprocessing as mp
 # mp.set_spawn_method("spawn")
+from prefetch_generator import BackgroundGenerator
 from torch.utils.data import DataLoader
+class DataLoaderX(DataLoader):
+    def __iter__(self):
+        return BackgroundGenerator(super().__iter__())                            
+from graphformer_dataset import graphformerDataset,  DTISampler
 N_atom_features = 28
 import glob
 import pickle
@@ -300,15 +305,15 @@ def evaluator(model,loader,loss_fn,args,test_sampler):
        
         for i_batch, (g,full_g,Y) in enumerate(loader):
             model.zero_grad()
-            g = g.to(args.device)
-            full_g = full_g.to(args.device)
+            g = g.to(args.local_rank)
+            full_g = full_g.to(args.local_rank)
             # full_g.edata['adj2'] = full_g.edata['adj2'].to(args.device)
             # full_g.edata['rel_pos_3d'] = full_g.edata['rel_pos_3d'].to(args.device)
             # print(args.device)
             # print('test device of adj2',full_g.edata['adj2'].device)
             pred = model(g,full_g)
 
-            loss = loss_fn(pred ,Y.long().to(pred.device)) 
+            loss = loss_fn(pred ,Y.long().to(args.local_rank)) 
             if args.ngpu > 1:
             # dist.barrier() 
                 dist.all_reduce(loss.data,op = torch.distributed.ReduceOp.SUM)
@@ -316,7 +321,7 @@ def evaluator(model,loader,loss_fn,args,test_sampler):
             #collect loss, true label and predicted label
             test_losses.append(loss.data.cpu().numpy())
             if args.ngpu > 1:
-                test_true.append(Y.long().to(pred.device).data)
+                test_true.append(Y.long().to(args.local_rank).data)
             else:
                 test_true.append(Y.long().data.cpu().numpy())
             # print(test_true)
@@ -430,9 +435,11 @@ def getEF(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_f
                 test_dataset = graphformerDataset(test_keys_pro,args, test_path,debug)
                 val_sampler = SequentialDistributedSampler(test_dataset,args.batch_size) if args.ngpu > 1 else None
                 test_dataloader = DataLoaderX(test_dataset, batch_size = batch_size, \
-                shuffle=False, num_workers = 8, collate_fn=collate_fn,pin_memory = True,sampler = val_sampler)
+                shuffle=False, num_workers = 8, collate_fn=test_dataset.collate,pin_memory = True,sampler = val_sampler)
 
                 test_losses,test_true,test_pred = evaluator(model,test_dataloader,loss_fn,args,val_sampler)
+
+
                 if args.local_rank == 0:
                     test_auroc,test_adjust_logauroc,test_auprc,test_balanced_acc,test_acc,test_precision,test_sensitity,test_specifity,test_f1 = get_metrics(test_true,test_pred)
                     test_losses = np.mean(np.array(test_losses))
