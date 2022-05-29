@@ -8,17 +8,21 @@ import torch.nn.functional as F
 
 class MLPReadout(nn.Module):
 
-    def __init__(self, input_dim, output_dim, L=4): #L=nb_hidden_layers
+    def __init__(self, args): #L=nb_hidden_layers
         super().__init__()
-        list_FC_layers = [ nn.Linear( input_dim//2**l , input_dim//2**(l+1) , bias=True ) for l in range(L) ]
-        list_FC_layers.append(nn.Linear( input_dim//2**L , output_dim , bias=True ))
-        self.FC_layers = nn.ModuleList(list_FC_layers)
-        self.L = L
+        self.args = args
+        self.FC = nn.ModuleList([nn.Linear(self.args.n_out_feature, self.args.d_FC_layer) if i==0 else
+                                nn.Linear(self.args.d_FC_layer, 2) if i==self.args.n_FC_layer-1  else
+                                nn.Linear(self.args.d_FC_layer, self.args.d_FC_layer) for i in range(self.args.n_FC_layer)]) #4层 
         
-    def forward(self, x):
-        y = x
-        for l in range(self.L):
-            y = self.FC_layers[l](y)
-            y = F.relu(y)
-        y = self.FC_layers[self.L](y)
-        return y
+    def forward(self, c_hs):
+    
+        for k in range(self.args.n_FC_layer):
+          
+            if k<self.args.n_FC_layer-1:
+                c_hs = self.FC[k](c_hs)
+                c_hs = F.dropout(c_hs, p=self.args.dropout_rate, training=self.training)
+                c_hs = F.relu(c_hs)
+            else:
+                c_hs = self.FC[k](c_hs)
+        return c_hs

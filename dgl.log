@@ -1,0 +1,11 @@
+2022-05-26 14:15:25
+Available GPU List
+id	utilization.gpu(%)	memory.free(MiB)
+0 	0                 	32510           
+1 	0                 	32510           
+Select id #0, 1 for you.
+load save model!
+Let's use 2 GPUs!
+load save model!
+Let's use 2 GPUs!
+ampc :skip for some bug

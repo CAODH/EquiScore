@@ -117,6 +117,7 @@ class graphformerDataset(Dataset):
             agg_adj2[n1:,:n1] = np.copy(np.transpose(dm))
         agg_adj1 = torch.from_numpy(agg_adj1)
         agg_adj2 = torch.from_numpy(agg_adj2)
+        # full_g.edata['adj1'] = agg_adj1.view(-1,1).contiguous()
         size = (n1,n2)
         # dm = np.where(dm <5.0 ,1,0)
         adj_graph_1 = np.copy(agg_adj1)
@@ -141,7 +142,9 @@ class graphformerDataset(Dataset):
             dm = (d1,d2) )
         # print('item_time:',time.time()-time_s)
         g ,full_g= preprocess_item(item_1, self.args,file_path,adj_graph_1,noise=False,size = size)
-        full_g.edata['adj2'] = torch.tensor(dm_all).view(-1,1).contiguous()
+        full_g.edata['adj2'] = torch.tensor(dm_all).view(-1,1).contiguous().float()
+        full_g.edata['adj1'] = agg_adj1.view(-1,1).contiguous().float()
+        # full_g.edata['adj1'] = 
         # print('item_g:',time.time()-time_s)
         #item, args,file_path,adj,term,noise=False
         valid = torch.zeros((n1+n2,))

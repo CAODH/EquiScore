@@ -171,9 +171,11 @@ def run(local_rank,args):
         if args.ngpu > 1:
             train_sampler.set_epoch(epoch) 
         model,train_losses,optimizer = train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss)
+
         if args.ngpu > 1:
             dist.barrier() 
         val_losses,val_true,val_pred = evaluator(model,val_dataloader,loss_fn,args,val_sampler)
+
         if args.ngpu > 1:
             dist.barrier() 
         if args.lr_decay:
@@ -213,6 +215,8 @@ def run(local_rank,args):
                 save_model(model,optimizer,args,epoch,save_path,mode = 'end')
         if args.ngpu > 1:
             dist.barrier() 
+    if args.ngpu > 1:
+        dist.barrier() 
     print('training done!')
     
 if '__main__' == __name__:
