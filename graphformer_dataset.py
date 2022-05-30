@@ -175,7 +175,7 @@ class graphformerDataset(Dataset):
             else:
                 Y =  0 
                 value = 0
-        g.ndata['V'] = valid.long().reshape(-1,1)
+        g.ndata['V'] = valid.float().reshape(-1,1)
         # full_g.edata['adj2'] = agg_adj2.view(-1,1).contiguous()
         return g,full_g,Y
 
