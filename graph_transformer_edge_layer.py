@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from graphnorm import GraphNorm
 import dgl
 import dgl.function as fn
+import time
 import numpy as np
 
 """
@@ -93,19 +94,25 @@ class MultiHeadAttentionLayer(nn.Module):
         self.output_layer_edge = nn.Linear(edge_dim, edge_dim)
     
     def propagate_attention(self, g,full_g):
+
         ############### global module start ################################
         # apply sparse graph nodes fea to dense graph for global attention module
         full_g.apply_edges(src_dot_dst('K_h', 'Q_h', 'score')) #, edges)
+
         # scaling
         # 想个办法吧稀疏图的边上的权重传过来
         full_g.apply_edges(scaling('score', np.sqrt(self.out_dim)))
 
         full_g.apply_edges(dot_exp('score', 'adj2','rel_pos_3d'))# distance decay
+
         ##########################################
         # 把这个注意力系数映射到稀疏边上
         src,dst = g.edges() # get sparse edges
-        g.edata['score'] = full_g.edge_subgraph(full_g.edge_ids(src,dst)).edata['score']
+        g.edata['score'] = full_g.edge_subgraph(full_g.edge_ids(src,dst),relabel_nodes=False).edata['score']
+
+
         g.edata['e_out'] = self.attn_proj(g.edata['score'].view(-1,self.num_heads).contiguous()) # score to edge feas
+
 
 
         ############### local module start ################################
@@ -114,7 +121,7 @@ class MultiHeadAttentionLayer(nn.Module):
         g.apply_edges(imp_exp_attn('score', 'proj_e'))  # add edge bias 
         # 给全图加上edge_bias
         full_g.apply_edges(func=partUpdataScore('score','score',g),edges=g.edges())
-
+   
         # Copy edge features as e_out to be passed to FFN_e
   
         # softmax
@@ -124,12 +131,12 @@ class MultiHeadAttentionLayer(nn.Module):
         eids = full_g.edges()
         full_g.send_and_recv(eids, fn.src_mul_edge('V_h', 'score', 'V_h'), fn.sum('V_h', 'wV'))
         full_g.send_and_recv(eids, fn.copy_edge('score', 'score'), fn.sum('score', 'z')) # div
+    
 
         ############### global module end ################################
 
     
     def forward(self, g, full_g,h, e):
-        
         Q_h = self.Q(h)
         K_h = self.K(h)
         V_h = self.V(h)
@@ -146,12 +153,12 @@ class MultiHeadAttentionLayer(nn.Module):
         # g.edata['attn_proj'] = 
         
         self.propagate_attention(g,full_g)
-        
         e_out = self.output_layer_edge(g.edata['e_out'] + e)
 
         h_out = full_g.ndata['wV'] / (full_g.ndata['z'] + torch.full_like(full_g.ndata['z'], 1e-6)) # adding eps to all values here
 
         h_out = self.output_layer(h_out.view(-1, self.out_dim * self.num_heads))
+
         return h_out, e_out
     
 
@@ -195,10 +202,10 @@ class GraphTransformerLayer(nn.Module):
 
 
         e_norm = self.ffn_dropout_edge(e_norm)
-        e = e + e_norm
-        e = self.layer_norm2_e(e)
+        e_norm = e + e_norm
+        e_norm = self.layer_norm2_e(e_norm)
 
-        e_norm = self.FFN_e_layer(e)
+        e_norm = self.FFN_e_layer(e_norm)
 
         e_norm = self.ffn_dropout_edge_2(e_norm)
         e = e + e_norm
@@ -206,8 +213,8 @@ class GraphTransformerLayer(nn.Module):
         # x layer module
         y = self.self_ffn_dropout(y)
         x = x + y
-        x =  self.layer_norm2_h(g,x)
-        y =  self.FFN_h_layer(x)
+        y =  self.layer_norm2_h(g,x)
+        y =  self.FFN_h_layer(y)
         y = self.self_ffn_dropout_2(y)
         x = x + y
         return x, e

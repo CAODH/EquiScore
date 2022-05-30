@@ -139,12 +139,12 @@ def run(local_rank,args):
         train_weights = [1/num_train_chembl if '_active' in k else 1/num_train_decoy for k in train_keys]
         train_sampler = DTISampler(train_weights, len(train_weights), replacement=True)                     
         train_dataloader = DataLoaderX(train_dataset, args.batch_size, \
-            shuffle=False, num_workers = args.num_workers, collate_fn=train_dataset.collate,\
+            shuffle=False, num_workers = args.num_workers, collate_fn=train_dataset.collate,prefetch_factor = 4,\
             sampler = train_sampler,pin_memory=True,drop_last = True)#动态采样
     else:
-        train_dataloader = DataLoaderX(train_dataset, args.batch_size, sampler = train_sampler,\
+        train_dataloader = DataLoaderX(train_dataset, args.batch_size, sampler = train_sampler,prefetch_factor = 4,\
             shuffle=False, num_workers = args.num_workers, collate_fn=train_dataset.collate,pin_memory=True)
-    val_dataloader = DataLoaderX(val_dataset, args.batch_size, sampler=val_sampler,\
+    val_dataloader = DataLoaderX(val_dataset, args.batch_size, sampler=val_sampler,prefetch_factor = 4,\
         shuffle=False, num_workers = args.num_workers, collate_fn=val_dataset.collate,pin_memory=True)
     # test_dataloader = DataLoaderX(test_dataset, args.batch_size, \
     #     shuffle=False, num_workers = args.num_workers, collate_fn=collate_fn,pin_memory=True)  测试集看不出什么东西，直接忽略
@@ -182,9 +182,9 @@ def run(local_rank,args):
             scheduler.step()
 
         if local_rank == 0:
-            train_losses = np.mean(np.array(train_losses))
+            train_losses = torch.mean(torch.tensor(train_losses,dtype=torch.float)).data.cpu().numpy()
             # test_losses = np.mean(np.array(test_losses))
-            val_losses = np.mean(np.array(val_losses))
+            val_losses = torch.mean(torch.tensor(val_losses,dtype=torch.float)).data.cpu().numpy()
             if args.loss_fn == 'mse_loss':
                 end = time.time()
                 with open(log_path,'a') as f:
