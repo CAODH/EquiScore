@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from graphnorm import GraphNorm
 import dgl
 import dgl.function as fn
+from dgl.nn.functional import edge_softmax
 import time
 import numpy as np
 
@@ -42,14 +43,12 @@ def out_edge_features(edge_feat):
         return {'e_out': edges.data[edge_feat] }
     return func
 
-
 def exp(field):
     def func(edges):
         # clamp for softmax numerical stability
          return {field: torch.exp((edges.data[field]))}
         # return {field: torch.exp((edges.data[field].sum(-1, keepdim=True)).clamp(-5, 5))}
     return func
-
 # for global decoy func
 def guss_decoy(field,adj,rel_pos):
     def func(edges):
@@ -84,8 +83,6 @@ class MultiHeadAttentionLayer(nn.Module):
         
         self.out_dim = out_dim
         self.num_heads = num_heads
-        
-
 
         self.Q = nn.Linear(in_dim, self.out_dim * num_heads, bias=True)
         self.K = nn.Linear(in_dim, self.out_dim * num_heads, bias=True)
@@ -117,14 +114,17 @@ class MultiHeadAttentionLayer(nn.Module):
         # Copy edge features as e_out to be passed to FFN_e
         # softmax
         # for softmax numerical stability
-        full_g.edata['score'] -= torch.max(full_g.edata['score'], axis=-1, keepdims=True).values
-        full_g.apply_edges(exp('score')) # not div 
-
+        eids = full_g.edges()
+        # full_g.send_and_recv(eids, fn.copy_edge('score','score'), fn.max('score', 'max_score'))
+        # full_g.apply_edges(fn.e_sub_v('score','max_score','score'))
+        # full_g.edata['score'] -= torch.max(full_g.edata['score'], axis=-1, keepdims=True).values
+        # full_g.apply_edges(exp('score')) # not div 
         # add a attn dropout
         # Send weighted values to target nodes
-        eids = full_g.edges()
+
+        full_g.edata['score'] = edge_softmax(graph = full_g,logits = full_g.edata['score'])
         full_g.send_and_recv(eids, fn.src_mul_edge('V_h', 'score', 'V_h'), fn.sum('V_h', 'wV'))
-        full_g.send_and_recv(eids, fn.copy_edge('score', 'score'), fn.sum('score', 'z')) # div
+        # full_g.send_and_recv(eids, fn.copy_edge('score', 'score'), fn.sum('score', 'z')) # div
     
 
         ############### global module end ################################
@@ -150,7 +150,8 @@ class MultiHeadAttentionLayer(nn.Module):
         
         e_out = self.output_layer_edge(g.edata['e_out'] + e)
 
-        h_out = full_g.ndata['wV'] / (full_g.ndata['z'] + torch.full_like(full_g.ndata['z'], 1e-6)) # adding eps to all values here
+        h_out = full_g.ndata['wV'] 
+        #/ (full_g.ndata['z'] + torch.full_like(full_g.ndata['z'], 1e-6)) # adding eps to all values here
 
         h_out = self.output_layer(h_out.view(-1, self.out_dim * self.num_heads))
 
