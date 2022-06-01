@@ -401,9 +401,20 @@ def getToyKey(train_keys):
 
     # train_keys_toy_a[:300] + train_keys_toy_d[:(max_all-300)]
     return train_keys_toy_a[:300] + train_keys_toy_d[:(max_all-300)]
-
+def getTestedPro(file_name):
+    if os.path.exists(file_name):
+        with open(file_name) as f:
+            lines = []
+            for line in f.readlines():
+                if 'actions' in line:
+                    lines.append(line)
+        lines = [line.split('\t')[0] for line in lines]
+        return lines
+    else:
+        return []
 def getEF(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_fn,rates = 0.01,flag = ''):
         save_file = save_path + '/EF_test' + flag
+        tested_pros = getTestedPro(save_file)
         test_keys = [key for key in os.listdir(test_path) if '.' not in key]
         pros = defaultdict(list)
         for key in test_keys:
@@ -423,9 +434,16 @@ def getEF(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_f
         for rate in rates:
             rate_str += str(rate)+ '\t'
         for pro in pros.keys():
-            # try :
+            try :
+                if pro in tested_pros:
+                    if args.ngpu > 1:
+                        dist.barrier()
+                    print('this pro :  %s  is tested'%pro)
+                    continue
                 test_keys_pro = pros[pro]
                 if test_keys_pro is None:
+                    if args.ngpu > 1:
+                        dist.barrier()
                     continue
                 test_dataset = graphformerDataset(test_keys_pro,args, test_path,debug)
                 val_sampler = SequentialDistributedSampler(test_dataset,args.batch_size) if args.ngpu > 1 else None
@@ -435,8 +453,6 @@ def getEF(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_f
                 test_losses,test_true,test_pred = evaluator(model,test_dataloader,loss_fn,args,val_sampler)
                 if args.ngpu > 1:
                     dist.barrier()
-
-
                 if args.local_rank == 0:
                     test_auroc,test_adjust_logauroc,test_auprc,test_balanced_acc,test_acc,test_precision,test_sensitity,test_specifity,test_f1 = get_metrics(test_true,test_pred)
                     test_losses = torch.mean(torch.tensor(test_losses,dtype=torch.float)).data.cpu().numpy()
@@ -474,11 +490,13 @@ def getEF(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_f
                         f.write( EF_str + '\t'+str(test_auroc)+ '\t'+str(test_adjust_logauroc)+ '\t'+str(test_auprc)+ '\t'+str(test_balanced_acc)+ '\t'+str(test_acc)+ '\t'+str(test_precision)+ '\t'+str(test_sensitity)+ '\t'+str(test_specifity)+ '\t'+str(test_f1) +'\t'+ str(end-st)+ '\n')
                         f.close()
                     EFs.append(EF)
-            # except:
-            #     print(pro,':skip for some bug')
-            #     continue
+            except:
+                print(pro,':skip for some bug')
                 if args.ngpu > 1:
                     dist.barrier()
+                continue
+            if args.ngpu > 1:
+                dist.barrier()
         if args.local_rank == 0:
             EFs = list(np.sum(np.array(EFs),axis=0)/len(EFs))
             EFs_str = '['

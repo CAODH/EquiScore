@@ -26,13 +26,14 @@ def scaling(field, scale_constant):
     return func
 
 # Improving implicit attention scores with explicit edge features, if available
-def imp_exp_attn(implicit_attn, explicit_edge):
+def edge_bias(implicit_attn, explicit_edge):
     """
         implicit_attn: the output of K Q
         explicit_edge: the explicit edge features
     """
     def func(edges):
-        return {implicit_attn: (edges.data[implicit_attn].sum(-1, keepdim=True).clamp(-5, 5) + edges.data[explicit_edge])}
+        return {implicit_attn: (edges.data[implicit_attn] + edges.data[explicit_edge])}
+        # return {implicit_attn: (edges.data[implicit_attn].sum(-1, keepdim=True).clamp(-5, 5) + edges.data[explicit_edge])}
     return func
 
 # To copy edge features to be passed to FFN_e
@@ -45,15 +46,16 @@ def out_edge_features(edge_feat):
 def exp(field):
     def func(edges):
         # clamp for softmax numerical stability
-         return {field: torch.exp((edges.data[field].sum(-1, keepdim=True).clamp(-5, 5)))}
+         return {field: torch.exp((edges.data[field]))}
         # return {field: torch.exp((edges.data[field].sum(-1, keepdim=True)).clamp(-5, 5))}
     return func
 
 # for global decoy func
-def dot_exp(field,adj,rel_pos):
+def guss_decoy(field,adj,rel_pos):
     def func(edges):
         # print()
-        return {field: torch.exp((edges.data[field].sum(-1, keepdim=True).clamp(-5, 5))*edges.data[adj].unsqueeze(1)) + edges.data[rel_pos].unsqueeze(-1)}
+        return {field: edges.data[field].sum(-1, keepdim=True)*edges.data[adj].unsqueeze(1) + edges.data[rel_pos].unsqueeze(-1)}
+        # return {field: torch.exp((edges.data[field].sum(-1, keepdim=True).clamp(-5, 5))*edges.data[adj].unsqueeze(1)) + edges.data[rel_pos].unsqueeze(-1)}
     return func
 def partUpdataScore(out_filed,in_filed,graph_sparse):
     def funv(edges):
@@ -101,7 +103,7 @@ class MultiHeadAttentionLayer(nn.Module):
         # scaling
         # 想个办法吧稀疏图的边上的权重传过来
         full_g.apply_edges(scaling('score', np.sqrt(self.out_dim)))
-        full_g.apply_edges(dot_exp('score', 'adj2','rel_pos_3d'))# distance decay
+        full_g.apply_edges(guss_decoy('score', 'adj2','rel_pos_3d'))# distance decay
         ##########################################
         # 把这个注意力系数映射到稀疏边上
         src,dst = g.edges() # get sparse edges
@@ -109,12 +111,16 @@ class MultiHeadAttentionLayer(nn.Module):
         g.edata['e_out'] = self.attn_proj(g.edata['score'].view(-1,self.num_heads).contiguous()) # score to edge feas
         ############### local module start ################################
         # Compute attention score
-        g.apply_edges(imp_exp_attn('score', 'proj_e'))  # add edge bias 
+        g.apply_edges(edge_bias('score', 'proj_e'))  # add edge bias 
         # 给全图加上edge_bias
         full_g.apply_edges(func=partUpdataScore('score','score',g),edges=g.edges())
         # Copy edge features as e_out to be passed to FFN_e
         # softmax
+        # for softmax numerical stability
+        full_g.edata['score'] -= torch.max(full_g.edata['score'], axis=-1, keepdims=True).values
         full_g.apply_edges(exp('score')) # not div 
+
+        # add a attn dropout
         # Send weighted values to target nodes
         eids = full_g.edges()
         full_g.send_and_recv(eids, fn.src_mul_edge('V_h', 'score', 'V_h'), fn.sum('V_h', 'wV'))
