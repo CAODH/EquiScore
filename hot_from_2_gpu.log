@@ -1,0 +1,22 @@
+Traceback (most recent call last):
+  File "<frozen importlib._bootstrap>", line 900, in _find_spec
+AttributeError: 'PyxImporter' object has no attribute 'find_spec'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "train.py", line 20, in <module>
+    from graph_transformer_net import GraphTransformerNet
+  File "/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/graph_transformer_net.py", line 11, in <module>
+    from graph_transformer_edge_layer import GraphTransformerLayer
+  File "/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/graph_transformer_edge_layer.py", line 6, in <module>
+    import dgl.function as fn
+  File "<frozen importlib._bootstrap>", line 983, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 963, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 902, in _find_spec
+  File "<frozen importlib._bootstrap>", line 876, in _find_spec_legacy
+  File "/home/caoduanhua/anaconda3/lib/python3.7/site-packages/pyximport/pyximport.py", line 253, in find_module
+    fp, pathname, (ext,mode,ty) = imp.find_module(fullname,package_path)
+  File "/home/caoduanhua/anaconda3/lib/python3.7/imp.py", line 270, in find_module
+    "not {}".format(type(path)))
+RuntimeError: 'path' must be None or a list, not <class '_frozen_importlib_external._NamespacePath'>
