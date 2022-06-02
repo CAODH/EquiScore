@@ -1,5 +1,5 @@
-2022-06-01 12:48:18
-Namespace(A2_limit=False, EF_rates=[0.001, 0.002, 0.005, 0.01, 0.02, 0.05], FP=False, add_logk_reg=False, alpha=5, att_mode='SA', attention_dropout_rate=0.2, auxiliary_loss=True, batch_size=40, d_FC_layer=128, data_path='/home/caoduanhua/score_function/data/general_refineset', debug=False, deta_const=False, dis_adj2_with_adj1=False, dropout_rate=0.2, edge_bias=True, edge_dim=16, edge_type='single', embed_graph='single_graph', embed_graph_mode='ligand_protein', epoch=400, ffn_size=280, fundation_model='graphformer', gate=False, gnn_model='graph_transformer_dgl', grad_sum=False, graph_norm=True, head_size=8, hot_start=False, in_degree_bias=True, initial_dev=4.0, initial_mu=2.5, json_path='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/gnn_edge_3d_pos_dgl.json', label_smothing=0.0, lap_pos_enc=False, layer_norm=True, layer_type='GAT_gate', loss_fn='cross_entry', lr=0.0001, lr_decay=False, mode='1_H', multi_hop_max_dist=10, n_FC_layer=4, n_graph_layer=2, n_in_feature=80, n_out_feature=80, ngpu=2, norm_type='gn_mul', num_workers=4, only_adj2=False, only_dis_adj2=True, out_degree_bias=False, path_data_dir='../../data/pocket_data_path', patience=50, pos_enc_dim=16, pred_mode='ligand', r_drop=False, reg_lambda=0.1, rel_3d_pos_bias=True, rel_pos_bias=False, residual=True, sampler=False, save_dir='/home/caoduanhua/score_function/GNN/train_result/ligand_gnn_dgl/', save_model='/home/caoduanhua/score_function/GNN/train_result/ligand_gnn_dgl/graphformer/GAT_gate/2022-05-31-05-18-18/save_best_model.pt', seed=42, share_layer=True, supernode=False, test=True, test_keys='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/refine_generalcrossdecoy_1_5/test_keys.pkl', test_name='dude', test_path='/home/caoduanhua/score_function/data/independent_test/pocket_with_fp', train_keys='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/refine_generalcrossdecoy_1_5/train_keys.pkl', use_adj=True, virtual_aromatic_atom=True)
+2022-06-02 05:04:47
+Namespace(A2_limit=False, EF_rates=[0.001, 0.002, 0.005, 0.01, 0.02, 0.05], FP=False, add_logk_reg=False, alpha=5, att_mode='SA', attention_dropout_rate=0.2, auxiliary_loss=True, batch_size=40, d_FC_layer=128, data_path='/home/caoduanhua/score_function/data/general_refineset', debug=False, deta_const=False, dis_adj2_with_adj1=False, dropout_rate=0.2, edge_bias=True, edge_dim=16, edge_type='single', embed_graph='single_graph', embed_graph_mode='ligand_protein', epoch=400, ffn_size=280, fundation_model='graphformer', gate=False, gnn_model='graph_transformer_dgl', grad_sum=False, graph_norm=True, head_size=8, hot_start=False, in_degree_bias=True, initial_dev=4.0, initial_mu=2.5, json_path='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/gnn_edge_3d_pos_dgl.json', label_smothing=0.0, lap_pos_enc=False, layer_norm=True, layer_type='GAT_gate', loss_fn='cross_entry', lr=0.0001, lr_decay=False, mode='1_H', multi_hop_max_dist=10, n_FC_layer=4, n_graph_layer=2, n_in_feature=80, n_out_feature=80, ngpu=2, norm_type='gn_mul', num_workers=4, only_adj2=False, only_dis_adj2=True, out_degree_bias=False, path_data_dir='../../data/pocket_data_path', patience=50, pos_enc_dim=16, pred_mode='ligand', r_drop=False, reg_lambda=0.1, rel_3d_pos_bias=True, rel_pos_bias=False, residual=True, sampler=False, save_dir='/home/caoduanhua/score_function/GNN/train_result/ligand_gnn_dgl/', save_model='/home/caoduanhua/score_function/GNN/train_result/ligand_gnn_dgl/graphformer/GAT_gate/2022-06-01-12-48-27/save_best_model.pt', seed=42, share_layer=True, supernode=False, test=True, test_keys='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/refine_generalcrossdecoy_1_5/test_keys.pkl', test_name='dekois', test_path='/home/caoduanhua/score_function/data/independent_test/pocket_with_fp', train_keys='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/refine_generalcrossdecoy_1_5/train_keys.pkl', use_adj=True, virtual_aromatic_atom=True)
 Available GPU List
 id	utilization.gpu(%)	memory.free(MiB)
 0 	0                 	32510           
@@ -11,7 +11,7 @@ Number of test data: 23986
 Available GPU List
 id	utilization.gpu(%)	memory.free(MiB)
 0 	0                 	32506           
-1 	0                 	32506           
+1 	1                 	32506           
 Select id #0, 1 for you.
 number of parameters :  215389
 Let's use 2 GPUs!
@@ -21,9 +21,15 @@ Number of test data: 23986
 Available GPU List
 id	utilization.gpu(%)	memory.free(MiB)
 0 	0                 	32506           
-1 	0                 	32506           
+1 	1                 	32506           
 Select id #0, 1 for you.
 number of parameters :  215389
 Let's use 2 GPUs!
+/home/caoduanhua/anaconda3/envs/rdkit/lib/python3.6/site-packages/sklearn/metrics/_classification.py:1248: UndefinedMetricWarning: Precision is ill-defined and being set to 0.0 due to no predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, modifier, msg_start, len(result))
+/home/caoduanhua/anaconda3/envs/rdkit/lib/python3.6/site-packages/sklearn/metrics/_classification.py:1248: UndefinedMetricWarning: Precision is ill-defined and being set to 0.0 due to no predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, modifier, msg_start, len(result))
+/home/caoduanhua/anaconda3/envs/rdkit/lib/python3.6/site-packages/sklearn/metrics/_classification.py:1248: UndefinedMetricWarning: Precision is ill-defined and being set to 0.0 due to no predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, modifier, msg_start, len(result))
 /home/caoduanhua/anaconda3/envs/rdkit/lib/python3.6/site-packages/sklearn/metrics/_classification.py:1248: UndefinedMetricWarning: Precision is ill-defined and being set to 0.0 due to no predicted samples. Use `zero_division` parameter to control this behavior.
   _warn_prf(average, modifier, msg_start, len(result))

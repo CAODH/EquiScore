@@ -5,7 +5,7 @@ import time
 import dgl
 
 """
-    Graph Transformer with edge features
+with edge features
     
 """
 from graph_transformer_edge_layer import GraphTransformerLayer

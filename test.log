@@ -1,4 +1,4 @@
-2022-06-01 05:54:00
+2022-06-02 04:40:36
 Available GPU List
 id	utilization.gpu(%)	memory.free(MiB)
 0 	0                 	32510           
@@ -6,124 +6,9 @@ id	utilization.gpu(%)	memory.free(MiB)
 Select id #0, 1 for you.
 load save model!
 Let's use 2 GPUs!
-this pro :  mk14  is tested
-this pro :  fa10  is tested
-this pro :  gcr  is tested
-this pro :  ptn1  is tested
-this pro :  aldr  is tested
-this pro :  parp1  is tested
-this pro :  reni  is tested
-this pro :  hivpr  is tested
-this pro :  egfr  is tested
-this pro :  csf1r  is tested
-this pro :  adrb1  is tested
-this pro :  aces  is tested
-this pro :  dpp4  is tested
-this pro :  prgr  is tested
-this pro :  kpcb  is tested
-this pro :  drd3  is tested
-this pro :  pgh1  is tested
-this pro :  cp3a4  is tested
-this pro :  fnta  is tested
-this pro :  adrb2  is tested
-this pro :  pgh2  is tested
-this pro :  casp3  is tested
-this pro :  pde5a  is tested
-this pro :  thrb  is tested
-this pro :  lkha4  is tested
-this pro :  cp2c9  is tested
-this pro :  cah2  is tested
-this pro :  ppard  is tested
-this pro :  esr1  is tested
-this pro :  esr2  is tested
-this pro :  igf1r  is tested
-this pro :  akt1  is tested
-this pro :  mk01  is tested
-this pro :  dhi1  is tested
-this pro :  mapk2  is tested
-this pro :  gria2  is tested
-this pro :  src  is tested
-this pro :  kit  is tested
-this pro :  bace1  is tested
-this pro :  cdk2  is tested
-this pro :  hivrt  is tested
-this pro :  hdac2  is tested
-this pro :  hdac8  is tested
-this pro :  aa2ar  is tested
-this pro :  pa2ga  is tested
-this pro :  met  is tested
-this pro :  ada17  is tested
-this pro :  aofb  is tested
-this pro :  try1  is tested
-this pro :  tryb1  is tested
-this pro :  abl1  is tested
-this pro :  mmp13  is tested
-this pro :  pparg  is tested
-this pro :  dyr  is tested
-this pro :  ace  is tested
-this pro :  plk1  is tested
-this pro :  nos1  is tested
-this pro :  fpps  is tested
-this pro :  thb  is tested
 load save model!
 Let's use 2 GPUs!
-this pro :  mk14  is tested
-this pro :  fa10  is tested
-this pro :  gcr  is tested
-this pro :  ptn1  is tested
-this pro :  aldr  is tested
-this pro :  parp1  is tested
-this pro :  reni  is tested
-this pro :  hivpr  is tested
-this pro :  egfr  is tested
-this pro :  csf1r  is tested
-this pro :  adrb1  is tested
-this pro :  aces  is tested
-this pro :  dpp4  is tested
-this pro :  prgr  is tested
-this pro :  kpcb  is tested
-this pro :  drd3  is tested
-this pro :  pgh1  is tested
-this pro :  cp3a4  is tested
-this pro :  fnta  is tested
-this pro :  adrb2  is tested
-this pro :  pgh2  is tested
-this pro :  casp3  is tested
-this pro :  pde5a  is tested
-this pro :  thrb  is tested
-this pro :  lkha4  is tested
-this pro :  cp2c9  is tested
-this pro :  cah2  is tested
-this pro :  ppard  is tested
-this pro :  esr1  is tested
-this pro :  esr2  is tested
-this pro :  igf1r  is tested
-this pro :  akt1  is tested
-this pro :  mk01  is tested
-this pro :  dhi1  is tested
-this pro :  mapk2  is tested
-this pro :  gria2  is tested
-this pro :  src  is tested
-this pro :  kit  is tested
-this pro :  bace1  is tested
-this pro :  cdk2  is tested
-this pro :  hivrt  is tested
-this pro :  hdac2  is tested
-this pro :  hdac8  is tested
-this pro :  aa2ar  is tested
-this pro :  pa2ga  is tested
-this pro :  met  is tested
-this pro :  ada17  is tested
-this pro :  aofb  is tested
-this pro :  try1  is tested
-this pro :  tryb1  is tested
-this pro :  abl1  is tested
-this pro :  mmp13  is tested
-this pro :  pparg  is tested
-this pro :  dyr  is tested
-this pro :  ace  is tested
-this pro :  plk1  is tested
-this pro :  nos1  is tested
-this pro :  fpps  is tested
-this pro :  thb  is tested
-ampc :skip for some bug
+/home/caoduanhua/anaconda3/envs/rdkit/lib/python3.6/site-packages/sklearn/metrics/_classification.py:1248: UndefinedMetricWarning: Precision is ill-defined and being set to 0.0 due to no predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, modifier, msg_start, len(result))
+/home/caoduanhua/anaconda3/envs/rdkit/lib/python3.6/site-packages/sklearn/metrics/_classification.py:1248: UndefinedMetricWarning: Precision is ill-defined and being set to 0.0 due to no predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, modifier, msg_start, len(result))
