@@ -78,12 +78,12 @@ class FeedForwardNetwork(nn.Module):
         x = self.layer2(x)
         return x
 class MultiHeadAttentionLayer(nn.Module):
-    def __init__(self, in_dim, out_dim, num_heads,edge_dim):
+    def __init__(self, in_dim, out_dim, num_heads,edge_dim,dropout_rate = 0.2):
         super().__init__()
         
         self.out_dim = out_dim
         self.num_heads = num_heads
-
+        self.attn_dropout = nn.Dropout(dropout_rate)
         self.Q = nn.Linear(in_dim, self.out_dim * num_heads, bias=True)
         self.K = nn.Linear(in_dim, self.out_dim * num_heads, bias=True)
         self.V = nn.Linear(in_dim, self.out_dim * num_heads, bias=True)
@@ -121,8 +121,9 @@ class MultiHeadAttentionLayer(nn.Module):
         # full_g.apply_edges(exp('score')) # not div 
         # add a attn dropout
         # Send weighted values to target nodes
-
+        # full_g.edata['score'] = self.attn_dropout(full_g.edata['score'])
         full_g.edata['score'] = edge_softmax(graph = full_g,logits = full_g.edata['score'].clamp(-5,5))
+        full_g.edata['score'] = self.attn_dropout(full_g.edata['score'])
         full_g.send_and_recv(eids, fn.src_mul_edge('V_h', 'score', 'V_h'), fn.sum('V_h', 'wV'))
         # full_g.send_and_recv(eids, fn.copy_edge('score', 'score'), fn.sum('score', 'z')) # div
     
@@ -167,7 +168,7 @@ class GraphTransformerLayer(nn.Module):
         self.args = args
 
         
-        self.attention = MultiHeadAttentionLayer(self.args.n_out_feature, self.args.n_out_feature//self.args.head_size, self.args.head_size,self.args.edge_dim)
+        self.attention = MultiHeadAttentionLayer(self.args.n_out_feature, self.args.n_out_feature//self.args.head_size, self.args.head_size,self.args.edge_dim,self.args.dropout_rate)
         
         self.self_ffn_dropout = nn.Dropout(self.args.dropout_rate)
         self.self_ffn_dropout_2 = nn.Dropout(self.args.dropout_rate)

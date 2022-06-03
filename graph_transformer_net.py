@@ -67,6 +67,5 @@ class GraphTransformerNet(nn.Module):
             e = F.dropout(e, p=self.args.dropout_rate, training=self.training)
         # select ligand atom for predict
         g.ndata['x'] = h * g.ndata['V']
-
-        hg = dgl.sum_nodes(g, 'x')/dgl.sum_nodes(g,'V') # mean add sum or max or min later! concat
+        hg = dgl.sum_nodes(g, 'x')#/dgl.sum_nodes(g,'V') # mean add sum or max or min later! concat
         return self.MLP_layer(hg)

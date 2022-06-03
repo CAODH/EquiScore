@@ -1,5 +1,4 @@
 import pickle
-
 import time
 import numpy as np
 import utils
@@ -15,6 +14,7 @@ import argparse
 import time
 from torch.utils.data import DataLoader          
 # from torch.utils.data import DataLoader
+import dgl
 from dgl.dataloading import GraphDataLoader
 from prefetch_generator import BackgroundGenerator
 from graph_transformer_net import GraphTransformerNet
@@ -44,6 +44,7 @@ def run(local_rank,args):
     # seed_everything()
     # rank = torch.distributed.get_rank()
     args.local_rank = local_rank
+
     # print('in run args',local_rank,args.local_rank)
     torch.distributed.init_process_group(backend="nccl",init_method='env://',rank = args.local_rank,world_size = args.ngpu)  # 并行训练初始化，'nccl'模式
     torch.cuda.set_device(args.local_rank) 
@@ -106,7 +107,7 @@ def run(local_rank,args):
     model = GraphTransformerNet(args) if args.gnn_model == 'graph_transformer_dgl' else None
 
     print ('number of parameters : ', sum(p.numel() for p in model.parameters() if p.requires_grad))
-    # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    # device = torch.device("cuda:{}".format(args.local_rank) if torch.cuda.is_available() else "cpu")
     args.device = args.local_rank
     if args.hot_start:
         model ,opt_dict,epoch_start= utils.initialize_model(model, args.device,args,args.save_model)
