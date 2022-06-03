@@ -122,6 +122,8 @@ class MultiHeadAttentionLayer(nn.Module):
         # add a attn dropout
         # Send weighted values to target nodes
         # full_g.edata['score'] = self.attn_dropout(full_g.edata['score'])
+        # make some noise in attn ??
+        ################################
         full_g.edata['score'] = edge_softmax(graph = full_g,logits = full_g.edata['score'].clamp(-5,5))
         full_g.edata['score'] = self.attn_dropout(full_g.edata['score'])
         full_g.send_and_recv(eids, fn.src_mul_edge('V_h', 'score', 'V_h'), fn.sum('V_h', 'wV'))
