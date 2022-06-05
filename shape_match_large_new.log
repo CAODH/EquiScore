@@ -1,0 +1,148 @@
+2022-06-05 10:48:33
+Available GPU List
+id	utilization.gpu(%)	memory.free(MiB)
+0 	0                 	32510           
+1 	0                 	32510           
+2 	0                 	32510           
+3 	0                 	32510           
+4 	0                 	32510           
+5 	0                 	32510           
+6 	0                 	32510           
+7 	0                 	32510           
+Select id #0, 1, 2, 3, 4, 5, 6, 7 for you.
+Number of train data: 238441
+Number of val data: 26494
+Number of test data: 72873
+Available GPU List
+id	utilization.gpu(%)	memory.free(MiB)
+0 	0                 	32506           
+1 	0                 	32506           
+2 	0                 	32502           
+3 	0                 	32506           
+4 	0                 	32506           
+5 	0                 	32506           
+6 	0                 	32506           
+7 	0                 	32506           
+Select id #0, 1, 2, 3, 4, 5, 6, 7 for you.
+number of parameters :  391709
+load save model!
+Let's use 8 GPUs!
+Number of train data: 238441
+Number of val data: 26494
+Number of test data: 72873
+Available GPU List
+id	utilization.gpu(%)	memory.free(MiB)
+0 	0                 	32506           
+1 	0                 	32506           
+2 	0                 	32506           
+3 	0                 	32506           
+4 	0                 	32506           
+5 	0                 	32506           
+6 	0                 	32506           
+7 	0                 	32506           
+Select id #0, 1, 2, 3, 4, 5, 6, 7 for you.
+number of parameters :  391709
+load save model!
+Let's use 8 GPUs!
+Number of train data: 238441
+Number of val data: 26494
+Number of test data: 72873
+Available GPU List
+id	utilization.gpu(%)	memory.free(MiB)
+0 	0                 	32506           
+1 	0                 	32506           
+2 	0                 	32501           
+3 	0                 	32506           
+4 	0                 	32506           
+5 	0                 	32506           
+6 	0                 	32506           
+7 	0                 	32506           
+Select id #0, 1, 2, 3, 4, 5, 6, 7 for you.
+number of parameters :  391709
+load save model!
+Let's use 8 GPUs!
+Number of train data: 238441
+Number of val data: 26494
+Number of test data: 72873
+Available GPU List
+id	utilization.gpu(%)	memory.free(MiB)
+0 	0                 	32506           
+1 	0                 	32506           
+2 	0                 	32506           
+3 	0                 	32506           
+4 	0                 	32506           
+5 	0                 	32506           
+6 	0                 	32506           
+7 	0                 	32506           
+Select id #0, 1, 2, 3, 4, 5, 6, 7 for you.
+number of parameters :  391709
+load save model!
+Let's use 8 GPUs!
+Number of train data: 238441
+Number of val data: 26494
+Number of test data: 72873
+Available GPU List
+id	utilization.gpu(%)	memory.free(MiB)
+0 	0                 	32506           
+1 	0                 	32506           
+2 	0                 	32501           
+3 	0                 	32506           
+4 	0                 	32506           
+5 	0                 	32502           
+6 	0                 	32506           
+7 	0                 	32506           
+Select id #0, 1, 2, 3, 4, 5, 6, 7 for you.
+number of parameters :  391709
+load save model!
+Let's use 8 GPUs!
+Number of train data: 238441
+Number of val data: 26494
+Number of test data: 72873
+Available GPU List
+id	utilization.gpu(%)	memory.free(MiB)
+0 	0                 	32506           
+1 	0                 	32506           
+2 	0                 	32506           
+3 	0                 	32506           
+4 	0                 	32506           
+5 	0                 	32506           
+6 	0                 	32506           
+7 	0                 	32506           
+Select id #0, 1, 2, 3, 4, 5, 6, 7 for you.
+number of parameters :  391709
+load save model!
+Let's use 8 GPUs!
+Number of train data: 238441
+Number of val data: 26494
+Number of test data: 72873
+Available GPU List
+id	utilization.gpu(%)	memory.free(MiB)
+0 	0                 	32506           
+1 	0                 	32506           
+2 	0                 	32501           
+3 	0                 	32506           
+4 	0                 	32506           
+5 	0                 	32502           
+6 	0                 	32506           
+7 	0                 	32506           
+Select id #0, 1, 2, 3, 4, 5, 6, 7 for you.
+number of parameters :  391709
+load save model!
+Let's use 8 GPUs!
+Number of train data: 238441
+Number of val data: 26494
+Number of test data: 72873
+Available GPU List
+id	utilization.gpu(%)	memory.free(MiB)
+0 	0                 	32506           
+1 	0                 	32506           
+2 	0                 	32501           
+3 	0                 	32506           
+4 	0                 	32506           
+5 	0                 	32504           
+6 	0                 	32506           
+7 	0                 	32506           
+Select id #0, 1, 2, 3, 4, 5, 6, 7 for you.
+number of parameters :  391709
+load save model!
+Let's use 8 GPUs!
