@@ -1,6 +1,8 @@
 {
     "lr": 0.001,
     "label_smothing":0.0,
+    "single_pro_batch":false,
+    "eps":4.0,
     "add_logk_reg":false,
     "gnn_model":"graph_transformer_dgl",
     "lap_pos_enc":false,
