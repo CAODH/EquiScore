@@ -766,42 +766,85 @@ def save_model(model,optimizer,args,epoch,save_path,mode = 'best'):
             'optimizer':optimizer.state_dict(),
             'epoch':epoch}, best_name)
 
+
+# 按照蛋白shuffle 数据
+def shuffle_train_keys(train_keys):
+    sample_dict = defaultdict(list)
+    for i in train_keys:
+        key = i.split('/')[-1].split('_')[0]
+        sample_dict[key].append(i)
+    keys = list(sample_dict.keys())
+    # print(len(keys))
+    np.random.shuffle(keys)
+    new_keys = []
+    batch_sizes = []
+
+    for i,key in enumerate(keys):
+        temp = sample_dict[key]
+        np.random.shuffle(temp)
+        new_keys += temp
+        batch_sizes.append(len(temp))
+    return new_keys,batch_sizes
 #定义一个辅助的loss 用来惩罚阴性样本概率高于阳性样本
-# from torch.autograd import Variable
-# class auxiliary_loss(nn.Module):
-#     def __init__(self, deta=1):
-#         super(auxiliary_loss, self).__init__(args)
-#         if args.deta_const:
-#             self.deta = 1
-#         else:
-#             self.deta = Variable(deta, requires_grad=True)
-        
-    # def forward(self,y_pred,labels):
-    # #找到正样本
-    # # data_flag.append(None)
-    #     y_pred = y_pred.reshape(1,-1)
-    #     labels = labels.reshape(1,-1)
-    #     pos_num = torch.sum(labels)
-    #     neg_num = len(labels)-pos_num
-    #     pos_pred = y_pred[labels.bool()]
-    #     neg_pred = y_pred[(1-labels).bool()]
-    #     loss = self.deta*torch.sum(neg_pred - pos_pred.reshape(-1,1))/(pos_num*neg_num)
-    #     # loss = Variable(loss, requires_grad=True)
-    #     return loss 
-def auxiliary_loss(y_pred,labels):
-    #找到正样本
-    # data_flag.append(None)
+
+class auxiliary_loss(nn.Module):
+    def __init__(self,args):
+        super(auxiliary_loss,self).__init__()
+        if args.deta_const:
+            self.deta = 0.2
+        else:
+            self.deta = nn.Parameter(torch.Tensor([deta]).float())
+    def forward(self,y_pred,labels):
         y_pred = y_pred.reshape(1,-1)
         labels = labels.reshape(1,-1)
         pos_num = torch.sum(labels)
         neg_num = len(labels)-pos_num
-        if len(labels) >neg_num > 0:
+        if len(labels) > neg_num > 0:
             # print('y_pred:',y_pred)
             # print('labels:',labels.bool())
             pos_pred = y_pred[labels.bool()]
             neg_pred = y_pred[(1-labels).bool()]
-            loss = torch.sum(neg_pred - pos_pred.reshape(-1,1))/(pos_num*neg_num)
+            loss = self.deta*torch.sum(neg_pred - pos_pred.reshape(-1,1))/(pos_num*neg_num)
             # loss = Variable(loss, requires_grad=True)
         else: 
             loss = 0
         return loss 
+from torch.nn.functional import one_hot
+class PolyLoss_FL(torch.nn.Module):
+    """
+    Implementation of poly loss FOR FL.
+    Refers to `PolyLoss: A Polynomial Expansion Perspective of Classification Loss Functions (ICLR 2022)
+    """
+
+    def __init__(self, num_classes=2, epsilon=1.0,gamma = 2.0):
+        super().__init__()
+        self.epsilon = epsilon
+        self.softmax = torch.nn.LogSoftmax(dim=-1)
+        self.criterion = FocalLoss(gamma = 2.0,size_average = False)
+        self.num_classes = num_classes
+        self.gamma = gamma
+
+    def forward(self, output, target):
+        fl = self.criterion(output, target)
+        pt = one_hot(target.long(), num_classes=self.num_classes) * self.softmax(output)
+        return (fl + self.epsilon * torch.pow(1.0 - pt.sum(dim=-1),self.gamma + 1)).mean()
+
+
+class PolyLoss_CE(torch.nn.Module):
+    """
+    Implementation of poly loss for CE.
+    Refers to `PolyLoss: A Polynomial Expansion Perspective of Classification Loss Functions (ICLR 2022)
+    """
+
+    def __init__(self, num_classes=2, epsilon=1.0):
+        super().__init__()
+        self.epsilon = epsilon
+        self.softmax = torch.nn.LogSoftmax(dim=-1)
+        self.criterion = torch.nn.CrossEntropyLoss(reduction='none')
+        self.num_classes = num_classes
+
+    def forward(self, output, target):
+        ce = self.criterion(output, target.long())
+        pt = one_hot(target.long(), num_classes=self.num_classes) * self.softmax(output)
+
+        return (ce + self.epsilon * (1.0 - pt.sum(dim=-1))).mean()

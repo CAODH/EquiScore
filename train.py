@@ -155,6 +155,10 @@ def run(local_rank,args):
         loss_fn = torch.nn.CrossEntropyLoss(label_smoothing=args.label_smothing).to(args.device)
     elif args.loss_fn == 'mse_loss':
         loss_fn = nn.MSELoss().to(args.device)
+    elif args.loss_fn == 'poly_loss_ce':
+        loss_fn = PolyLoss_CE(epsilon = args.eps).to(args.device)
+    elif args.loss_fn == 'poly_loss_fl':
+        loss_fn = PolyLoss_FL(epsilon=args.eps,gamma = 2.0).to(args.device)
     else:
         raise ValueError('not support this loss : %s'%args.loss_fn)
     best_loss = 1000000000#by caodunahua
@@ -164,6 +168,16 @@ def run(local_rank,args):
         #collect losses of each iteration
         if args.ngpu > 1:
             train_sampler.set_epoch(epoch) 
+        if args.single_pro_batch:
+            # 每个epoch 训练的样本蛋白次序被打乱,每个蛋白的样本数量作为batch_size ,
+            train_keys,batch_sizes = shuffle_train_keys(train_keys)
+            
+            train_dataset = graphformerDataset(train_keys,args, args.data_path,args.debug)
+            # 按生成的次序取样本，不随机打乱
+            train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset) if args.ngpu > 1 else None
+            train_dataloader = DataLoaderX(train_dataset, args.batch_size, sampler = train_sampler,prefetch_factor = 4,\
+            shuffle=False, num_workers = args.num_workers, collate_fn=train_dataset.collate,pin_memory=True)
+            
         model,train_losses,optimizer = train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss)
 
         if args.ngpu > 1:
