@@ -104,7 +104,7 @@ def run(local_rank,args):
         model ,opt_dict,epoch_start= utils.initialize_model(model, args.device,args,args.save_model)
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
         # print('opt_dict: ',opt_dict)
-        opt_dict['param_groups'][0]['lr'] = 0.0001
+        # opt_dict['param_groups'][0]['lr'] = 0.0001
         optimizer.load_state_dict(opt_dict)
 
         # print('optimizer: ',optimizer)
