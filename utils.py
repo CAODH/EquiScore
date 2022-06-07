@@ -337,7 +337,9 @@ def evaluator(model,loader,loss_fn,args,test_sampler):
             test_pred = distributed_concat(torch.concat(test_pred, dim=0), 
                                             len(test_sampler.dataset)).cpu().numpy()
         
-
+        else:
+            test_true = torch.concat(test_true, dim=0).cpu().numpy()
+            test_pred = torch.concat(test_pred, dim=0).cpu().numpy()
     return test_losses,test_true,test_pred
 import copy
 def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss):
