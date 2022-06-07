@@ -302,18 +302,16 @@ def evaluator(model,loader,loss_fn,args,test_sampler):
     model.eval()
     with torch.no_grad():
         test_losses,test_true,test_pred = [], [],[]
-       
         for i_batch, (g,full_g,Y) in enumerate(loader):
             # time_s = time.time()
+            # print('g,full_g',g,full_g,Y)
             model.zero_grad()
             g = g.to(args.local_rank)
             full_g = full_g.to(args.local_rank)
             Y = Y.long().to(args.local_rank)
-            
             pred = model(g,full_g)
-           
-
             loss = loss_fn(pred ,Y) 
+            # print(loss)
             if args.ngpu > 1:
             # dist.barrier() 
                 dist.all_reduce(loss.data,op = torch.distributed.ReduceOp.SUM)
@@ -423,9 +421,9 @@ def getEF(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_f
             key_split = key.split('_')
             # if 'KAT2A' == key_split[0]:
             if 'active' in key_split:
-                pros[key_split[0]].insert(0,test_path + '/'+ key)
+                pros[key_split[0]].insert(0,os.path.join(test_path ,key))
             else:#阳性标签排在前面
-                pros[key_split[0]].append(test_path + '/'+ key)
+                pros[key_split[0]].append(os.path.join(test_path ,key))
 
             #agg sme pro
         EFs = []
@@ -453,6 +451,7 @@ def getEF(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_f
                 shuffle=False, num_workers = 8, collate_fn=test_dataset.collate,pin_memory = True,sampler = val_sampler)
 
                 test_losses,test_true,test_pred = evaluator(model,test_dataloader,loss_fn,args,val_sampler)
+
                 if args.ngpu > 1:
                     dist.barrier()
                 if args.local_rank == 0:
@@ -465,6 +464,131 @@ def getEF(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_f
                             Y_sum += 1
                     actions = int(Y_sum)
                     action_rate = actions/len(test_keys_pro)
+                    #保存logits 进行下一步分析
+                    # test_pred = np.concatenate(np.array(test_pred), 0)
+                    EF = []
+                    hits_list = []
+                    for rate in rates:
+                        find_limit = int(len(test_keys_pro)*rate)
+                        # print(find_limit)
+                        _,indices = torch.sort(torch.tensor(test_pred),descending = True)
+                        hits = torch.sum(indices[:find_limit] < actions)
+                        EF.append((hits/find_limit)/action_rate)
+                        hits_list.append(hits)
+                        # print(hits,actions,action_rate)
+                    
+                    EF_str = '['
+                    hits_str = '['
+                    for ef,hits in zip(EF,hits_list):
+                        EF_str += '%.3f'%ef+'\t'
+                        hits_str += ' %d '%hits
+                    EF_str += ']'
+                    hits_str += ']'
+                    end = time.time()
+                    with open(save_file,'a') as f:
+                        f.write(pro+ '\t'+'actions: '+str(actions)+ '\t' + 'actions_rate: '+str(action_rate)+ '\t' + 'hits: '+ hits_str +'\t'+'loss:' + str(test_losses)+'\n'\
+                            +'EF:'+rate_str+ '\t'+'test_auroc'+ '\t'+'test_adjust_logauroc'+ '\t'+'test_auprc'+ '\t'+'test_balanced_acc'+ '\t'+'test_acc'+ '\t'+'test_precision'+ '\t'+'test_sensitity'+ '\t'+'test_specifity'+ '\t'+'test_f1' +'\t' +'time'+ '\n')
+                        f.write( EF_str + '\t'+str(test_auroc)+ '\t'+str(test_adjust_logauroc)+ '\t'+str(test_auprc)+ '\t'+str(test_balanced_acc)+ '\t'+str(test_acc)+ '\t'+str(test_precision)+ '\t'+str(test_sensitity)+ '\t'+str(test_specifity)+ '\t'+str(test_f1) +'\t'+ str(end-st)+ '\n')
+                        f.close()
+                    EFs.append(EF)
+            except:
+                print(pro,':skip for some bug')
+                if args.ngpu > 1:
+                    dist.barrier()
+                continue
+            if args.ngpu > 1:
+                dist.barrier()
+        if args.local_rank == 0:
+            EFs = list(np.sum(np.array(EFs),axis=0)/len(EFs))
+            EFs_str = '['
+            for ef in EFs:
+                EFs_str += str(ef)+'\t'
+            EFs_str += ']'
+            args_dict = vars(args)
+            with open(save_file,'a') as f:
+                    f.write( 'average EF for different EF_rate:' + EFs_str +'\n')
+                    for item in args_dict.keys():
+                        f.write(item + ' : '+str(args_dict[item]) + '\n')
+                    f.close()
+        if args.ngpu > 1:
+            dist.barrier()
+def getNumPose(test_keys,nums = 5):
+    pros = defaultdict(list)
+    for key in test_keys:
+        key_split = key.split('_-')
+        pros[key_split[0]].append(key)
+    for key in pros.keys():
+        pros[key].sort(key = lambda x : float(x.split('_-')[-1].replace('.sdf','')),reverse=True)
+        pros[key] = pros[key][:nums]
+    result = []
+    for temp  in pros.values():
+        result += temp
+    return result
+def getEFMultiPose(model,args,test_path,save_path,debug,batch_size,loss_fn,rates = 0.01,flag = '',pose_num = 5):
+        save_file = save_path + '/EF_test_multi_pose' + flag
+        test_keys = os.listdir(test_path)
+        # 每个复合物提取固定比例的pose
+        test_keys = getNumPose(test_keys,nums = pose_num)
+        # print('tests nums',len(test_keys))
+        pros = defaultdict(list)
+        for key in test_keys:
+            key_split = key.split('_')
+            pros[key_split[0]].append(os.path.join(test_path , key))
+        EFs = []
+        st = time.time()
+        if type(rates) is not list:
+                rates = list([rates])
+        rate_str = ''
+        for rate in rates:
+            rate_str += str(rate)+ '\t'
+        for pro in pros.keys():
+            try :
+                test_keys_pro = pros[pro]
+                if test_keys_pro is None:
+                    if args.ngpu > 1:
+                        dist.barrier()
+                    continue
+
+                test_dataset = graphformerDataset(test_keys_pro,args, test_path,debug)
+                val_sampler = SequentialDistributedSampler(test_dataset,args.batch_size) if args.ngpu > 1 else None
+                test_dataloader = DataLoaderX(test_dataset, batch_size = batch_size, \
+                shuffle=False, num_workers = 8, collate_fn=test_dataset.collate,pin_memory = True,sampler = val_sampler)
+                test_losses,test_true,test_pred = evaluator(model,test_dataloader,loss_fn,args,val_sampler)
+
+                if args.ngpu > 1:
+                    dist.barrier()
+                if args.local_rank == 0:
+                    test_auroc,test_adjust_logauroc,test_auprc,test_balanced_acc,test_acc,test_precision,test_sensitity,test_specifity,test_f1 = get_metrics(test_true,test_pred)
+                    test_losses = torch.mean(torch.tensor(test_losses,dtype=torch.float)).data.cpu().numpy()
+                    Y_sum = 0
+                    # multi pose 
+                    # 一个ligand 一个名字，带有所有的概率，用来求概率最大值，然后，
+                    # ligand_single_pose_with_max_logits = []
+                    # new_keys = []
+                    key_logits = defaultdict(list)
+                    for pred,key in zip(test_pred,test_keys_pro):
+                        new_key = '_'.join(key.split('_')[:-1])
+                        key_logits[new_key].append(pred)
+                    new_keys = list(key_logits.keys())
+                    max_pose_logits = [max(logits) for logits in  list(key_logits.values())]
+
+                    # test_keys_pro = new_keys
+                    # test_pred = max_pose_logits
+                    test_keys_pro = []
+                    test_pred = []
+                    for key,logit in zip(new_keys,max_pose_logits):
+                        key_split = key.split('_') 
+                        if 'active' in key_split:
+                            test_keys_pro.insert(0,key)
+                            test_pred.insert(0,logit)
+                            Y_sum += 1
+                        else:#阳性标签排在前面
+                            test_keys_pro.append(key)
+                            test_pred.append(logit)
+
+                    actions = int(Y_sum)
+                    action_rate = actions/len(test_keys_pro)
+                    
                     #保存logits 进行下一步分析
                     # test_pred = np.concatenate(np.array(test_pred), 0)
                     EF = []
