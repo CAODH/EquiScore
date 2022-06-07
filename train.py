@@ -104,7 +104,7 @@ def run(local_rank,args):
         model ,opt_dict,epoch_start= utils.initialize_model(model, args.device,args,args.save_model)
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
         # print('opt_dict: ',opt_dict)
-        opt_dict['param_groups'][0]['lr'] = 0.0001
+        # opt_dict['param_groups'][0]['lr'] = 0.0001
         optimizer.load_state_dict(opt_dict)
 
         # print('optimizer: ',optimizer)
@@ -115,7 +115,7 @@ def run(local_rank,args):
         epoch_start = 0
         write_log_head(args,log_path,model,train_keys,val_keys)
     # scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.01, steps_per_epoch=10, epochs=10)
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[40,60,80,100], gamma=0.5)
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[50,60,80,90,110], gamma=0.5)
     
 
     #train val and test dataset
@@ -242,7 +242,7 @@ if '__main__' == __name__:
     parser = argparse.ArgumentParser(description='json param')
     parser.add_argument('--local_rank', default=-1, type=int) 
     parser.add_argument("--json_path", help="file path of param", type=str, \
-        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/gnn_edge_3d_pos_dgl_shape_match_screen_cross_large.json')
+        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/gnn_edge_3d_pos_dgl_pose.json')
     args = parser.parse_args()
     local_rank = args.local_rank
     # label_smoothing# temp_args = parser.parse_args()
