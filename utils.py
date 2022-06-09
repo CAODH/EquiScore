@@ -377,7 +377,7 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss,scheduler
         loss = loss.data*6 if args.grad_sum else loss.data
         train_losses.append(loss)
         scheduler.step()
-    return model,train_losses,optimizer
+    return model,train_losses,optimizer,scheduler
 def getToyKey(train_keys):
     train_keys_toy_d = []
     train_keys_toy_a = []

@@ -179,7 +179,7 @@ def run(local_rank,args):
             train_dataloader = DataLoaderX(train_dataset, args.batch_size, sampler = train_sampler,prefetch_factor = 4,\
             shuffle=False, num_workers = args.num_workers, collate_fn=train_dataset.collate,pin_memory=True)
             
-        model,train_losses,optimizer,scheluder = train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss,scheduler)
+        model,train_losses,optimizer,scheduler = train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss,scheduler)
 
         if args.ngpu > 1:
             dist.barrier() 
