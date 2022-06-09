@@ -102,7 +102,7 @@ def run(local_rank,args):
     args.device = args.local_rank
     if args.hot_start:
         model ,opt_dict,epoch_start= utils.initialize_model(model, args.device,args,args.save_model)
-        optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+        optimizer = torch.optim.adamW(model.parameters(), lr=lr)
         # print('opt_dict: ',opt_dict)
         # opt_dict['param_groups'][0]['lr'] = 0.0001
         optimizer.load_state_dict(opt_dict)
@@ -111,11 +111,11 @@ def run(local_rank,args):
     else:
 
         model = utils.initialize_model(model, args.device,args)
-        optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+        optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
         epoch_start = 0
         write_log_head(args,log_path,model,train_keys,val_keys)
-    # scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.01, steps_per_epoch=10, epochs=10)
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[50,60,80,90,110], gamma=0.5)
+    # scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.005, steps_per_epoch=, epochs=10)
+    # scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[50,60,80,90,110], gamma=0.5)
     
 
     #train val and test dataset
@@ -145,6 +145,7 @@ def run(local_rank,args):
 
     #optimizer
     # optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.005,pct_start=0.15, steps_per_epoch=len(train_dataloader), epochs=args.epoch)
 
     #loss function
     if args.loss_fn == 'bce_loss':
@@ -178,7 +179,7 @@ def run(local_rank,args):
             train_dataloader = DataLoaderX(train_dataset, args.batch_size, sampler = train_sampler,prefetch_factor = 4,\
             shuffle=False, num_workers = args.num_workers, collate_fn=train_dataset.collate,pin_memory=True)
             
-        model,train_losses,optimizer = train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss)
+        model,train_losses,optimizer,scheluder = train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss,scheduler)
 
         if args.ngpu > 1:
             dist.barrier() 
@@ -186,8 +187,8 @@ def run(local_rank,args):
 
         if args.ngpu > 1:
             dist.barrier() 
-        if args.lr_decay:
-            scheduler.step()
+        # if args.lr_decay:
+        #     scheduler.step()
 
         if local_rank == 0:
             train_losses = torch.mean(torch.tensor(train_losses,dtype=torch.float)).data.cpu().numpy()
@@ -242,7 +243,7 @@ if '__main__' == __name__:
     parser = argparse.ArgumentParser(description='json param')
     parser.add_argument('--local_rank', default=-1, type=int) 
     parser.add_argument("--json_path", help="file path of param", type=str, \
-        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/gnn_edge_3d_pos_dgl_pose.json')
+        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/gnn_edge_3d_pos_screen_dgl.json')
     args = parser.parse_args()
     local_rank = args.local_rank
     # label_smoothing# temp_args = parser.parse_args()

@@ -340,7 +340,7 @@ def evaluator(model,loader,loss_fn,args,test_sampler):
             test_pred = torch.concat(test_pred, dim=0).cpu().numpy()
     return test_losses,test_true,test_pred
 import copy
-def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss):
+def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss,scheduler):
 # 加入辅助函数和r_drop 方式
         #collect losses of each iteration
     train_losses = [] 
@@ -370,15 +370,13 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss):
             loss.backward()
             optimizer.step()
             model.zero_grad()
-        # print('batch_loss:',loss)
-        # print('time updata to loss backward pro:',time.time() -time_s)
         if args.ngpu > 1:
             # dist.barrier() 
             dist.all_reduce(loss.data,op = torch.distributed.ReduceOp.SUM)
             loss /= float(dist.get_world_size()) # get all loss value 
         loss = loss.data*6 if args.grad_sum else loss.data
-        
         train_losses.append(loss)
+        scheduler.step()
     return model,train_losses,optimizer
 def getToyKey(train_keys):
     train_keys_toy_d = []
