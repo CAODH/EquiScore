@@ -350,31 +350,54 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss,scheduler
     for i_batch, (g,full_g,Y) in enumerate(train_dataloader):
         g = g.to(args.device)
         full_g = full_g.to(args.device)
+        if args.r_drop:
+            r_g= copy.deepcopy(g)
+            r_full_g = copy.deepcopy(full_g)
+        Y = Y.long().to(args.device)
         if args.lap_pos_enc:
 
             batch_lap_pos_enc = g.ndata['lap_pos_enc']
             sign_flip = torch.rand(batch_lap_pos_enc.size(1)).to(args.device)
             sign_flip[sign_flip>=0.5] = 1.0; sign_flip[sign_flip<0.5] = -1.0
             g.ndata['lap_pos_enc'] = batch_lap_pos_enc * sign_flip.unsqueeze(0)
-        pred = model(g,full_g)
-        loss = loss_fn(pred, Y.long().to(pred.device))
+        logits = model(g,full_g)
+        loss = loss_fn(logits, Y)
+        if args.auxiliary_loss:
+            aux_loss = auxiliary_loss(logits,Y)
 
-        if args.grad_sum:
-            loss = loss/6
-            loss.backward()
-            if (i_batch + 1) % 6 == 0  or i_batch == len(train_dataloader) - 1:
-                optimizer.step()
-                model.zero_grad()
-                # print('batch_loss:',np.mean(train_losses))
-        else:
-            loss.backward()
+        if args.r_drop:
+            # r_g= copy.deepcopy(g)
+            # r_full_g = copy.deepcopy(full_g)
+
+            newlogits = model(r_g,r_full_g)
+            loss += loss_fn(newlogits, Y)
+            # kl div
+            p = torch.log_softmax(logits.view(-1,2), dim=-1)
+            p_tec = torch.softmax(logits.view(-1,2), dim=-1)
+            q = torch.log_softmax(newlogits.view(-1,2), dim=-1)
+            q_tec = torch.softmax(newlogits.view(-1,2), dim=-1)
+            kl_loss = torch.nn.functional.kl_div(p, q_tec, reduction='none').sum()
+            reverse_kl_loss = torch.nn.functional.kl_div(q, p_tec, reduction='none').sum()
+            #------------------------
+            # alpha = 5
+            loss += args.alpha*(kl_loss + reverse_kl_loss)/2
+            if args.auxiliary_loss:
+                aux_loss  += auxiliary_loss(newlogits,Y)
+                aux_loss /= 2
+        if args.auxiliary_loss:
+            loss += aux_loss
+
+        loss = loss/args.grad_sum
+        loss.backward()
+        if (i_batch + 1) % args.grad_sum == 0  or i_batch == len(train_dataloader) - 1:
             optimizer.step()
             model.zero_grad()
+
         if args.ngpu > 1:
             # dist.barrier() 
             dist.all_reduce(loss.data,op = torch.distributed.ReduceOp.SUM)
             loss /= float(dist.get_world_size()) # get all loss value 
-        loss = loss.data*6 if args.grad_sum else loss.data
+        loss = loss.data*args.grad_sum 
         train_losses.append(loss)
         scheduler.step()
     return model,train_losses,optimizer,scheduler

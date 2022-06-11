@@ -66,6 +66,10 @@ def run(local_rank,args,*more_args,**kwargs):
         loss_fn = torch.nn.CrossEntropyLoss(label_smoothing=args.label_smothing).to(args.device)
     elif args.loss_fn == 'mse_loss':
         loss_fn = nn.MSELoss().to(args.device)
+    elif args.loss_fn == 'poly_loss_ce':
+        loss_fn = PolyLoss_CE(epsilon = args.eps).to(args.device)
+    elif args.loss_fn == 'poly_loss_fl':
+        loss_fn = PolyLoss_FL(epsilon=args.eps,gamma = 2.0).to(args.device)
     else:
         raise ValueError('not support this loss : %s'%args.loss_fn)
     getEF(model,args,args.test_path,save_path,args.device,args.debug,args.batch_size,args.A2_limit,loss_fn,args.EF_rates,flag = '_' + args.test_name)
@@ -85,7 +89,7 @@ if '__main__' == __name__:
     parser = argparse.ArgumentParser(description='json param')
     parser.add_argument('--local_rank', default=-1, type=int) 
     parser.add_argument("--json_path", help="file path of param", type=str, \
-        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/gnn_edge_3d_pos_dgl_shape_match_screen_cross_large.json')
+        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/gnn_edge_3d_pos_screen_dgl.json')
     args = parser.parse_args()
     local_rank = args.local_rank
     # label_smoothing# temp_args = parser.parse_args()
