@@ -145,7 +145,7 @@ def run(local_rank,args):
 
     #optimizer
     # optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.001,pct_start=0.15, steps_per_epoch=len(train_dataloader), epochs=args.epoch)
+    scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.001,pct_start=0.3, steps_per_epoch=len(train_dataloader), epochs=args.epoch)
 
     #loss function
     if args.loss_fn == 'bce_loss':
@@ -243,7 +243,7 @@ if '__main__' == __name__:
     parser = argparse.ArgumentParser(description='json param')
     parser.add_argument('--local_rank', default=-1, type=int) 
     parser.add_argument("--json_path", help="file path of param", type=str, \
-        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/gnn_edge_3d_pos_screen_dgl_r_drop.json')
+        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/gnn_edge_3d_pos_screen_dgl_fp.json')
     args = parser.parse_args()
     local_rank = args.local_rank
     # label_smoothing# temp_args = parser.parse_args()

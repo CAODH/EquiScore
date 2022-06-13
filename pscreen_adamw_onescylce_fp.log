@@ -1,0 +1,12 @@
+Traceback (most recent call last):
+  File "train.py", line 4, in <module>
+    import utils
+  File "/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/utils.py", line 10, in <module>
+    from dataset import *
+  File "/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/dataset.py", line 7, in <module>
+    from rdkit import Chem
+  File "/home/caoduanhua/anaconda3/envs/prolif/lib/python3.8/site-packages/rdkit/Chem/__init__.py", line 18, in <module>
+    from rdkit import DataStructs
+  File "/home/caoduanhua/anaconda3/envs/prolif/lib/python3.8/site-packages/rdkit/DataStructs/__init__.py", line 13, in <module>
+    from rdkit.DataStructs import cDataStructs
+ImportError: /usr/lib/x86_64-linux-gnu/libstdc++.so.6: version `GLIBCXX_3.4.26' not found (required by /home/caoduanhua/anaconda3/envs/prolif/lib/python3.8/site-packages/rdkit/DataStructs/cDataStructs.so)

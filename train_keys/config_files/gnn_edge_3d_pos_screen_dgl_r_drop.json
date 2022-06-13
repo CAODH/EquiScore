@@ -1,5 +1,5 @@
 {
-    "lr": 0.0001,
+    "lr": 0.0005,
     "label_smothing":0.0,
     "single_pro_batch":false,
     "eps":4.0,
@@ -58,7 +58,7 @@
     "out_degree_bias": false,
     "hot_start": false,
     "save_model": "/home/caoduanhua/score_function/GNN/train_result/ligand_gnn_dgl_screen/graphformer/GAT_gate/2022-06-10-02-12-17/save_best_model.pt",
-    "lr_decay": false,
+    "lr_decay": true,
     "auxiliary_loss": false,
     "r_drop": true,
     "deta_const": false,
@@ -70,6 +70,7 @@
     "embed_graph_mode": "ligand_protein",
     "grad_sum": 1,
     "virtual_aromatic_atom": true,
+    "fingerprintEdge":false,
     "FP": false,
     "dis_adj2_with_adj1": false,
     "seed": 42,

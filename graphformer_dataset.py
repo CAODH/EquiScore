@@ -17,6 +17,7 @@ from rdkit.Chem.rdmolops import GetAdjacencyMatrix
 import pickle
 import dgl
 import dgl.data
+from fp_construct import getNonBondPair
 # import 
 random.seed(0)
 class DTISampler(Sampler):
@@ -81,12 +82,10 @@ class graphformerDataset(Dataset):
         try:
             try:
                 with open(key, 'rb') as f:
-        
                     m1,m2= pickle.load(f)
             except:
                 with open(key, 'rb') as f:
-        
-                    m1,m2,_,_= pickle.load(f)
+                    m1,m2,atompairs,iter_types= pickle.load(f)
         except:
             print('file: {} is not a valid file！'.format(key))
             return None
@@ -105,6 +104,19 @@ class graphformerDataset(Dataset):
         agg_adj1[:n1, :n1] = adj1
         agg_adj1[n1:, n1:] = adj2
         agg_adj2 = np.copy(agg_adj1)
+        # add fp edge 
+        if self.args.fingerprintEdge:
+            # 边跑边处理太慢了， 预处理再加载
+            if 'inter_types' not in vars().keys() and 'atompairs' not in vars().keys():
+                atompairs,iter_types = getNonBondPair(m1,m2)
+                with open(key,'wb') as f:
+                    pickle.dump((m1,m2,atompairs,iter_types),f)
+                f.close()
+
+            for ligand_idx,pocket_idx in atompairs:
+                agg_adj1[ligand_idx][n1 + pocket_idx] = 1
+                agg_adj1[n1 + pocket_idx][ligand_idx] = 1
+
         dm = distance_matrix(d1,d2)
         dm_all = distance_matrix(np.concatenate([d1,d2],axis=0),np.concatenate([d1,d2],axis=0))
         if self.args.only_dis_adj2:

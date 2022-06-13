@@ -371,6 +371,7 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss,scheduler
 
             newlogits = model(r_g,r_full_g)
             loss += loss_fn(newlogits, Y)
+            loss /=2
             # kl div
             p = torch.log_softmax(logits.view(-1,2), dim=-1)
             p_tec = torch.softmax(logits.view(-1,2), dim=-1)
@@ -399,7 +400,8 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss,scheduler
             loss /= float(dist.get_world_size()) # get all loss value 
         loss = loss.data*args.grad_sum 
         train_losses.append(loss)
-        scheduler.step()
+        if args.lr_decay:
+            scheduler.step()
     return model,train_losses,optimizer,scheduler
 def getToyKey(train_keys):
     train_keys_toy_d = []

@@ -240,12 +240,13 @@ def getEdge(mols,n1,n2,adj_in = None):
         pass
     else:
         #加入虚拟边，然后为虚拟边加入特征向量 add fingerprint edges features
-        dm = adj_in[:n1,n1:n2]
+        dm = adj_in[:n1,n1:]
         edge_pos = np.where(dm == 1)
         edges_list.extend([(i,j+n1) for (i,j) in zip(*edge_pos)])
         edge_features_list.extend([[32,16,2,2,16] for edge_tuple in zip(*edge_pos)])
         edges_list.extend([(j+n1,i) for (i,j) in zip(*edge_pos)])
         edge_features_list.extend([[32,16,2,2,16] for edge_tuple in zip(*edge_pos)])
+
     if len(edges_list) == 0:
         edge_index = np.empty((2, 0), dtype = np.int64)
         edge_attr = np.empty((0, num_bond_features), dtype = np.int64)
