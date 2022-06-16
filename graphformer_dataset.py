@@ -64,11 +64,12 @@ class graphformerDataset(Dataset):
             # self.logk_match = 
     def __len__(self):
         if self.debug:
-            return 128
+            return 5680
         return len(self.keys)
     def collate(self, samples):
         # The input samples is a list of pairs (graph, label).
         ''' collate function for building graph dataloader'''
+        
         g,full_g,Y = map(list, zip(*samples))
 
         batch_g = dgl.batch(g)
@@ -83,9 +84,11 @@ class graphformerDataset(Dataset):
             try:
                 with open(key, 'rb') as f:
                     m1,m2= pickle.load(f)
+                # f.close()
             except:
                 with open(key, 'rb') as f:
                     m1,m2,atompairs,iter_types= pickle.load(f)
+                f.close()
         except:
             print('file: {} is not a valid file！'.format(key))
             return None
@@ -108,7 +111,11 @@ class graphformerDataset(Dataset):
         if self.args.fingerprintEdge:
             # 边跑边处理太慢了， 预处理再加载
             if 'inter_types' not in vars().keys() and 'atompairs' not in vars().keys():
-                atompairs,iter_types = getNonBondPair(m1,m2)
+                try:
+                    atompairs,iter_types = getNonBondPair(m1,m2)
+                except:
+                    atompairs,iter_types = [],[]
+                    # print(key)
                 with open(key,'wb') as f:
                     pickle.dump((m1,m2,atompairs,iter_types),f)
                 f.close()

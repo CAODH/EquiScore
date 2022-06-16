@@ -136,9 +136,14 @@ def get_aromatic_rings(mol:rdkit.Chem.Mol) -> list:
         if ring_id_set <= aromaticity_atom_id_set:
             rings.append(list(ring))
     return rings
-def add_atom_to_mol(mol,adj,H,d,n):
+def add_atom_to_mol(mol:rdkit.Chem.Mol,adj:np.array,H:np.array,d:np.array,n:int) :
     '''docstring: 
     add virtual aromatic atom feature/adj/3d_positions to raw data
+    mol : rdkit mol 
+    adj :
+    H : node feature
+    node d : 3d positions
+    n: node nums 
     '''
     assert len(adj) == len(H),'adj nums not equal to nodes'
     rings = get_aromatic_rings(mol)
@@ -464,7 +469,7 @@ def getEF(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_f
                     print('this pro :  %s  is tested'%pro)
                     continue
                 test_keys_pro = pros[pro]
-                if test_keys_pro is None:
+                if len(test_keys_pro) == 0:
                     if args.ngpu > 1:
                         dist.barrier()
                     continue
