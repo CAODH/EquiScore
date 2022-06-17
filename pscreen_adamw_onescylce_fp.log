@@ -1,7 +1,7 @@
-2022-06-17 11:56:59
+2022-06-17 13:48:04
 Available GPU List
 id	utilization.gpu(%)	memory.free(MiB)
-0 	36                	30627           
+0 	31                	30627           
 1 	0                 	32506           
 2 	0                 	32506           
 3 	0                 	32506           
