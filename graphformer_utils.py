@@ -167,7 +167,6 @@ def get_rel_pos(mol):
 #===================3d position end ========================
 #===================data attris start ========================
 # from dataset import *
-
 def molEdge(mol,n1,n2,adj_mol = None):
     edges_list = []
     edge_features_list = []
@@ -190,12 +189,14 @@ def molEdge(mol,n1,n2,adj_mol = None):
         adj_mol -= np.eye(len(adj_mol))
         dm = adj_mol[n:n1,:n1]
         # adj_mol += np.eye(len(adj_mol))
-        edge_pos = np.where(dm ==1)
-        edges_list.extend([(i+ n,j) for (i,j) in zip(*edge_pos)])
-        edge_features_list.extend([[33,17,3,3,17] for edge_tuple in zip(*edge_pos)])
-        edges_list.extend([(j,i + n) for (i,j) in zip(*edge_pos)])
-        edge_features_list.extend([[33,17,3,3,17] for edge_tuple in zip(*edge_pos)])
-        adj_mol += np.eye(len(adj_mol))
+        edge_pos_u,edge_pos_v = np.where(dm == 1)
+        # print('mol virtual edge',edge_pos_u,edge_pos_v)
+        
+        u,v = list((edge_pos_u + n)) +  list( edge_pos_v),list( edge_pos_v) + list((edge_pos_u + n))
+        # print('mol virtual edge',u,v)
+        edges_list.extend([*zip(u,v)])
+        edge_features_list.extend([[33,17,3,3,17]]*len(u))
+        # adj_mol += np.eye(len(adj_mol))
     # assert np.max(edges_list) < len(adj_mol),'edge_index must be less than nodes! ' 
     return edges_list ,edge_features_list
 def pocketEdge(mol,n1,n2,adj_pocket = None):
@@ -211,6 +212,7 @@ def pocketEdge(mol,n1,n2,adj_pocket = None):
             edge_features_list.append(edge_feature)
             edges_list.append((j, i))
             edge_features_list.append(edge_feature)
+    # add self edge feature
     if adj_pocket is  None :
         return edges_list ,edge_features_list
     # add virtual aromatic nodes feature
@@ -220,12 +222,15 @@ def pocketEdge(mol,n1,n2,adj_pocket = None):
         all_n = len(adj_pocket)
         adj_pocket -= np.eye(all_n)
         dm = adj_pocket[n:,n1:]
-        edge_pos = np.where(dm ==1)
-        edges_list.extend([(i+ n,j + n1) for (i,j) in zip(*edge_pos)])
-        edge_features_list.extend([[33,17,3,3,17] for edge_tuple in zip(*edge_pos)])
-        edges_list.extend([(j + n1,i + n) for (i,j) in zip(*edge_pos)])
-        edge_features_list.extend([[33,17,3,3,17] for edge_tuple in zip(*edge_pos)])
-        adj_pocket += np.eye(all_n)
+        edge_pos_u,edge_pos_v = np.where(dm == 1)
+        # print('pocket virtual edge',edge_pos_u,edge_pos_v)
+        
+        u,v = list((edge_pos_u + n)) +  list( edge_pos_v + n1),list( edge_pos_v + n1) + list((edge_pos_u + n))
+        # print('pocket virtual edge',u,v)
+        edges_list.extend([*zip(u,v)])
+        edge_features_list.extend([[33,17,3,3,17]]*len(u))
+   
+        # adj_pocket += np.eye(all_n)
     # assert np.max(edges_list) < len(adj_pocket),'edge_index must be less than nodes! ' 
     return edges_list ,edge_features_list
 def getEdge(mols,n1,n2,adj_in = None):
@@ -235,18 +240,24 @@ def getEdge(mols,n1,n2,adj_in = None):
     mol2_edge_idxs,mol2_edge_attr = pocketEdge(pocket,n1,n2,adj_pocket = adj_in)
     edges_list = mol1_edge_idxs + mol2_edge_idxs
     edge_features_list = mol1_edge_attr + mol2_edge_attr
+    # add self edge
+    u,v = np.where(np.eye(n1+n2) == 1)
+    # u_new = np.concatenate([u,v],axis = 0)
+    # v_new = np.concatenate([v,u],axis = 0)
+    edges_list.extend([*zip(u,v)])
+    edge_features_list.extend([[34,17,4,4,18]]*len(u))
 
     if adj_in is  None:
         pass
     else:
         #加入虚拟边，然后为虚拟边加入特征向量 add fingerprint edges features
         dm = adj_in[:n1,n1:]
-        edge_pos = np.where(dm == 1)
-        edges_list.extend([(i,j+n1) for (i,j) in zip(*edge_pos)])
-        edge_features_list.extend([[32,16,2,2,16] for edge_tuple in zip(*edge_pos)])
-        edges_list.extend([(j+n1,i) for (i,j) in zip(*edge_pos)])
-        edge_features_list.extend([[32,16,2,2,16] for edge_tuple in zip(*edge_pos)])
+        edge_pos_u,edge_pos_v = np.where(dm == 1)
+        
+        u,v = list(edge_pos_u) +  list((n1+ edge_pos_v)),list((n1+ edge_pos_v)) + list(edge_pos_u)
 
+        edges_list.extend([*zip(u,v)])
+        edge_features_list.extend([[32,16,2,2,16]]*len(u))
     if len(edges_list) == 0:
         edge_index = np.empty((2, 0), dtype = np.int64)
         edge_attr = np.empty((0, num_bond_features), dtype = np.int64)
@@ -255,6 +266,7 @@ def getEdge(mols,n1,n2,adj_in = None):
         edge_attr = torch.tensor(edge_features_list, dtype = torch.int64)
         # assert np.max(edge_index) < len(adj_in),'edge_index must be less than nodes! ' 
     return edge_index,edge_attr
+
 
 def mol2graph(mol,x,args,n1,n2,adj = None,dm = None):
     """
@@ -336,7 +348,9 @@ def preprocess_item(item, args,file_path,adj,term='item_1',noise=False,size = No
  
     g.ndata['x']  = x
     adj_in = adj.long().sum(dim=1).view(-1)
+    adj_in = torch.where(adj_in < 0,0,adj_in)
     g.ndata['in_degree'] = torch.where(adj_in > 8,9,adj_in) if args.in_degree_bias else None
+    # print('max() min()',max(adj_in),min(adj_in))
     g.edata['edge_attr'] = edge_attr
 
     src,dst = np.where(np.ones_like(adj)==1)

@@ -95,8 +95,10 @@ class graphformerDataset(Dataset):
         n1,d1,adj1 = utils.get_mol_info(m1)
         n2,d2,adj2 = utils.get_mol_info(m2)
         # pocket = Chem.CombineMols(m1,m2)
-        H1 = get_atom_graphformer_feature(m1,FP = self.args.FP)
-        H2 = get_atom_graphformer_feature(m2,FP = self.args.FP)
+        # H1 = get_atom_graphformer_feature(m1,FP = self.args.FP)
+        # H2 = get_atom_graphformer_feature(m2,FP = self.args.FP)
+        H1 = np.concatenate([get_atom_graphformer_feature(m1,FP = self.args.FP) ,np.array([0]).reshape(1,-1).repeat(n1,axis = 0)],axis=1)
+        H2 = np.concatenate([get_atom_graphformer_feature(m2,FP = self.args.FP) ,np.array([1]).reshape(1,-1).repeat(n2,axis = 0)],axis=1)
         if self.args.virtual_aromatic_atom:
             adj1,H1,d1,n1 = utils.add_atom_to_mol(m1,adj1,H1,d1,n1)
             # print( adj1,H1,d1,n1)
@@ -119,10 +121,11 @@ class graphformerDataset(Dataset):
                 with open(key,'wb') as f:
                     pickle.dump((m1,m2,atompairs,iter_types),f)
                 f.close()
+            if len(atompairs) > 0:
+                temp_fp= np.array(atompairs)
+                u,v = list(temp_fp[:,0]) +  list((n1+ temp_fp[:,1])),list((n1+ temp_fp[:,1])) + list(temp_fp[:,0])
+                agg_adj1[u,v] = 1
 
-            for ligand_idx,pocket_idx in atompairs:
-                agg_adj1[ligand_idx][n1 + pocket_idx] = 1
-                agg_adj1[n1 + pocket_idx][ligand_idx] = 1
 
         dm = distance_matrix(d1,d2)
         dm_all = distance_matrix(np.concatenate([d1,d2],axis=0),np.concatenate([d1,d2],axis=0))
