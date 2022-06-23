@@ -448,7 +448,7 @@ def getEF(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_f
         for key in test_keys:
             key_split = key.split('_')
             # if 'KAT2A' == key_split[0]:
-            if 'active' in key_split:
+            if '_active' in key:
                 pros[key_split[0]].insert(0,os.path.join(test_path ,key))
             else:#阳性标签排在前面
                 pros[key_split[0]].append(os.path.join(test_path ,key))
@@ -488,7 +488,7 @@ def getEF(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_f
                     Y_sum = 0
                     for key in test_keys_pro:
                         key_split = key.split('_')
-                        if 'active' in key_split:
+                        if '_active' in key:
                             Y_sum += 1
                     actions = int(Y_sum)
                     action_rate = actions/len(test_keys_pro)

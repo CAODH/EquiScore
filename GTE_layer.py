@@ -26,15 +26,14 @@ def scaling(field, scale_constant):
         return {field: ((edges.data[field]) / scale_constant)}
     return func
 
-# Improving implicit attention scores with explicit edge features, if available
-def edge_bias(implicit_attn, explicit_edge):
+def edge_bias(node_attn, bias_edge):
     """
-        implicit_attn: the output of K Q
-        explicit_edge: the explicit edge features
+       node attn score :node_attn
+       edge_bias : edge bias from edge feas
     """
     def func(edges):
-        return {implicit_attn: (edges.data[implicit_attn] + edges.data[explicit_edge])}
-        # return {implicit_attn: (edges.data[implicit_attn].sum(-1, keepdim=True).clamp(-5, 5) + edges.data[explicit_edge])}
+        return {node_attn: (edges.data[node_attn] + edges.data[bias_edge])}
+        
     return func
 
 # To copy edge features to be passed to FFN_e
@@ -45,21 +44,27 @@ def out_edge_features(edge_feat):
 
 def exp(field):
     def func(edges):
-        # clamp for softmax numerical stability
          return {field: torch.exp((edges.data[field]))}
-        # return {field: torch.exp((edges.data[field].sum(-1, keepdim=True)).clamp(-5, 5))}
     return func
 # for global decoy func
 def guss_decoy(field,adj,rel_pos):
+    '''
+    adj ; 3d distance with decay
+    like:
+        full_g.edata['adj2'] = torch.where(full_g.edata['adj2'] > self.mu,torch.exp(-torch.pow(full_g.edata['adj2']-self.mu, 2)/(self.dev + 1e-6)),\
+                    torch.tensor(1.0).to(self.dev.device))+ full_g.edata['adj1']
+    rel_pos :3d distance pass a linear
+    '''
     def func(edges):
         # print()
         return {field: edges.data[field].sum(-1, keepdim=True)*edges.data[adj].unsqueeze(1) + edges.data[rel_pos].unsqueeze(-1)}
-        # return {field: torch.exp((edges.data[field].sum(-1, keepdim=True).clamp(-5, 5))*edges.data[adj].unsqueeze(1)) + edges.data[rel_pos].unsqueeze(-1)}
+       
     return func
 def partUpdataScore(out_filed,in_filed,graph_sparse):
-    def funv(edges):
+    '''update part of full graph edge score'''
+    def func(edges):
         return {out_filed:graph_sparse.edata[in_filed]}
-    return funv
+    return func
 
 """
     Single Attention Head
@@ -161,7 +166,7 @@ class MultiHeadAttentionLayer(nn.Module):
         return h_out, e_out
     
 
-class GraphTransformerLayer(nn.Module):
+class GTELayer(nn.Module):
     """
         Param: 
     """

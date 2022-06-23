@@ -8,10 +8,10 @@ import dgl
 with edge features
     
 """
-from graph_transformer_edge_layer import GraphTransformerLayer
+from GTE_layer import GTELayer
 from mlp_readout_layer import MLPReadout
 
-class GraphTransformerNet(nn.Module):
+class GTENet(nn.Module):
     def __init__(self, args):
         super().__init__()
         self.args = args
@@ -35,7 +35,7 @@ class GraphTransformerNet(nn.Module):
             self.linear_rel_pos =  nn.Linear(self.args.edge_dim, self.args.head_size) 
         if self.args.lap_pos_enc:
             self.embedding_lap_pos_enc = nn.Linear(self.args.pos_enc_dim, self.args.n_out_feature)
-        self.layers = nn.ModuleList([ GraphTransformerLayer(self.args) \
+        self.layers = nn.ModuleList([ GTELayer(self.args) \
                 for _ in range(self.args.n_graph_layer) ]) 
         # self.layers.append(GraphTransformerLayer(hidden_dim, out_dim, num_heads, dropout, self.layer_norm, self.batch_norm, self.residual))
         self.MLP_layer = MLPReadout(self.args)   # 1 out dim since regression problem        
@@ -46,7 +46,7 @@ class GraphTransformerNet(nn.Module):
         h = self.atom_encoder(h.long()).mean(-2)
         # h = self.in_feat_dropout(h)
         if self.args.lap_pos_enc:
-            h_lap_pos_enc = g.ndata['pos_lp_enc']
+            h_lap_pos_enc = g.ndata['lap_pos_enc']
             h_lap_pos_enc = self.embedding_lap_pos_enc(h_lap_pos_enc.float()) 
             h = h + h_lap_pos_enc
         if self.args.in_degree_bias:
