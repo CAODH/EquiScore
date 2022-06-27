@@ -23,7 +23,7 @@ class GTENet(nn.Module):
             else:
                 self.deta = nn.Parameter(torch.Tensor([0.5]).float())
 
-        atom_dim = 16*10 if self.args.FP else 10*6
+        atom_dim = 16*11 if self.args.FP else 10*6
         # self.in_feat_dropout = nn.Dropout(self.args.dropout)
         self.atom_encoder = nn.Embedding(atom_dim  + 1, self.args.n_out_feature, padding_idx=0)
         self.edge_encoder = nn.Embedding( 35* 5 + 1, self.args.edge_dim, padding_idx=0) if args.edge_bias is True else nn.Identity()

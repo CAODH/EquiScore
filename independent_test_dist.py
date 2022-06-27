@@ -18,7 +18,7 @@ import time
 from torch.utils.data import DataLoader          
 # from torch.utils.data import DataLoader
 from prefetch_generator import BackgroundGenerator
-from graph_transformer_net import GraphTransformerNet
+from GTE_net import GTENet
 class DataLoaderX(DataLoader):
     def __iter__(self):
         return BackgroundGenerator(super().__iter__())                            
@@ -45,7 +45,7 @@ def run(local_rank,args,*more_args,**kwargs):
     else:
         args.N_atom_features = 28
 
-    model = GraphTransformerNet(args) if args.gnn_model == 'graph_transformer_dgl' else None
+    model = GTENet(args) if args.gnn_model == 'graph_transformer_dgl' else None
    
 
     # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -89,7 +89,7 @@ if '__main__' == __name__:
     parser = argparse.ArgumentParser(description='json param')
     parser.add_argument('--local_rank', default=-1, type=int) 
     parser.add_argument("--json_path", help="file path of param", type=str, \
-        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/new_data_train_keys/config_files/gnn_edge_3d_pos_screen_dgl.json')
+        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/new_data_train_keys/config_files/gnn_edge_3d_pos_screen_dgl_FP.json')
     args = parser.parse_args()
     local_rank = args.local_rank
     # label_smoothing# temp_args = parser.parse_args()

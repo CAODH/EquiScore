@@ -350,7 +350,8 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss,scheduler
         #collect losses of each iteration
     train_losses = [] 
     # train_true = []
-    # train_pred = []
+    # train_pred = []3
+    
     model.train()
     for i_batch, (g,full_g,Y) in enumerate(train_dataloader):
         g = g.to(args.device)
@@ -947,7 +948,7 @@ class auxiliary_loss(nn.Module):
         if args.deta_const:
             self.deta = 0.2
         else:
-            self.deta = nn.Parameter(torch.Tensor([deta]).float())
+            self.deta = nn.Parameter(torch.Tensor([0.2]).float())
     def forward(self,y_pred,labels):
         y_pred = y_pred.reshape(1,-1)
         labels = labels.reshape(1,-1)
