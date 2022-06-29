@@ -175,7 +175,7 @@ class GTELayer(nn.Module):
         self.args = args
 
         
-        self.attention = MultiHeadAttentionLayer(self.args.n_out_feature, self.args.n_out_feature//self.args.head_size, self.args.head_size,self.args.edge_dim,self.args.dropout_rate)
+        self.attention = MultiHeadAttentionLayer(self.args.n_out_feature, self.args.n_out_feature//self.args.head_size, self.args.head_size,self.args.edge_dim,self.args.attention_dropout_rate)
         
         self.self_ffn_dropout = nn.Dropout(self.args.dropout_rate)
         self.self_ffn_dropout_2 = nn.Dropout(self.args.dropout_rate)

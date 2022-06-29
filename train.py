@@ -194,15 +194,16 @@ def run(local_rank,args):
         if args.ngpu > 1:
             dist.barrier() 
         val_losses,val_true,val_pred = evaluator(model,val_dataloader,loss_fn,args,val_sampler)
-        test_losses,test_true,test_pred = evaluator(model,test_dataloader,loss_fn,args,test_sampler)
+        # test_losses,test_true,test_pred = evaluator(model,test_dataloader,loss_fn,args,test_sampler)
         if args.ngpu > 1:
             dist.barrier() 
         # if args.lr_decay:
         #     scheduler.step()
 
         if local_rank == 0:
+            test_losses = 0.0
             train_losses = torch.mean(torch.tensor(train_losses,dtype=torch.float)).data.cpu().numpy()
-            test_losses =torch.mean(torch.tensor(test_losses,dtype=torch.float)).data.cpu().numpy()
+            # test_losses =torch.mean(torch.tensor(test_losses,dtype=torch.float)).data.cpu().numpy()
             val_losses = torch.mean(torch.tensor(val_losses,dtype=torch.float)).data.cpu().numpy()
 
             if args.loss_fn == 'mse_loss':
@@ -211,7 +212,7 @@ def run(local_rank,args):
                     f.write(str(epoch)+ '\t'+str(train_losses)+ '\t'+str(val_losses)+ '\t'+str(test_losses) + str(end-st)+ '\n')
                     f.close()
             else:
-                test_auroc,test_adjust_logauroc,test_auprc,test_balanced_acc,test_acc,test_precision,test_sensitity,test_specifity,test_f1 = get_metrics(test_true,test_pred)
+                test_auroc,test_adjust_logauroc,test_auprc,test_balanced_acc,test_acc,test_precision,test_sensitity,test_specifity,test_f1 = get_metrics(val_true,val_pred)
 
                 end = time.time()
                 with open(log_path,'a') as f:
@@ -254,7 +255,7 @@ if '__main__' == __name__:
     parser = argparse.ArgumentParser(description='json param')
     parser.add_argument('--local_rank', default=-1, type=int) 
     parser.add_argument("--json_path", help="file path of param", type=str, \
-        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/new_data_train_keys/config_files/gnn_edge_3d_pos_screen_dgl_FP.json')
+        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/new_data_train_keys/config_files/gnn_edge_3d_pos_screen_dgl_FP_large.json')
     args = parser.parse_args()
     local_rank = args.local_rank
     # label_smoothing# temp_args = parser.parse_args()
