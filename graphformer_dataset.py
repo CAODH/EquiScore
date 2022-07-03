@@ -100,11 +100,13 @@ class graphformerDataset(Dataset):
         # H2 = get_atom_graphformer_feature(m2,FP = self.args.FP)
         H1 = np.concatenate([get_atom_graphformer_feature(m1,FP = self.args.FP) ,np.array([0]).reshape(1,-1).repeat(n1,axis = 0)],axis=1)
         H2 = np.concatenate([get_atom_graphformer_feature(m2,FP = self.args.FP) ,np.array([1]).reshape(1,-1).repeat(n2,axis = 0)],axis=1)
+        # print('max,min atom fea BEFORE',np.max(H1),np.min(H1))
         if self.args.virtual_aromatic_atom:
             adj1,H1,d1,n1 = utils.add_atom_to_mol(m1,adj1,H1,d1,n1)
             # print( adj1,H1,d1,n1)
             adj2,H2,d2,n2 = utils.add_atom_to_mol(m2,adj2,H2,d2,n2)
             # print( adj2,H2,d2,n2)
+        # print('max,min atom fea after',np.max(H1),np.min(H1))
         H = torch.from_numpy(np.concatenate([H1, H2], 0))
         agg_adj1 = np.zeros((n1+n2, n1+n2))
         agg_adj1[:n1, :n1] = adj1

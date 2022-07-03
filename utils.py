@@ -372,9 +372,6 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss,scheduler
             aux_loss = auxiliary_loss(logits,Y)
 
         if args.r_drop:
-            # r_g= copy.deepcopy(g)
-            # r_full_g = copy.deepcopy(full_g)
-
             newlogits = model(r_g,r_full_g)
             loss += loss_fn(newlogits, Y)
             loss /=2
