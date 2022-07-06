@@ -1,5 +1,5 @@
 {
-    "lr": 0.0001,
+    "lr": 0.00001,
     "label_smothing":0.0,
     "single_pro_batch":false,
     "eps":4.0,
@@ -60,7 +60,7 @@
     "out_degree_bias": false,
     "hot_start": false,
     "save_model": "/home/caoduanhua/score_function/GNN/train_result_uniport_new_data/graphformer/GAT_gate/2022-06-20-13-26-09/save_best_model.pt",
-    "lr_decay": false,
+    "lr_decay": true,
     "auxiliary_loss": false,
     "r_drop": true,
     "deta_const": false,
