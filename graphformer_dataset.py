@@ -124,6 +124,7 @@ class graphformerDataset(Dataset):
                 with open(key,'wb') as f:
                     pickle.dump((m1,m2,atompairs,iter_types),f)
                 f.close()
+                
             if len(atompairs) > 0:
                 temp_fp= np.array(atompairs)
                 u,v = list(temp_fp[:,0]) +  list((n1+ temp_fp[:,1])),list((n1+ temp_fp[:,1])) + list(temp_fp[:,0])

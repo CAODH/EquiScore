@@ -77,6 +77,8 @@ valid_keys += get_part_data(cross_decoys_dir,cross_decoys,fast_num=5,active_name
 valid_keys += glob.glob('/home/caoduanhua/score_function/data/general_refineset/pdbbind-shape_decoy_align_pocket-5/*')
 print(' pdbbind len of shape decoys + active + crossdecoy: ',len(valid_keys))
 print(' pdbbind len of decoys: ',len(cross_decoys))
+
+
 #----------------------------------------------------------------
 # 先获取了pdbbind 的数据
 #-----------------------------------------------------------------------
@@ -98,9 +100,7 @@ cross_decoys_pros_screen = set([v.split('-')[0] for v in cross_decoys_screen])
 
 print('cross_decoys_pros :',len(cross_decoys_pros_screen))
 cross_decoys_dir_screen = '/home/caoduanhua/score_function/data/D-PDBbind_PDBscreen/PDB_screen_cross_decoy_pocket/'
-
 valid_keys_screen += get_part_data_screen(cross_decoys_dir_screen,cross_decoys_screen,fast_num=6,active_names = active_pros_screen)
-
 print(' pdd screen len of decoys: ',len(cross_decoys_screen))
 #-------------------------------------------------------------------------------
 valid_keys_screen_shape =glob.glob('/home/caoduanhua/score_function/data/pdb_screen/screen_shape_pocket/*')
