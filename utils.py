@@ -161,7 +161,7 @@ def add_atom_to_mol(mol:rdkit.Chem.Mol,adj:np.array,H:np.array,d:np.array,n:int)
         all_zeros[:,h+i][ring] = 1
         all_zeros[h+i,:][h+i] = 1
         d = np.concatenate([d,np.mean(d[ring],axis = 0,keepdims=True)],axis = 0)
-        H  = np.concatenate([H,np.array([0]*(H.shape[1]))[np.newaxis]],axis = 0)
+        H  = np.concatenate([H,np.array([15]*(H.shape[1]))[np.newaxis]],axis = 0)
     assert len(all_zeros) == len(H),'adj nums not equal to nodes'
     return all_zeros,H,d,n+num_aromatic
 def get_mol_info(m1):

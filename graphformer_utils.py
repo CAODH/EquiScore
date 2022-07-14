@@ -132,7 +132,7 @@ def get_atom_graphformer_feature(m,FP = False):
     return H      
 
 # ===================== BOND END =====================
-def convert_to_single_emb(x, offset=32):
+def convert_to_single_emb(x, offset=35):
     feature_num = x.size(1) if len(x.size()) > 1 else 1
     feature_offset = 1 + torch.arange(0, feature_num * offset, offset, dtype=torch.long)
     x = x + feature_offset
@@ -351,7 +351,7 @@ def preprocess_item(item, args,file_path,adj,term='item_1',noise=False,size = No
     adj_in = torch.where(adj_in < 0,0,adj_in)
     g.ndata['in_degree'] = torch.where(adj_in > 8,9,adj_in) if args.in_degree_bias else None
     # print('max() min()',max(adj_in),min(adj_in))
-    g.edata['edge_attr'] = edge_attr
+    g.edata['edge_attr'] = convert_to_single_emb(edge_attr)
 
     src,dst = np.where(np.ones_like(adj)==1)
     full_g = dgl.graph((src,dst))

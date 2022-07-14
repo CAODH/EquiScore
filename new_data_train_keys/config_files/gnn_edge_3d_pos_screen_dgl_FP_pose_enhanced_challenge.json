@@ -50,7 +50,7 @@
     "sampler": false,
     "A2_limit": false,
     "test_path": "/home/caoduanhua/score_function/data/independent_test/pocket_no_fp/",
-    "test_name":"dekois_pocket",
+    "test_name":"pcba_pocket",
     "path_data_dir": "../../data/pocket_data_path",
     "EF_rates": [0.001,0.002,0.005,0.01,0.02,0.05],
     "multi_hop_max_dist": 10,
