@@ -89,6 +89,7 @@ def atom_feature_attentive_FP(atom,
                   bool_id_feat=False,
                   explicit_H=False,
                   use_chirality=True):
+                  
     if bool_id_feat:
         return np.array([atom_to_id(atom)])
     else:

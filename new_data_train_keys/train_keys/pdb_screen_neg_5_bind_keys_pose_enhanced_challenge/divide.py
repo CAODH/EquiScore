@@ -114,6 +114,7 @@ cross_decoys_dir_pose = '/home/caoduanhua/score_function/data/general_refineset/
 poses = os.listdir('/home/caoduanhua/score_function/data/general_refineset/pdbbind-data_arguement_active_2a_3_pocket-4/')
 valid_keys_poses = get_part_data(cross_decoys_dir_pose,poses,fast_num=100,active_names = active_pros)
 print('pose enhanced samples: ',len(valid_keys_poses))
+print('screen pose pros: ',len(set([i.split('/')[-1].split('_')[0] for i in valid_keys_poses])))
 valid_keys += valid_keys_poses
 print('all valid keys in pdbbind ',len(valid_keys))
 
@@ -160,6 +161,7 @@ active_pros_screen = [i.split('_')[0] + '_' +  i.split('_')[2] for i in active_p
 valid_screen_poses = get_part_data_screen_pose(cross_decoys_dir_screen_pose,screen_poses,fast_num=100,active_names =active_pros_screen)
 
 print('pose enhanced screen samples: ',len(valid_screen_poses))
+print('screen pose pros: ',len(set([i.split('/')[-1].split('_')[0] for i in valid_screen_poses])))
 valid_keys_screen += valid_screen_poses
 print('all valid keys in pdbbind ',len(valid_keys_screen))
 
