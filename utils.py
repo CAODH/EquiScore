@@ -423,8 +423,6 @@ def getToyKey(train_keys):
     # print(train_keys_toy_d)
     if len(train_keys_toy_a) == 0 or len(train_keys_toy_d) == 0:
         return None
-
-
     # train_keys_toy_a[:300] + train_keys_toy_d[:(max_all-300)]
     return train_keys_toy_a[:300] + train_keys_toy_d[:(max_all-300)]
 def getTestedPro(file_name):

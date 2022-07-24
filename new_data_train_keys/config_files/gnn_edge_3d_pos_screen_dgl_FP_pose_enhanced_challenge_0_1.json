@@ -60,7 +60,7 @@
     "rel_3d_pos_bias": true,
     "in_degree_bias": true,
     "out_degree_bias": false,
-    "hot_start": false,
+    "hot_start": true,
     "save_model": "/home/caoduanhua/score_function/GNN/train_result_uniport_new_data_FP_pose_enhanced_challenge/graphformer/GAT_gate/2022-07-14-14-15-59/save_best_model.pt",
     "lr_decay": true,
     "auxiliary_loss": false,

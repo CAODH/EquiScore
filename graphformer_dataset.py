@@ -205,6 +205,8 @@ class graphformerDataset(Dataset):
         # full_g.edata['adj2'] = agg_adj2.view(-1,1).contiguous()
         return g,full_g,Y
 
+
+    
 if __name__ == "__main__":
 
     import argparse
