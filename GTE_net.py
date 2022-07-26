@@ -66,7 +66,12 @@ class GTENet(nn.Module):
             h, e = conv(g,full_g,h,e)
             h = F.dropout(h, p=self.args.dropout_rate, training=self.training)
             e = F.dropout(e, p=self.args.dropout_rate, training=self.training)
-        return g,full_g
+        # left 3 lines for ligand atoms 
+        h = h * g.ndata['V']
+        hg = self.weight_and_sum(g,h)
+        hg = self.MLP_layer(hg)
+        
+        return h,g,full_g,hg
 
     def forward(self, g, full_g):
         h = g.ndata['x']
@@ -96,5 +101,7 @@ class GTENet(nn.Module):
         # select ligand atom for predict
         # g.ndata['x'] = h * g.ndata['V']
         # hg = dgl.sum_nodes(g, 'x')#/dgl.sum_nodes(g,'V') # mean add sum or max or min later! concat
+        # only ligand atom to predict
+        h = h * g.ndata['V']
         hg = self.weight_and_sum(g,h)
         return self.MLP_layer(hg)
