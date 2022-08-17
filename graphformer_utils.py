@@ -328,7 +328,8 @@ def pandas_bins(dis_matrix,num_bins = None,noise = False):
     shape = dis_matrix.shape
     bins_index = np.array(pd.cut(dis_matrix.flatten(),bins = bins,labels = [i for i in range(len(bins) -1)])).reshape(shape)
     return bins_index
-def preprocess_item(item, args,file_path,adj,term='item_1',noise=False,size = None):
+def preprocess_item(item, args):
+    # noise = False
     # time_s = time.time()
     edge_attr, edge_index, x  = item['edge_feat'], item['edge_index'], item['node_feat']
     # print('get edge from  molgraph: ',time.time()-time_s)
@@ -358,7 +359,7 @@ def preprocess_item(item, args,file_path,adj,term='item_1',noise=False,size = No
     full_g = dgl.graph((src,dst))
 
     if args.rel_3d_pos_bias:
-        all_rel_pos_3d_with_noise = torch.from_numpy(pandas_bins(item['rel_pos_3d'],num_bins = None,noise = False)).long() 
+        all_rel_pos_3d_with_noise = torch.from_numpy(pandas_bins(item['rel_pos_3d'],num_bins = None,noise = args.noise)).long() 
         full_g.edata['rel_pos_3d'] = all_rel_pos_3d_with_noise.view(-1,1).contiguous()#torch.long
     
     return g,full_g
