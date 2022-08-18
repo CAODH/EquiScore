@@ -355,14 +355,14 @@ def preprocess_item(item, args):
     # print('max() min()',max(adj_in),min(adj_in))
     g.edata['edge_attr'] = convert_to_single_emb(edge_attr)
 
-    src,dst = np.where(np.ones_like(adj)==1)
-    full_g = dgl.graph((src,dst))
+    # src,dst = np.where(np.ones_like(adj)==1)
+    # full_g = dgl.graph((src,dst))
 
-    if args.rel_3d_pos_bias:
-        all_rel_pos_3d_with_noise = torch.from_numpy(pandas_bins(item['rel_pos_3d'],num_bins = None,noise = args.noise)).long() 
-        full_g.edata['rel_pos_3d'] = all_rel_pos_3d_with_noise.view(-1,1).contiguous()#torch.long
+    # if args.rel_3d_pos_bias:
+    #     all_rel_pos_3d_with_noise = torch.from_numpy(pandas_bins(item['rel_pos_3d'],num_bins = None,noise = args.noise)).long() 
+    #     full_g.edata['rel_pos_3d'] = all_rel_pos_3d_with_noise.view(-1,1).contiguous()#torch.long
     
-    return g,full_g
+    return g
 
 
 

@@ -95,9 +95,7 @@ class graphformerDataset(Dataset):
             return None
         n1,d1,adj1 = utils.get_mol_info(m1)
         n2,d2,adj2 = utils.get_mol_info(m2)
-        # pocket = Chem.CombineMols(m1,m2)
-        # H1 = get_atom_graphformer_feature(m1,FP = self.args.FP)
-        # H2 = get_atom_graphformer_feature(m2,FP = self.args.FP)
+
         H1 = np.concatenate([get_atom_graphformer_feature(m1,FP = self.args.FP) ,np.array([0]).reshape(1,-1).repeat(n1,axis = 0)],axis=1)
         H2 = np.concatenate([get_atom_graphformer_feature(m2,FP = self.args.FP) ,np.array([1]).reshape(1,-1).repeat(n2,axis = 0)],axis=1)
         # print('max,min atom fea BEFORE',np.max(H1),np.min(H1))
@@ -129,8 +127,6 @@ class graphformerDataset(Dataset):
                 temp_fp= np.array(atompairs)
                 u,v = list(temp_fp[:,0]) +  list((n1+ temp_fp[:,1])),list((n1+ temp_fp[:,1])) + list(temp_fp[:,0])
                 agg_adj1[u,v] = 1
-
-
         dm = distance_matrix(d1,d2)
         dm_all = distance_matrix(np.concatenate([d1,d2],axis=0),np.concatenate([d1,d2],axis=0))
         if self.args.only_dis_adj2:
@@ -147,29 +143,17 @@ class graphformerDataset(Dataset):
         size = (n1,n2)
         # dm = np.where(dm <5.0 ,1,0)
         adj_graph_1 = np.copy(agg_adj1)
-        adj_graph_2 = np.copy(agg_adj1)
+        # adj_graph_2 = np.copy(agg_adj1)
 
         pocket = (m1,m2)
-        if self.args.supernode:#not useful in practice
-            super_node_H = torch.mean(H,dim = 0)*0.0
-            H = torch.cat([H,super_node_H.unsqueeze(0)],dim = 0)
-
-            adj_graph_1 = np.concatenate([adj_graph_1, np.zeros_like(adj_graph_1[0][np.newaxis,:])], 0)
-            adj_graph_1 = np.concatenate([adj_graph_1, np.zeros_like(adj_graph_1[:,0].reshape(-1,1))], 1)
-            adj_graph_2 = np.concatenate([adj_graph_2, np.ones_like(adj_graph_2[0][np.newaxis,:])], 0)
-            adj_graph_2 = np.concatenate([adj_graph_2, np.ones_like(adj_graph_2[:,0].reshape(-1,1))], 1)
-
-            agg_adj1 = torch.cat([agg_adj1, torch.zeros_like(agg_adj1[0].unsqueeze(0))], dim = 0)
-            agg_adj1 = torch.cat([agg_adj1, torch.zeros_like(agg_adj1[:,0].reshape(-1,1))], dim = 1)
-            agg_adj2 = torch.cat([agg_adj2, torch.ones_like(agg_adj2[0].unsqueeze(0))], dim = 0)
-            agg_adj2 = torch.cat([agg_adj2, torch.ones_like(agg_adj2[:,0].reshape(-1,1))], dim = 1)
-        # time_s = time.time()
         item_1 = mol2graph(pocket,H,self.args,adj = adj_graph_1,n1 = n1,n2 = n2,\
             dm = (d1,d2) )
         # print('item_time:',time.time()-time_s)
-        g ,full_g= preprocess_item(item_1, self.args,file_path,adj_graph_1,noise=False,size = size)
-        full_g.edata['adj2'] = torch.tensor(dm_all).view(-1,1).contiguous().float()
-        full_g.edata['adj1'] = agg_adj1.view(-1,1).contiguous().float()
+        g = preprocess_item(item_1, self.args,file_path,adj_graph_1,noise=False,size = size)
+        src,dst = np.where(dm_all < torch.tensor(5.0))
+        full_g = dgl.graph((src,dst))
+        # full_g.edata['adj2'] = torch.tensor(dm_all).view(-1,1).contiguous().float()
+        # full_g.edata['adj1'] = agg_adj1.view(-1,1).contiguous().float()
         # full_g.edata['adj1'] = 
         # print('item_g:',time.time()-time_s)
         #item, args,file_path,adj,term,noise=False
