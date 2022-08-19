@@ -20,7 +20,31 @@ from prefetch_generator import BackgroundGenerator
 from GTE_net import GTENet
 class DataLoaderX(DataLoader):
     def __iter__(self):
-        return BackgroundGenerator(super().__iter__())                            
+        return BackgroundGenerator(super().__iter__())    
+# class DataLoaderX(torch.utils.data.DataLoader):
+
+#     def __init__(self, *args, **kwargs):
+#         super().__init__(*args, **kwargs)
+#         self._DataLoader__initialized = False
+#         self.batch_sampler = _RepeatSampler(self.batch_sampler)
+#         self._DataLoader__initialized = True
+#         self.iterator = super().__iter__()
+
+#     def __len__(self):
+#         return len(self.batch_sampler.sampler)
+
+#     def __iter__(self):
+#         return BackgroundGenerator(super().__iter__())  
+
+# class _RepeatSampler(object):
+#     """ Sampler that repeats forever.   """
+#     def __init__(self, sampler):
+#         self.sampler = sampler
+
+#     def __iter__(self):
+#         while True:
+#             yield from iter(self.sampler)
+
 from graphformer_dataset import graphformerDataset,  DTISampler
 now = time.localtime()
 from rdkit import RDLogger
@@ -95,19 +119,6 @@ def run(local_rank,args):
     print (f'Number of val data: {len(val_keys)}')
     print (f'Number of test data: {len(test_keys)}')
 
-    #initialize model
-    if args.ngpu>0:
-        cmd = get_available_gpu(num_gpu=args.ngpu, min_memory=8000, sample=3, nitro_restriction=False, verbose=True)
-        # cmd = '1,'
-        #cmd = utils.set_cuda_visible_device(args.ngpu)
-        if cmd[-1] == ',':
-
-            os.environ['CUDA_VISIBLE_DEVICES']=cmd[:-1]
-        else:
-            os.environ['CUDA_VISIBLE_DEVICES']=cmd
-        # print(cmd)
-
-
     model = GTENet(args) if args.gnn_model == 'graph_transformer_dgl' else None
 
     print ('number of parameters : ', sum(p.numel() for p in model.parameters() if p.requires_grad))
@@ -127,8 +138,6 @@ def run(local_rank,args):
         optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
         epoch_start = 0
         write_log_head(args,log_path,model,train_keys,val_keys)
-
-
     train_dataset = graphformerDataset(train_keys,args, args.data_path,args.debug)#keys,args, data_dir,debug
     val_dataset = graphformerDataset(val_keys,args, args.data_path,args.debug)
     test_dataset = graphformerDataset(test_keys,args, args.data_path,args.debug) #测试集看不出什么东西，直接忽略
@@ -176,7 +185,7 @@ def run(local_rank,args):
     best_loss = 1000000000#by caodunahua
     counter = 0
     for epoch in range(epoch_start,num_epochs):
-        st = time.time()
+        # st = time.time()
         #collect losses of each iteration
         if args.ngpu > 1:
             train_sampler.set_epoch(epoch) 
@@ -189,12 +198,14 @@ def run(local_rank,args):
             train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset) if args.ngpu > 1 else None
             train_dataloader = DataLoaderX(train_dataset, args.batch_size, sampler = train_sampler,prefetch_factor = 4,\
             shuffle=False, num_workers = args.num_workers, collate_fn=train_dataset.collate,pin_memory=True)
-            
+
         model,train_losses,optimizer,scheduler = train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss,scheduler)
 
         if args.ngpu > 1:
             dist.barrier() 
+        # time_e = time.time()
         val_losses,val_true,val_pred = evaluator(model,val_dataloader,loss_fn,args,val_sampler)
+        # print('tim for eval epoch : ',time.time() - time_e)
         # test_losses,test_true,test_pred = evaluator(model,test_dataloader,loss_fn,args,test_sampler)
         if args.ngpu > 1:
             dist.barrier() 
@@ -256,7 +267,7 @@ if '__main__' == __name__:
     parser = argparse.ArgumentParser(description='json param')
     parser.add_argument('--local_rank', default=-1, type=int) 
     parser.add_argument("--json_path", help="file path of param", type=str, \
-        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/new_data_train_keys/config_files/gnn_edge_3d_pos_screen_dgl_FP_pose_enhanced_challenge_cross_10_seed3407.json')
+        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/new_data_train_keys/config_files/gnn_edge_3d_pos_screen_dgl_FP_pose_enhanced_challenge_cross_10.json')
     args = parser.parse_args()
     local_rank = args.local_rank
     # label_smoothing# temp_args = parser.parse_args()
@@ -273,7 +284,7 @@ if '__main__' == __name__:
         else:
             os.environ['CUDA_VISIBLE_DEVICES']=cmd
     os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = "29512"
+    os.environ["MASTER_PORT"] = "29513"
     # os.environ["TORCH_CPP_LOG_LEVEL"]="INFO"
     # os.environ[
     #     "TORCH_DISTRIBUTED_DEBUG"

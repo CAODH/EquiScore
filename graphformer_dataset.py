@@ -79,8 +79,29 @@ class graphformerDataset(Dataset):
         return batch_g, batch_full_g,Y
     def __getitem__(self, idx):
         #idx = 0
+        # time_s = time.time()
         key = self.keys[idx]
-        file_path = self.args.path_data_dir+'/'+key
+        # g ,Y= self._GetGraph(key)# or load from lmbds or  pickle
+        env = lmdb.open(f'/home/caoduanhua/score_function/data/lmdbs/pose_challenge_cross_1000', map_size=int(1e12), max_dbs=1, readonly=True)
+        graph_db = env.open_db('data'.encode()) # graph data base
+
+        with env.begin(write=False) as txn:
+            g,Y= pickle.loads(txn.get(key.encode(), db=graph_db))
+        a,b = g.edges()
+        dm_all = distance_matrix(g.ndata['coors'].numpy(),g.ndata['coors'].numpy())#g.ndata['coors'].matmul(g.ndata['coors'].T)
+        edges_g = np.concatenate([a.reshape(-1,1).numpy(),b.reshape(-1,1).numpy()],axis = 1)
+        src,dst = np.where(dm_all < 5.0) # add sparse edges and remove duplicated edges
+        edges_full = np.concatenate([src.reshape(-1,1),dst.reshape(-1,1)],axis = 1)
+        edges_full = np.unique(np.concatenate([edges_full,edges_g],axis = 0),axis = 0)
+
+        full_g = dgl.graph((edges_full[:,0],edges_full[:,1]))
+
+        # full_g.edata['adj2'] = agg_adj2.view(-1,1).contiguous()
+        return g,full_g,Y
+
+    @staticmethod
+    def _GetGraph(key,args):
+        
         try:
             try:
                 with open(key, 'rb') as f:
@@ -96,10 +117,10 @@ class graphformerDataset(Dataset):
         n1,d1,adj1 = utils.get_mol_info(m1)
         n2,d2,adj2 = utils.get_mol_info(m2)
 
-        H1 = np.concatenate([get_atom_graphformer_feature(m1,FP = self.args.FP) ,np.array([0]).reshape(1,-1).repeat(n1,axis = 0)],axis=1)
-        H2 = np.concatenate([get_atom_graphformer_feature(m2,FP = self.args.FP) ,np.array([1]).reshape(1,-1).repeat(n2,axis = 0)],axis=1)
+        H1 = np.concatenate([get_atom_graphformer_feature(m1,FP = args.FP) ,np.array([0]).reshape(1,-1).repeat(n1,axis = 0)],axis=1)
+        H2 = np.concatenate([get_atom_graphformer_feature(m2,FP = args.FP) ,np.array([1]).reshape(1,-1).repeat(n2,axis = 0)],axis=1)
         # print('max,min atom fea BEFORE',np.max(H1),np.min(H1))
-        if self.args.virtual_aromatic_atom:
+        if args.virtual_aromatic_atom:
             adj1,H1,d1,n1 = utils.add_atom_to_mol(m1,adj1,H1,d1,n1)
             # print( adj1,H1,d1,n1)
             adj2,H2,d2,n2 = utils.add_atom_to_mol(m2,adj2,H2,d2,n2)
@@ -111,7 +132,7 @@ class graphformerDataset(Dataset):
         agg_adj1[n1:, n1:] = adj2
         agg_adj2 = np.copy(agg_adj1)
         # add fp edge 
-        if self.args.fingerprintEdge:
+        if args.fingerprintEdge:
             # 边跑边处理太慢了， 预处理再加载
             if 'inter_types' not in vars().keys() and 'atompairs' not in vars().keys():
                 try:
@@ -129,9 +150,9 @@ class graphformerDataset(Dataset):
                 agg_adj1[u,v] = 1
         dm = distance_matrix(d1,d2)
         dm_all = distance_matrix(np.concatenate([d1,d2],axis=0),np.concatenate([d1,d2],axis=0))
-        if self.args.only_dis_adj2:
+        if args.only_dis_adj2:
             agg_adj2 = dm_all
-        elif self.args.dis_adj2_with_adj1:# have som troubles to fix
+        elif args.dis_adj2_with_adj1:# have som troubles to fix
             # dm_all = distance_matrix(np.concatenate([d1,d2],axis=0),np.concatenate([d1,d2],axis=0))
             agg_adj2 = dm_all+ agg_adj1
         else:
@@ -146,35 +167,31 @@ class graphformerDataset(Dataset):
         # adj_graph_2 = np.copy(agg_adj1)
 
         pocket = (m1,m2)
-        item_1 = mol2graph(pocket,H,self.args,adj = adj_graph_1,n1 = n1,n2 = n2,\
+        item_1 = mol2graph(pocket,H,args,adj = adj_graph_1,n1 = n1,n2 = n2,\
             dm = (d1,d2) )
-        # print('item_time:',time.time()-time_s)
-        g = preprocess_item(item_1, self.args,file_path,adj_graph_1,noise=False,size = size)
-        src,dst = np.where(dm_all < torch.tensor(5.0))
-        full_g = dgl.graph((src,dst))
-        # full_g.edata['adj2'] = torch.tensor(dm_all).view(-1,1).contiguous().float()
-        # full_g.edata['adj1'] = agg_adj1.view(-1,1).contiguous().float()
-        # full_g.edata['adj1'] = 
-        # print('item_g:',time.time()-time_s)
-        #item, args,file_path,adj,term,noise=False
+        # item_time = time.time()
+        # print('item_time get item_1:',time.time()-time_s)
+        g = preprocess_item(item_1, args,adj_graph_1)
+
+        g.ndata['coors'] = torch.from_numpy(np.concatenate([d1,d2],axis=0))
         valid = torch.zeros((n1+n2,))
-        if self.args.pred_mode == 'ligand':
+        if args.pred_mode == 'ligand':
             valid[:n1] = 1
-        elif self.args.pred_mode == 'protein':
+        elif args.pred_mode == 'protein':
             valid[n1:] = 1
-        elif self.args.pred_mode == 'supernode':
+        elif args.pred_mode == 'supernode':
             valid = torch.zeros((n1+n2+1,))
-            assert self.args.supernode == True,'plz setup your supernode in graph!'
+            assert args.supernode == True,'plz setup your supernode in graph!'
             # assert len() == n1+n2+1 ,'no super node added to pocket graph check the args plz'
             valid[-1] = 1
         else:
             raise ValueError(f'not support this mode : {self.args.pred_mode} plz check the args')
-        if self.args.loss_fn == 'mse_loss':
+        if args.loss_fn == 'mse_loss':
             Y = -float(key.split('-')[1].split('_')[0])
         else:
             if '_active' in key.split('/')[-1]:
                 Y = 1 
-                if self.args.add_logk_reg:
+                if args.add_logk_reg:
                     try:
                         value = self.logk_match[key.split('/')[-1].split('_')[0]]
                     except:
@@ -186,70 +203,65 @@ class graphformerDataset(Dataset):
                 Y =  0 
                 value = 0
         g.ndata['V'] = valid.float().reshape(-1,1)
-        # full_g.edata['adj2'] = agg_adj2.view(-1,1).contiguous()
-        return g,full_g,Y
+        return g,Y
 
 
     
 if __name__ == "__main__":
-
+    import lmdb
     import argparse
     from rdkit import RDLogger
     from dgl import save_graphs, load_graphs
     import dgl
+    from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED, FIRST_COMPLETED
+    import time
+    from multiprocessing import Pool, cpu_count
+    import os
     RDLogger.DisableLog('rdApp.*')
     # from train import get_args_from_json
-    from torch.utils.data import DataLoader
-    from prefetch_generator import BackgroundGenerator
-    class DataLoaderX(DataLoader):
-        def __iter__(self):
-            return BackgroundGenerator(super().__iter__())     
     # from train
     parser = argparse.ArgumentParser(description='json param')
     parser.add_argument("--json_path", help="file path of param", type=str, \
-        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/train_keys/config_files/gnn_edge_3d_pos_dgl.json')
+        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/new_data_train_keys/config_files/gnn_edge_3d_pos_screen_dgl_FP_pose_enhanced_challenge_cross_10.json')
 
     # label_smoothing# temp_args = parser.parse_args()
     args_dict = vars(parser.parse_args())
     args = get_args_from_json(args_dict['json_path'], args_dict)
     args = argparse.Namespace(**args)
     # print (args)
-    train_keys = glob.glob('/home/caoduanhua/score_function/data/general_refineset/refineset_active_pocket_without_h/*')
-    save_dir = '/home/caoduanhua/score_function/data/dgl_full_graph/'
-    
-    pbar = tqdm(train_keys)
-    for i,key in enumerate(pbar):
-        try:
-            with open(key, 'rb') as f:
-                m1,m2= pickle.load(f)
-        except:
-            print('file: {} is not a valid file！'.format(key))
-        n1,d1,adj1 = utils.get_mol_info(m1)
-        n2,d2,adj2 = utils.get_mol_info(m2)
-        # pocket = Chem.CombineMols(m1,m2)
-        H1 = get_atom_graphformer_feature(m1,FP = args.FP)
-        H2 = get_atom_graphformer_feature(m2,FP = args.FP)
-        if args.virtual_aromatic_atom:
-            adj1,H1,d1,n1 = utils.add_atom_to_mol(m1,adj1,H1,d1,n1)
-            # print( adj1,H1,d1,n1)
-            adj2,H2,d2,n2 = utils.add_atom_to_mol(m2,adj2,H2,d2,n2)
-            # print( adj2,H2,d2,n2)
-        # H = torch.from_numpy(np.concatenate([H1, H2], 0))
- 
-        dm = distance_matrix(d1,d2)
-        dm_all = distance_matrix(np.concatenate([d1,d2],axis=0),np.concatenate([d1,d2],axis=0))
+    from tqdm import tqdm
+    from functools import partial
+    # 创建数据库文件
+    env = lmdb.open(f'/home/caoduanhua/score_function/data/lmdbs/pose_challenge_cross_10', map_size=int(1e12), max_dbs=1)
+    # 创建对应的数据库
+    # mol_pocket_inter_idx_type = env.open_db('mol_pocket_interIdx_type'.encode())
+    dgl_graph_db = env.open_db('data'.encode())
+    # 把数据写入到LMDB中
+    with open (args.train_keys, 'rb') as fp:
+        train_keys = pickle.load(fp)
+    with open (args.val_keys, 'rb') as fp:
+        val_keys = pickle.load(fp)
 
-        full_g = dgl.from_networkx(nx.complete_graph(n1 + n2))#g.number_of_nodes()
-        full_g = full_g.add_self_loop() 
-        all_rel_pos_3d_with_noise = torch.from_numpy(pandas_bins(dm_all,num_bins = None,noise = False)).long()
-        full_g.edata['all_rel_pos_3d'] = all_rel_pos_3d_with_noise.view(-1,1).contiguous()
-        with open(os.path.join(save_dir,key.split('/')[-1]),'wb') as f:
-            pickle.dump(full_g,f)
-            f.close()
-        
-        if i %100 == 0:
-            pbar.update(100)
-            pbar.set_description("Processing %d remain %d "%(i,len(pbar)- i))
+    keys =  val_keys + train_keys
+    ##########################################
+    def saveDB(key):
+        with env.begin(write=True) as txn:
+            try:
+                g,y = graphformerDataset._GetGraph(key,args)
+                # print(type(g))
+                txn.put(key.encode(), pickle.dumps((g,y)), db = dgl_graph_db)
+            except:
+                print('file: {} is not a valid file!'.format(key))
+
+    all_keys = len(keys)
+    # pbar = tqdm(keys)
+    with Pool(processes = 32) as pool:
+        list(pool.imap(saveDB, keys))
+        # list(tqdm(pool.imap(saveDB, keys), total=all_keys))
+    print('save done!')
+    env.close()
+    ########################################需要实现多线程或者多进程加多线程
+
 
 
         

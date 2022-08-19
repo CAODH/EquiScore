@@ -36,14 +36,18 @@ def out_edge_features(edge_feat):
     def func(edges):
         return {'e_out': edges.data[edge_feat] }
     return func
-
+def edge_mul_score(field,score):
+    def func(edges):
+        # print(edges.data[field].shape,edges.data[score].shape )
+        return {field:edges.data[field]*edges.data[score].sum(1).reshape(-1,1)}
+    return func
 def exp(field):
     def func(edges):
          return {field: torch.exp((edges.data[field]))}
     return func
 def square(field,out_field):
     def func(edges):
-         return {out_field: torch.sum(torch.square((edges.data[field])))}
+         return {out_field: torch.square((edges.data[field])).sum(dim = -1,keepdim = True)}
     return func
 # for global decoy func
 def guss_decoy(field,rel_pos):
@@ -99,10 +103,10 @@ class MultiHeadAttentionLayer(nn.Module):
         self.output_layer_edge = nn.Linear(edge_dim, edge_dim)
         self.coor_norm = CoorsNorm()
         self.coors_mlp = nn.Sequential(
-            nn.Linear(1, self.args.edge_dim),
-            nn.functional.dropout,
-            nn.functional.relu,
-            nn.Linear(self.args.edge_dim, self.args.head_size))#.view(-1,self.args.head_size).contiguous().float()
+            nn.Linear(1, edge_dim),
+            nn.Dropout(dropout_rate),
+            nn.ReLU(),
+            nn.Linear(edge_dim, num_heads))#.view(-1,self.args.head_size).contiguous().float()
         
     def propagate_attention(self, g,full_g):
 
@@ -112,7 +116,8 @@ class MultiHeadAttentionLayer(nn.Module):
         ################################## transform coors as rel distance to decay attention score #########################################
         full_g.apply_edges(fn.u_sub_v('coors', 'coors', 'detla_coors')) #, edges)
         full_g.apply_edges(square('detla_coors', 'rel_pos_3d')) #, edges)
-        full_g.edata['rel_pos_3d'] = self.coors_mlp(full_g.edata['rel_pos_3d'])
+        # print(full_g.edata['rel_pos_3d'].shape,full_g.edata['rel_pos_3d'][:20])
+        full_g.edata['rel_pos_3d'] = self.coors_mlp(full_g.edata['rel_pos_3d'].float())
         # scaling
         # rel_dist decay 
         full_g.apply_edges(scaling('score', np.sqrt(self.out_dim)))
@@ -131,24 +136,23 @@ class MultiHeadAttentionLayer(nn.Module):
         # softmax
         # for softmax numerical stability
         eids = full_g.edges()
-  
         ################################
         full_g.edata['score'] = edge_softmax(graph = full_g,logits = full_g.edata['score'].clamp(-5,5))
         ############## score as coors update factor and update coors ##############
         ##
-        full_g.send_and_recv(eids, fn.src_mul_edge('detla_coors', 'score', 'accu_coors'), fn.sum('accu_coors', 'coors_add'))
+        full_g.apply_edges(edge_mul_score('detla_coors', 'score'))# accu detla_coors 
+        full_g.send_and_recv(eids, dgl.function.copy_e('detla_coors','detla_coors'), fn.sum('detla_coors', 'coors_add'))
         full_g.ndata['coors'] += full_g.ndata['coors_add']
         #################################################################
 
         #########################################################
+
         full_g.edata['score'] = self.attn_dropout(full_g.edata['score'])
         full_g.send_and_recv(eids, fn.src_mul_edge('V_h', 'score', 'V_h'), fn.sum('V_h', 'wV'))
         # full_g.send_and_recv(eids, fn.copy_edge('score', 'score'), fn.sum('score', 'z')) # div
         ############### global module end ################################
         ############## coors update factor##############
 
-
-    
     def forward(self, g, full_g,h, e):
         Q_h = self.Q(h)
         K_h = self.K(h)
@@ -162,7 +166,7 @@ class MultiHeadAttentionLayer(nn.Module):
         g.edata['proj_e'] = proj_e.view(-1, self.num_heads, 1)
         # g.edata['attn_proj'] = 
         ########################## norm coors for LGEG model############### 
-        full_g.ndata['coors'] = self.coor_norm(full_g.ndata['coors'])
+        full_g.ndata['coors'] = self.coor_norm(g.ndata['coors'])
         self.propagate_attention(g,full_g)
         e_out = self.output_layer_edge(g.edata['e_out'] + e)
         h_out = full_g.ndata['wV'] 

@@ -351,9 +351,12 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss,scheduler
     train_losses = [] 
     # train_true = []
     # train_pred = []3
-    
+    # start = time.time()
     model.train()
+    # print('start to runing')
     for i_batch, (g,full_g,Y) in enumerate(train_dataloader):
+        # time_batch = time.time()
+        # print('time load data:',time_batch - start)
         g = g.to(args.device)
         full_g = full_g.to(args.device)
         if args.r_drop:
@@ -366,8 +369,11 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss,scheduler
             sign_flip = torch.rand(batch_lap_pos_enc.size(1)).to(args.device)
             sign_flip[sign_flip>=0.5] = 1.0; sign_flip[sign_flip<0.5] = -1.0
             g.ndata['lap_pos_enc'] = batch_lap_pos_enc * sign_flip.unsqueeze(0)
+        # time_batch = time.time()
+        # print('time load data:',time_batch )
         logits = model(g,full_g)
         loss = loss_fn(logits, Y)
+        # print('run model time:',time.time() - time_batch )
         if args.auxiliary_loss:
             aux_loss = auxiliary_loss(logits,Y)
 
@@ -405,6 +411,7 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss,scheduler
         train_losses.append(loss)
         if args.lr_decay:
             scheduler.step()
+        # start = time.time()
     return model,train_losses,optimizer,scheduler
 def getToyKey(train_keys):
     train_keys_toy_d = []

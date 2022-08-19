@@ -328,7 +328,7 @@ def pandas_bins(dis_matrix,num_bins = None,noise = False):
     shape = dis_matrix.shape
     bins_index = np.array(pd.cut(dis_matrix.flatten(),bins = bins,labels = [i for i in range(len(bins) -1)])).reshape(shape)
     return bins_index
-def preprocess_item(item, args):
+def preprocess_item(item, args,adj):
     # noise = False
     # time_s = time.time()
     edge_attr, edge_index, x  = item['edge_feat'], item['edge_index'], item['node_feat']
