@@ -114,10 +114,10 @@ def run(local_rank,args):
     else:
         raise 'not implement this split mode,check the config file plz'
         # /pass
-
-    print (f'Number of train data: {len(train_keys)}')
-    print (f'Number of val data: {len(val_keys)}')
-    print (f'Number of test data: {len(test_keys)}')
+    if local_rank == 0:
+        print (f'Number of train data: {len(train_keys)}')
+        print (f'Number of val data: {len(val_keys)}')
+        print (f'Number of test data: {len(test_keys)}')
 
     model = GTENet(args) if args.gnn_model == 'graph_transformer_dgl' else None
 
@@ -169,23 +169,23 @@ def run(local_rank,args):
 
     #loss function
     if args.loss_fn == 'bce_loss':
-        loss_fn = nn.BCELoss().to(args.device)# 
+        loss_fn = nn.BCELoss().to(args.device,non_blocking=True)# 
     elif args.loss_fn == 'focal_loss':
-        loss_fn = FocalLoss().to(args.device)
+        loss_fn = FocalLoss().to(args.device,non_blocking=True)
     elif args.loss_fn == 'cross_entry':
-        loss_fn = torch.nn.CrossEntropyLoss(label_smoothing=args.label_smothing).to(args.device)
+        loss_fn = torch.nn.CrossEntropyLoss(label_smoothing=args.label_smothing).to(args.device,non_blocking=True)
     elif args.loss_fn == 'mse_loss':
-        loss_fn = nn.MSELoss().to(args.device)
+        loss_fn = nn.MSELoss().to(args.device,non_blocking=True)
     elif args.loss_fn == 'poly_loss_ce':
-        loss_fn = PolyLoss_CE(epsilon = args.eps).to(args.device)
+        loss_fn = PolyLoss_CE(epsilon = args.eps).to(args.device,non_blocking=True)
     elif args.loss_fn == 'poly_loss_fl':
-        loss_fn = PolyLoss_FL(epsilon=args.eps,gamma = 2.0).to(args.device)
+        loss_fn = PolyLoss_FL(epsilon=args.eps,gamma = 2.0).to(args.device,non_blocking=True)
     else:
         raise ValueError('not support this loss : %s'%args.loss_fn)
     best_loss = 1000000000#by caodunahua
     counter = 0
     for epoch in range(epoch_start,num_epochs):
-        # st = time.time()
+        st = time.time()
         #collect losses of each iteration
         if args.ngpu > 1:
             train_sampler.set_epoch(epoch) 

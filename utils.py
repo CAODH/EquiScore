@@ -311,9 +311,9 @@ def evaluator(model,loader,loss_fn,args,test_sampler):
             # time_s = time.time()
             # print('g,full_g',g,full_g,Y)
             model.zero_grad()
-            g = g.to(args.local_rank)
-            full_g = full_g.to(args.local_rank)
-            Y = Y.long().to(args.local_rank)
+            g = g.to(args.local_rank,non_blocking=True)
+            full_g = full_g.to(args.local_rank,non_blocking=True)
+            Y = Y.long().to(args.local_rank,non_blocking=True)
             pred = model(g,full_g)
             loss = loss_fn(pred ,Y) 
             # print(loss)
@@ -357,16 +357,16 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss,scheduler
     for i_batch, (g,full_g,Y) in enumerate(train_dataloader):
         # time_batch = time.time()
         # print('time load data:',time_batch - start)
-        g = g.to(args.device)
-        full_g = full_g.to(args.device)
+        g = g.to(args.device,non_blocking=True)
+        full_g = full_g.to(args.device,non_blocking=True)
         if args.r_drop:
             r_g= copy.deepcopy(g)
             r_full_g = copy.deepcopy(full_g)
-        Y = Y.long().to(args.device)
+        Y = Y.long().to(args.device,non_blocking=True)
         if args.lap_pos_enc:
 
             batch_lap_pos_enc = g.ndata['lap_pos_enc']
-            sign_flip = torch.rand(batch_lap_pos_enc.size(1)).to(args.device)
+            sign_flip = torch.rand(batch_lap_pos_enc.size(1)).to(args.device,non_blocking=True)
             sign_flip[sign_flip>=0.5] = 1.0; sign_flip[sign_flip<0.5] = -1.0
             g.ndata['lap_pos_enc'] = batch_lap_pos_enc * sign_flip.unsqueeze(0)
         # time_batch = time.time()

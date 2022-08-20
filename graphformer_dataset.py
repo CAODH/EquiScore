@@ -3,7 +3,7 @@ from graphformer_utils import *
 # from graphformer_utils import get_atom_graphformer_feature
 import os
 # from utils import *
-
+import lmdb
 from  tqdm import tqdm
 from torch.utils.data import Dataset
 from torch.utils.data.sampler import Sampler
@@ -19,7 +19,7 @@ import dgl
 import dgl.data
 from fp_construct import getNonBondPair
 # import 
-random.seed(0)
+random.seed(42)
 class DTISampler(Sampler):
     def __init__(self, weights, num_samples, replacement=True):
         weights = np.array(weights)/np.sum(weights)
@@ -58,10 +58,11 @@ class graphformerDataset(Dataset):
         self.debug = debug
         self.args = args
         self.graphs = []
-        if self.args.add_logk_reg:
-            with open('/home/caoduanhua/score_function/data/general_refineset/datapro/logk_match.pkl','rb') as f:
-                self.logk_match =  pickle.load(f)
+        # if self.args.add_logk_reg:
+        #     with open('/home/caoduanhua/score_function/data/general_refineset/datapro/logk_match.pkl','rb') as f:
+        #         self.logk_match =  pickle.load(f)
             # self.logk_match = 
+
     def __len__(self):
         if self.debug:
             return 5680
@@ -69,7 +70,7 @@ class graphformerDataset(Dataset):
     def collate(self, samples):
         # The input samples is a list of pairs (graph, label).
         ''' collate function for building graph dataloader'''
-        samples = list(filter(lambda  x : x is not None,samples))
+        # samples = list(filter(lambda  x : x is not None,samples))
         
         g,full_g,Y = map(list, zip(*samples))
 
@@ -80,13 +81,16 @@ class graphformerDataset(Dataset):
     def __getitem__(self, idx):
         #idx = 0
         # time_s = time.time()
+        # time_strst = time.time()
         key = self.keys[idx]
         # g ,Y= self._GetGraph(key)# or load from lmbds or  pickle
-        env = lmdb.open(f'/home/caoduanhua/score_function/data/lmdbs/pose_challenge_cross_1000', map_size=int(1e12), max_dbs=1, readonly=True)
+        env = lmdb.open(f'/home/caoduanhua/score_function/data/lmdbs/pose_challenge_cross_10', map_size=int(1e12), max_dbs=2, readonly=True)
         graph_db = env.open_db('data'.encode()) # graph data base
 
         with env.begin(write=False) as txn:
             g,Y= pickle.loads(txn.get(key.encode(), db=graph_db))
+        # time_g = time.time()
+        # print('load g grapg:',time.time() - time_strst)
         a,b = g.edges()
         dm_all = distance_matrix(g.ndata['coors'].numpy(),g.ndata['coors'].numpy())#g.ndata['coors'].matmul(g.ndata['coors'].T)
         edges_g = np.concatenate([a.reshape(-1,1).numpy(),b.reshape(-1,1).numpy()],axis = 1)
@@ -95,6 +99,8 @@ class graphformerDataset(Dataset):
         edges_full = np.unique(np.concatenate([edges_full,edges_g],axis = 0),axis = 0)
 
         full_g = dgl.graph((edges_full[:,0],edges_full[:,1]))
+        # time_g_full = time.time()
+        # print('load g_full grapg:',time.time() - time_g_full)
 
         # full_g.edata['adj2'] = agg_adj2.view(-1,1).contiguous()
         return g,full_g,Y
