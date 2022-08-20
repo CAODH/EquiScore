@@ -155,12 +155,13 @@ def run(local_rank,args):
             shuffle=False, num_workers = args.num_workers, collate_fn=train_dataset.collate,prefetch_factor = 4,\
             sampler = train_sampler,pin_memory=True,drop_last = True)#动态采样
     else:
-        train_dataloader = DataLoaderX(train_dataset, args.batch_size, sampler = train_sampler,prefetch_factor = 4,\
-            shuffle=False, num_workers = args.num_workers, collate_fn=train_dataset.collate,pin_memory=True)
-    val_dataloader = DataLoaderX(val_dataset, args.batch_size, sampler=val_sampler,prefetch_factor = 4,\
-        shuffle=False, num_workers = args.num_workers, collate_fn=val_dataset.collate,pin_memory=True)
-    test_dataloader = DataLoaderX(test_dataset, args.batch_size, sampler=test_sampler,prefetch_factor = 4,\
-        shuffle=False, num_workers = args.num_workers, collate_fn=test_dataset.collate,pin_memory=True) # 测试集看不出什么东西，直接忽略
+        #,prefetch_factor = 4
+        train_dataloader = DataLoaderX(train_dataset, args.batch_size, sampler = train_sampler,\
+            shuffle=False, num_workers = args.num_workers, collate_fn=train_dataset.collate,pin_memory=True,prefetch_factor = 4)
+    val_dataloader = DataLoaderX(val_dataset, args.batch_size, sampler=val_sampler,\
+        shuffle=False, num_workers = args.num_workers, collate_fn=val_dataset.collate,pin_memory=True,prefetch_factor = 4)
+    test_dataloader = DataLoaderX(test_dataset, args.batch_size, sampler=test_sampler,\
+        shuffle=False, num_workers = args.num_workers, collate_fn=test_dataset.collate,pin_memory=True,prefetch_factor = 4) # 测试集看不出什么东西，直接忽略
 
     #optimizer
     # optimizer = torch.optim.Adam(model.parameters(), lr=lr)

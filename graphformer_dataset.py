@@ -62,10 +62,13 @@ class graphformerDataset(Dataset):
         #     with open('/home/caoduanhua/score_function/data/general_refineset/datapro/logk_match.pkl','rb') as f:
         #         self.logk_match =  pickle.load(f)
             # self.logk_match = 
+        env = lmdb.open(f'/home/caoduanhua/score_function/data/lmdbs/pose_challenge_cross_10', map_size=int(1e12), max_dbs=2, readonly=True)
+        self.graph_db = env.open_db('data'.encode()) # graph data base
+        self.txn = env.begin(buffers=True,write=False)
 
     def __len__(self):
         if self.debug:
-            return 5680
+            return 30000
         return len(self.keys)
     def collate(self, samples):
         # The input samples is a list of pairs (graph, label).
@@ -84,11 +87,11 @@ class graphformerDataset(Dataset):
         # time_strst = time.time()
         key = self.keys[idx]
         # g ,Y= self._GetGraph(key)# or load from lmbds or  pickle
-        env = lmdb.open(f'/home/caoduanhua/score_function/data/lmdbs/pose_challenge_cross_10', map_size=int(1e12), max_dbs=2, readonly=True)
-        graph_db = env.open_db('data'.encode()) # graph data base
+        # self.env = lmdb.open(f'/home/caoduanhua/score_function/data/lmdbs/pose_challenge_cross_10', map_size=int(1e12), max_dbs=2, readonly=True)
+        # self.graph_db = env.open_db('data'.encode()) # graph data base
 
-        with env.begin(write=False) as txn:
-            g,Y= pickle.loads(txn.get(key.encode(), db=graph_db))
+        # with env.begin(write=False) as txn:
+        g,Y= pickle.loads(self.txn.get(key.encode(), db=self.graph_db))
         # time_g = time.time()
         # print('load g grapg:',time.time() - time_strst)
         a,b = g.edges()
