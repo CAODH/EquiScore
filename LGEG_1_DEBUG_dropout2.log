@@ -1,0 +1,31 @@
+2022-08-22 07:27:49
+Available GPU List
+id	utilization.gpu(%)	memory.free(MiB)
+0 	39                	17033           
+1 	27                	20705           
+2 	42                	22955           
+3 	39                	21955           
+4 	39                	21765           
+5 	42                	21023           
+6 	43                	18309           
+7 	30                	21091           
+Select id #1, 7, 0, 3, 4, 2, 5, 6 for you.
+number of parameters :  261567
+Let's use 8 GPUs!
+number of parameters :  261567
+Let's use 8 GPUs!
+number of parameters :  261567
+Let's use 8 GPUs!
+number of parameters :  261567
+Let's use 8 GPUs!
+number of parameters :  261567
+Let's use 8 GPUs!
+Number of train data: 310578
+Number of val data: 34341
+Number of test data: 104206
+number of parameters :  261567
+Let's use 8 GPUs!
+number of parameters :  261567
+Let's use 8 GPUs!
+number of parameters :  261567
+Let's use 8 GPUs!

@@ -58,13 +58,12 @@ class graphformerDataset(Dataset):
         self.debug = debug
         self.args = args
         self.graphs = []
-        # if self.args.add_logk_reg:
-        #     with open('/home/caoduanhua/score_function/data/general_refineset/datapro/logk_match.pkl','rb') as f:
-        #         self.logk_match =  pickle.load(f)
-            # self.logk_match = 
-        env = lmdb.open(f'/home/caoduanhua/score_function/data/lmdbs/pose_challenge_cross_10', map_size=int(1e12), max_dbs=2, readonly=True)
-        self.graph_db = env.open_db('data'.encode()) # graph data base
-        self.txn = env.begin(buffers=True,write=False)
+        if not args.test:
+            env = lmdb.open(f'/home/caoduanhua/score_function/data/lmdbs/pose_challenge_cross_10', map_size=int(1e12), max_dbs=2, readonly=True)
+            self.graph_db = env.open_db('data'.encode()) # graph data base
+            self.txn = env.begin(buffers=True,write=False)
+        else:
+            pass
 
     def __len__(self):
         if self.debug:
@@ -74,7 +73,6 @@ class graphformerDataset(Dataset):
         # The input samples is a list of pairs (graph, label).
         ''' collate function for building graph dataloader'''
         # samples = list(filter(lambda  x : x is not None,samples))
-        
         g,full_g,Y = map(list, zip(*samples))
 
         batch_g = dgl.batch(g)
@@ -86,14 +84,11 @@ class graphformerDataset(Dataset):
         # time_s = time.time()
         # time_strst = time.time()
         key = self.keys[idx]
-        # g ,Y= self._GetGraph(key)# or load from lmbds or  pickle
-        # self.env = lmdb.open(f'/home/caoduanhua/score_function/data/lmdbs/pose_challenge_cross_10', map_size=int(1e12), max_dbs=2, readonly=True)
-        # self.graph_db = env.open_db('data'.encode()) # graph data base
+        if not self.args.test:
+            g,Y= pickle.loads(self.txn.get(key.encode(), db=self.graph_db))
+        else:
+            g,Y = graphformerDataset._GetGraph(key,self.args)
 
-        # with env.begin(write=False) as txn:
-        g,Y= pickle.loads(self.txn.get(key.encode(), db=self.graph_db))
-        # time_g = time.time()
-        # print('load g grapg:',time.time() - time_strst)
         a,b = g.edges()
         dm_all = distance_matrix(g.ndata['coors'].numpy(),g.ndata['coors'].numpy())#g.ndata['coors'].matmul(g.ndata['coors'].T)
         edges_g = np.concatenate([a.reshape(-1,1).numpy(),b.reshape(-1,1).numpy()],axis = 1)
