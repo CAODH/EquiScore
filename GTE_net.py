@@ -52,10 +52,10 @@ class GTENet(nn.Module):
         if self.args.in_degree_bias:
             h = h+ self.in_degree_encoder(g.ndata['in_degree'])
         e = self.edge_encoder(g.edata['edge_attr']).mean(-2)
-        # if self.args.only_dis_adj2:
+        if self.args.only_dis_adj2:
 
-        #     full_g.edata['adj2'] = torch.where(full_g.edata['adj2'] > self.mu,torch.exp(-torch.pow(full_g.edata['adj2']-self.mu, 2)/(self.dev + 1e-6)),\
-        #         torch.tensor(1.0).to(self.dev.device))+ full_g.edata['adj1']
+            full_g.edata['adj2'] = torch.where(full_g.edata['adj2'] > self.mu,torch.exp(-torch.pow(full_g.edata['adj2']-self.mu, 2)/(self.dev + 1e-6)),\
+                torch.tensor(1.0).to(self.dev.device))+ full_g.edata['adj1']
         # # if self.args.rel_3d_pos_bias:
         #     rel_3d_bias = self.rel_3d_encoder(full_g.edata['rel_pos_3d'])#.permute(0, 3, 1, 2)
         #     rel_3d_bias = nn.functional.relu(rel_3d_bias)

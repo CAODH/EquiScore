@@ -60,6 +60,7 @@ def guss_decoy(field,rel_pos):
     '''
     def func(edges):
         # print()
+        # return {field: edges.data[field].sum(-1, keepdim=True)*edges.data[adj].unsqueeze(1) + edges.data[rel_pos].unsqueeze(-1)}
         return {field: edges.data[field].sum(-1, keepdim=True)*edges.data[rel_pos].unsqueeze(-1)}
         # return {field: edges.data[field].sum(-1, keepdim=True)*edges.data[adj].unsqueeze(1) + edges.data[rel_pos].unsqueeze(-1)}
        
@@ -106,7 +107,8 @@ class MultiHeadAttentionLayer(nn.Module):
             nn.Linear(1, edge_dim),
             nn.Dropout(dropout_rate),
             nn.ReLU(),
-            nn.Linear(edge_dim, num_heads))#.view(-1,self.args.head_size).contiguous().float()
+            nn.Linear(edge_dim, num_heads),
+            nn.Sigmoid())#.view(-1,self.args.head_size).contiguous().float()
         
     def propagate_attention(self, g,full_g):
 

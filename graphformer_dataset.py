@@ -92,7 +92,7 @@ class graphformerDataset(Dataset):
         a,b = g.edges()
         dm_all = distance_matrix(g.ndata['coors'].numpy(),g.ndata['coors'].numpy())#g.ndata['coors'].matmul(g.ndata['coors'].T)
         edges_g = np.concatenate([a.reshape(-1,1).numpy(),b.reshape(-1,1).numpy()],axis = 1)
-        src,dst = np.where(dm_all < 5.0) # add sparse edges and remove duplicated edges
+        src,dst = np.where(dm_all < self.args.threshold) # add sparse edges and remove duplicated edges
         edges_full = np.concatenate([src.reshape(-1,1),dst.reshape(-1,1)],axis = 1)
         edges_full = np.unique(np.concatenate([edges_full,edges_g],axis = 0),axis = 0)
 
