@@ -29,3 +29,5 @@ number of parameters :  261567
 Let's use 8 GPUs!
 number of parameters :  261567
 Let's use 8 GPUs!
+/home/caoduanhua/anaconda3/envs/prolif/lib/python3.8/site-packages/sklearn/metrics/_classification.py:1318: UndefinedMetricWarning: Precision is ill-defined and being set to 0.0 due to no predicted samples. Use `zero_division` parameter to control this behavior.
+  _warn_prf(average, modifier, msg_start, len(result))
