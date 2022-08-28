@@ -51,7 +51,8 @@ def run(local_rank,args,*more_args,**kwargs):
     # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     args.device = args.local_rank
     best_name = args.save_model
-    save_path = best_name.replace('/save_best_model.pt','')
+    model_name = best_name.split('/')[-1]
+    save_path = best_name.replace(model_name,'')
     if not os.path.exists(save_path):
         os.makedirs(save_path)
     args.test_path = os.path.join(args.test_path,args.test_name)
@@ -89,7 +90,7 @@ if '__main__' == __name__:
     parser = argparse.ArgumentParser(description='json param')
     parser.add_argument('--local_rank', default=-1, type=int) 
     parser.add_argument("--json_path", help="file path of param", type=str, \
-        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/new_data_train_keys/config_files/gnn_edge_3d_pos_screen_dgl_FP_pose_enhanced_challenge_cross_10_bs_64.json')
+        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/new_data_train_keys/config_files/gnn_edge_3d_pos_screen_dgl_FP_pose_enhanced_challenge_cross_10_threshold_10.json')
     args = parser.parse_args()
     local_rank = args.local_rank
     # label_smoothing# temp_args = parser.parse_args()

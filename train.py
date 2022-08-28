@@ -184,6 +184,7 @@ def run(local_rank,args):
     else:
         raise ValueError('not support this loss : %s'%args.loss_fn)
     best_loss = 1000000000#by caodunahua
+    best_f1 = -1
     counter = 0
     for epoch in range(epoch_start,num_epochs):
         st = time.time()
@@ -241,6 +242,16 @@ def run(local_rank,args):
                 best_loss = val_losses
                 counter = 0
                 save_model(model,optimizer,args,epoch,save_path,mode = 'best')
+            if test_f1 > best_f1:
+                best_f1 = test_f1
+                counter = 0
+                save_model(model,optimizer,args,epoch,save_path,mode = 'best_f1')
+            # if test_f1 > best_f1:
+            #     best_f1 = test_f1
+            #     counter = 0
+            #     save_model(model,optimizer,args,epoch,save_path,mode = 'best_f1_{}'.format(epoch))
+            
+
             if counter > args.patience:
                 save_model(model,optimizer,args,epoch,save_path,mode = 'early_stop')
                 print('model early stop !')
@@ -268,7 +279,7 @@ if '__main__' == __name__:
     parser = argparse.ArgumentParser(description='json param')
     parser.add_argument('--local_rank', default=-1, type=int) 
     parser.add_argument("--json_path", help="file path of param", type=str, \
-        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/new_data_train_keys/config_files/gnn_edge_3d_pos_screen_dgl_FP_pose_enhanced_challenge_cross_10_threshold_10.json')
+        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/new_data_train_keys/config_files/gnn_edge_3d_pos_screen_dgl_FP_pose_enhanced_challenge_cross_10_threshold_10_large.json')
     args = parser.parse_args()
     local_rank = args.local_rank
     # label_smoothing# temp_args = parser.parse_args()

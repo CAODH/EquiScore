@@ -97,10 +97,10 @@ class graphformerDataset(Dataset):
         edges_full = np.unique(np.concatenate([edges_full,edges_g],axis = 0),axis = 0)
 
         full_g = dgl.graph((edges_full[:,0],edges_full[:,1]))
-        # time_g_full = time.time()
-        # print('load g_full grapg:',time.time() - time_g_full)
 
-        # full_g.edata['adj2'] = agg_adj2.view(-1,1).contiguous()
+        full_g.ndata['coors'] = g.ndata['coors'] 
+        g.ndata.pop('coors') 
+
         return g,full_g,Y
 
     @staticmethod

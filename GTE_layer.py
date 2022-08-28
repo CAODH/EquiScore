@@ -107,8 +107,7 @@ class MultiHeadAttentionLayer(nn.Module):
             nn.Linear(1, edge_dim),
             nn.Dropout(dropout_rate),
             nn.ReLU(),
-            nn.Linear(edge_dim, num_heads),
-            nn.Sigmoid())#.view(-1,self.args.head_size).contiguous().float()
+            nn.Linear(edge_dim, num_heads))#.view(-1,self.args.head_size).contiguous().float()
         
     def propagate_attention(self, g,full_g):
 
@@ -168,7 +167,7 @@ class MultiHeadAttentionLayer(nn.Module):
         g.edata['proj_e'] = proj_e.view(-1, self.num_heads, 1)
         # g.edata['attn_proj'] = 
         ########################## norm coors for LGEG model############### 
-        full_g.ndata['coors'] = self.coor_norm(g.ndata['coors'])
+        full_g.ndata['coors'] = self.coor_norm(full_g.ndata['coors'])
         self.propagate_attention(g,full_g)
         e_out = self.output_layer_edge(g.edata['e_out'] + e)
         h_out = full_g.ndata['wV'] 
