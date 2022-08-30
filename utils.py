@@ -443,13 +443,13 @@ def getTestedPro(file_name):
         return lines
     else:
         return []
-def getEF(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_fn,rates = 0.01,flag = ''):
+def getEF(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_fn,rates = 0.01,flag = '',prot_split_flag = '_'):
         save_file = save_path + '/EF_test' + flag
         tested_pros = getTestedPro(save_file)
         test_keys = [key for key in os.listdir(test_path) if '.' not in key]
         pros = defaultdict(list)
         for key in test_keys:
-            key_split = key.split('_')
+            key_split = key.split(prot_split_flag)
             # if 'KAT2A' == key_split[0]:
             if '_active' in key:
                 pros[key_split[0]].insert(0,os.path.join(test_path ,key))
