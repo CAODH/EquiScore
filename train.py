@@ -183,6 +183,10 @@ def run(local_rank,args):
         loss_fn = PolyLoss_FL(epsilon=args.eps,gamma = 2.0).to(args.device,non_blocking=True)
     else:
         raise ValueError('not support this loss : %s'%args.loss_fn)
+    if args.auxiliary_loss:
+        aux_loss = auxiliary_loss(args)
+    else:
+        aux_loss = None#auxiliary_loss(args)
     best_loss = 1000000000#by caodunahua
     best_f1 = -1
     counter = 0
@@ -201,7 +205,7 @@ def run(local_rank,args):
             train_dataloader = DataLoaderX(train_dataset, args.batch_size, sampler = train_sampler,prefetch_factor = 4,\
             shuffle=False, num_workers = args.num_workers, collate_fn=train_dataset.collate,pin_memory=True)
 
-        model,train_losses,optimizer,scheduler = train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss,scheduler)
+        model,train_losses,optimizer,scheduler = train(model,args,optimizer,loss_fn,train_dataloader,aux_loss,scheduler)
 
         if args.ngpu > 1:
             dist.barrier() 
@@ -279,7 +283,7 @@ if '__main__' == __name__:
     parser = argparse.ArgumentParser(description='json param')
     parser.add_argument('--local_rank', default=-1, type=int) 
     parser.add_argument("--json_path", help="file path of param", type=str, \
-        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/new_data_train_keys/config_files/gnn_edge_3d_pos_screen_dgl_FP_pose_enhanced_challenge_cross_10_threshold_6_large.json')
+        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/new_data_train_keys/config_files/gnn_edge_3d_pos_screen_dgl_FP_pose_enhanced_challenge_cross_10_threshold_10_large_aux_loss.json')
     args = parser.parse_args()
     local_rank = args.local_rank
     # label_smoothing# temp_args = parser.parse_args()

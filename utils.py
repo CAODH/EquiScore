@@ -946,7 +946,7 @@ def shuffle_train_keys(train_keys):
 
 class auxiliary_loss(nn.Module):
     def __init__(self,args):
-        super(auxiliary_loss,self).__init__()
+        super().__init__()
         if args.deta_const:
             self.deta = 0.2
         else:
