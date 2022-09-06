@@ -81,9 +81,14 @@ def run(local_rank,args):
     train_time = time.strftime('%Y-%m-%d-%H-%M-%S')
     #make save dir if it doesn't exist
     if args.hot_start:
+        best_name = args.save_model
+        model_name = best_name.split('/')[-1]
+        save_path = best_name.replace(model_name,'')
         if os.path.exists(args.save_model):
-
-            save_path = args.save_model.replace('save_best_model.pt','')
+            best_name = args.save_model
+            model_name = best_name.split('/')[-1]
+            save_path = best_name.replace(model_name,'')
+            # save_path = args.save_model.replace('save_best_model.pt','')
         else:
             raise ValueError('save_model is not a valid file check it again!')
     else:
