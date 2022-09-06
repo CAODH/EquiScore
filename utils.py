@@ -7,6 +7,7 @@ import os.path
 import time
 import torch.nn as nn
 import math
+import dgl
 from dataset import *
 import random
 from collections import defaultdict
@@ -374,9 +375,11 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss,scheduler
         logits = model(g,full_g)
         loss = loss_fn(logits, Y)
         train_losses.append(loss)
-        ligand_num = sum(g.ndata['V'])
-        loss_coors = torch.nn.functional.mse_loss(full_g.ndata['coors'][:ligand_num],g.ndata['coors'][:ligand_num])
-        loss += loss_coors*0.1
+        # ligand_num = sum(g.ndata['V'])
+        # print(dgl.sum_nodes(g,'V'),(full_g.ndata['coors']*g.ndata['V']).shape)
+        loss_coors = torch.nn.functional.mse_loss((full_g.ndata['coors'])*g.ndata['V'],(g.ndata['coors'])*g.ndata['V'],reduction='sum')/(sum(g.ndata['V']).data + 1e-6)#.reshape(0,1)
+        # print(loss,loss_coors[0])
+        loss += loss_coors[0]*0.1
         coors_losses.append(loss_coors*0.1)
         # print('run model time:',time.time() - time_batch )
         if args.auxiliary_loss:
