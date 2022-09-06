@@ -377,10 +377,10 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss,scheduler
         train_losses.append(loss)
         # ligand_num = sum(g.ndata['V'])
         # print(dgl.sum_nodes(g,'V'),(full_g.ndata['coors']*g.ndata['V']).shape)
-        loss_coors = torch.nn.functional.mse_loss(torch.mul(full_g.ndata['coors'],g.ndata['V']),torch.mul(g.ndata['coors'],g.ndata['V']),reduction='sum')/(torch.sum(g.ndata['V']).long() + 1e-6)#.reshape(0,1)
+        # loss_coors = torch.nn.functional.mse_loss(torch.mul(full_g.ndata['coors'],g.ndata['V']),torch.mul(g.ndata['coors'],g.ndata['V']),reduction='sum')/(torch.sum(g.ndata['V']).long() + 1e-6)#.reshape(0,1)
         # print(loss,loss_coors)
-        loss += loss_coors*0.1
-        coors_losses.append(loss_coors*0.1)
+        # loss += loss_coors*0.1
+        # coors_losses.append(loss_coors*0.1)
         # print('run model time:',time.time() - time_batch )
         if args.auxiliary_loss:
             aux_loss = auxiliary_loss(logits,Y)
@@ -421,7 +421,7 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss,scheduler
         if args.lr_decay:
             scheduler.step()
         # start = time.time()
-    return model,train_losses,coors_losses,optimizer,scheduler
+    return model,train_losses,optimizer,scheduler
 def getToyKey(train_keys):
     train_keys_toy_d = []
     train_keys_toy_a = []

@@ -167,7 +167,7 @@ class MultiHeadAttentionLayer(nn.Module):
         g.edata['proj_e'] = proj_e.view(-1, self.num_heads, 1)
         # g.edata['attn_proj'] = 
         ########################## norm coors for LGEG model############### 
-        # full_g.ndata['coors'] = self.coor_norm(full_g.ndata['coors'])
+        full_g.ndata['coors'] = self.coor_norm(full_g.ndata['coors'])
 
         self.propagate_attention(g,full_g)
         e_out = self.output_layer_edge(g.edata['e_out'] + e)
