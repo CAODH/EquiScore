@@ -374,7 +374,7 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss,scheduler
         logits = model(g,full_g)
         loss = loss_fn(logits, Y)
         train_losses.append(loss)
-        ligand_num = g.ndata['V'].sum()
+        ligand_num = sum(g.ndata['V'])
         loss_coors = torch.nn.functional.mse_loss(full_g.ndata['coors'][:ligand_num],g.ndata['coors'][:ligand_num])
         loss += loss_coors*0.1
         coors_losses.append(loss_coors*0.1)
