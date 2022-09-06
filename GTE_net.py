@@ -102,4 +102,5 @@ class GTENet(nn.Module):
         # only ligand atom to predict
         h = h * g.ndata['V']
         hg = self.weight_and_sum(g,h)
+        
         return self.MLP_layer(hg)

@@ -99,7 +99,10 @@ class graphformerDataset(Dataset):
         full_g = dgl.graph((edges_full[:,0],edges_full[:,1]))
 
         full_g.ndata['coors'] = g.ndata['coors'] 
-        g.ndata.pop('coors') 
+        # g.ndata.pop('coors') 
+        # # add noise for ligand coors
+        ligand_num = g.ndata['V'].sum()
+        full_g.ndata['coors'][:ligand_num] += torch.randn(full_g.ndata['coors'][:ligand_num].size(), device=full_g.ndata['coors'].device)#*g.ndata['V']
 
         return g,full_g,Y
 

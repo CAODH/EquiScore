@@ -317,13 +317,13 @@ def evaluator(model,loader,loss_fn,args,test_sampler):
             pred = model(g,full_g)
             loss = loss_fn(pred ,Y) 
             # print(loss)
-            if args.ngpu > 1:
+            if args.ngpu >= 1:
             # dist.barrier() 
                 dist.all_reduce(loss.data,op = torch.distributed.ReduceOp.SUM)
                 loss /= float(dist.get_world_size()) # get all loss value 
             #collect loss, true label and predicted label
             test_losses.append(loss.data)
-            if args.ngpu > 1:
+            if args.ngpu >= 1:
                 test_true.append(Y.data)
             else:
                 test_true.append(Y.data)
@@ -331,10 +331,10 @@ def evaluator(model,loader,loss_fn,args,test_sampler):
             if pred.dim()==2:
                 pred = torch.softmax(pred,dim = -1)[:,1]
             pred = pred if args.loss_fn == 'auc_loss' else pred
-            test_pred.append(pred.data) if args.ngpu > 1 else test_pred.append(pred.data)
+            test_pred.append(pred.data) if args.ngpu >= 1 else test_pred.append(pred.data)
             # print(test_pred)
         # gather ngpu result to single tensor
-        if args.ngpu > 1:
+        if args.ngpu >= 1:
             test_true = distributed_concat(torch.concat(test_true, dim=0), 
                                             len(test_sampler.dataset)).cpu().numpy()
             test_pred = distributed_concat(torch.concat(test_pred, dim=0), 
@@ -349,6 +349,7 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss,scheduler
 # 加入辅助函数和r_drop 方式
         #collect losses of each iteration
     train_losses = [] 
+    coors_losses = []
     # train_true = []
     # train_pred = []3
     # start = time.time()
@@ -364,7 +365,6 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss,scheduler
             r_full_g = copy.deepcopy(full_g)
         Y = Y.long().to(args.device,non_blocking=True)
         if args.lap_pos_enc:
-
             batch_lap_pos_enc = g.ndata['lap_pos_enc']
             sign_flip = torch.rand(batch_lap_pos_enc.size(1)).to(args.device,non_blocking=True)
             sign_flip[sign_flip>=0.5] = 1.0; sign_flip[sign_flip<0.5] = -1.0
@@ -373,6 +373,11 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss,scheduler
         # print('time load data:',time_batch )
         logits = model(g,full_g)
         loss = loss_fn(logits, Y)
+        train_losses.append(loss)
+        ligand_num = g.ndata['V'].sum()
+        loss_coors = torch.nn.functional.mse_loss(full_g.ndata['coors'][:ligand_num],g.ndata['coors'][:ligand_num])
+        loss += loss_coors*0.1
+        coors_losses.append(loss_coors*0.1)
         # print('run model time:',time.time() - time_batch )
         if args.auxiliary_loss:
             aux_loss = auxiliary_loss(logits,Y)
@@ -403,16 +408,17 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss,scheduler
             optimizer.step()
             model.zero_grad()
 
-        if args.ngpu > 1:
+        if args.ngpu >= 1:
             # dist.barrier() 
             dist.all_reduce(loss.data,op = torch.distributed.ReduceOp.SUM)
             loss /= float(dist.get_world_size()) # get all loss value 
         loss = loss.data*args.grad_sum 
-        train_losses.append(loss)
+        # train_losses.append(loss)
+        # coors_losses.append(loss_coors*0.1)
         if args.lr_decay:
             scheduler.step()
         # start = time.time()
-    return model,train_losses,optimizer,scheduler
+    return model,train_losses,coors_losses,optimizer,scheduler
 def getToyKey(train_keys):
     train_keys_toy_d = []
     train_keys_toy_a = []
@@ -467,23 +473,23 @@ def getEF(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_f
         for pro in pros.keys():
             try :
                 if pro in tested_pros:
-                    if args.ngpu > 1:
+                    if args.ngpu >= 1:
                         dist.barrier()
                     print('this pro :  %s  is tested'%pro)
                     continue
                 test_keys_pro = pros[pro]
                 if len(test_keys_pro) == 0:
-                    if args.ngpu > 1:
+                    if args.ngpu >= 1:
                         dist.barrier()
                     continue
                 test_dataset = graphformerDataset(test_keys_pro,args, test_path,debug)
-                val_sampler = SequentialDistributedSampler(test_dataset,args.batch_size) if args.ngpu > 1 else None
+                val_sampler = SequentialDistributedSampler(test_dataset,args.batch_size) if args.ngpu >= 1 else None
                 test_dataloader = DataLoaderX(test_dataset, batch_size = batch_size, \
                 shuffle=False, num_workers = 8, collate_fn=test_dataset.collate,pin_memory = True,sampler = val_sampler)
 
                 test_losses,test_true,test_pred = evaluator(model,test_dataloader,loss_fn,args,val_sampler)
 
-                if args.ngpu > 1:
+                if args.ngpu >= 1:
                     dist.barrier()
                 if args.local_rank == 0:
                     test_auroc,test_adjust_logauroc,test_auprc,test_balanced_acc,test_acc,test_precision,test_sensitity,test_specifity,test_f1 = get_metrics(test_true,test_pred)
@@ -524,10 +530,10 @@ def getEF(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_f
                     EFs.append(EF)
             except:
                 print(pro,':skip for some bug')
-                if args.ngpu > 1:
+                if args.ngpu >= 1:
                     dist.barrier()
                 continue
-            if args.ngpu > 1:
+            if args.ngpu >= 1:
                 dist.barrier()
         if args.local_rank == 0:
             EFs = list(np.sum(np.array(EFs),axis=0)/len(EFs))
@@ -541,7 +547,7 @@ def getEF(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_f
                     for item in args_dict.keys():
                         f.write(item + ' : '+str(args_dict[item]) + '\n')
                     f.close()
-        if args.ngpu > 1:
+        if args.ngpu >= 1:
             dist.barrier()
 def getNumPose(test_keys,nums = 5):
     pros = defaultdict(list)
@@ -576,17 +582,17 @@ def getEFMultiPose(model,args,test_path,save_path,debug,batch_size,loss_fn,rates
             try :
                 test_keys_pro = pros[pro]
                 if test_keys_pro is None:
-                    if args.ngpu > 1:
+                    if args.ngpu >= 1:
                         dist.barrier()
                     continue
 
                 test_dataset = graphformerDataset(test_keys_pro,args, test_path,debug)
-                val_sampler = SequentialDistributedSampler(test_dataset,args.batch_size) if args.ngpu > 1 else None
+                val_sampler = SequentialDistributedSampler(test_dataset,args.batch_size) if args.ngpu >= 1 else None
                 test_dataloader = DataLoaderX(test_dataset, batch_size = batch_size, \
                 shuffle=False, num_workers = 8, collate_fn=test_dataset.collate,pin_memory = True,sampler = val_sampler)
                 test_losses,test_true,test_pred = evaluator(model,test_dataloader,loss_fn,args,val_sampler)
 
-                if args.ngpu > 1:
+                if args.ngpu >= 1:
                     dist.barrier()
                 if args.local_rank == 0:
                     test_auroc,test_adjust_logauroc,test_auprc,test_balanced_acc,test_acc,test_precision,test_sensitity,test_specifity,test_f1 = get_metrics(test_true,test_pred)
@@ -649,10 +655,10 @@ def getEFMultiPose(model,args,test_path,save_path,debug,batch_size,loss_fn,rates
                     EFs.append(EF)
             except:
                 print(pro,':skip for some bug')
-                if args.ngpu > 1:
+                if args.ngpu >= 1:
                     dist.barrier()
                 continue
-            if args.ngpu > 1:
+            if args.ngpu >= 1:
                 dist.barrier()
         if args.local_rank == 0:
             EFs = list(np.sum(np.array(EFs),axis=0)/len(EFs))
@@ -666,7 +672,7 @@ def getEFMultiPose(model,args,test_path,save_path,debug,batch_size,loss_fn,rates
                     for item in args_dict.keys():
                         f.write(item + ' : '+str(args_dict[item]) + '\n')
                     f.close()
-        if args.ngpu > 1:
+        if args.ngpu >= 1:
             dist.barrier()
 def getEF_from_MSE(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_fn,rates = 0.01):
 

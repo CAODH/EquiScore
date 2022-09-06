@@ -142,9 +142,10 @@ def run(local_rank,args):
     val_dataset = graphformerDataset(val_keys,args, args.data_path,args.debug)
     test_dataset = graphformerDataset(test_keys,args, args.data_path,args.debug) #测试集看不出什么东西，直接忽略
     # test_dataset = MolDataset(test_keys, args.data_path,args.debug)
-    train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset) if args.ngpu > 1 else None
-    val_sampler = SequentialDistributedSampler(val_dataset,args.batch_size) if args.ngpu > 1 else None
-    test_sampler = SequentialDistributedSampler(test_dataset,args.batch_size) if args.ngpu > 1 else None
+    train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset) if args.ngpu >= 1 else None
+    val_sampler = SequentialDistributedSampler(val_dataset,args.batch_size) if args.ngpu >= 1 else None
+    test_sampler = SequentialDistributedSampler(test_dataset,args.batch_size) if args.ngpu >= 1 else None
+
     if args.sampler:
 
         num_train_chembl = len([0 for k in train_keys if '_active' in k])
@@ -193,7 +194,7 @@ def run(local_rank,args):
     for epoch in range(epoch_start,num_epochs):
         st = time.time()
         #collect losses of each iteration
-        if args.ngpu > 1:
+        if args.ngpu >= 1:
             train_sampler.set_epoch(epoch) 
         if args.single_pro_batch:
             # 每个epoch 训练的样本蛋白次序被打乱,每个蛋白的样本数量作为batch_size ,
@@ -205,15 +206,15 @@ def run(local_rank,args):
             train_dataloader = DataLoaderX(train_dataset, args.batch_size, sampler = train_sampler,prefetch_factor = 4,\
             shuffle=False, num_workers = args.num_workers, collate_fn=train_dataset.collate,pin_memory=True)
 
-        model,train_losses,optimizer,scheduler = train(model,args,optimizer,loss_fn,train_dataloader,aux_loss,scheduler)
+        model,train_losses,coors_losses,optimizer,scheduler = train(model,args,optimizer,loss_fn,train_dataloader,aux_loss,scheduler)
 
-        if args.ngpu > 1:
+        if args.ngpu >= 1:
             dist.barrier() 
         # time_e = time.time()
         val_losses,val_true,val_pred = evaluator(model,val_dataloader,loss_fn,args,val_sampler)
         # print('tim for eval epoch : ',time.time() - time_e)
         # test_losses,test_true,test_pred = evaluator(model,test_dataloader,loss_fn,args,test_sampler)
-        if args.ngpu > 1:
+        if args.ngpu >= 1:
             dist.barrier() 
         # if args.lr_decay:
         #     scheduler.step()
@@ -223,6 +224,7 @@ def run(local_rank,args):
             train_losses = torch.mean(torch.tensor(train_losses,dtype=torch.float)).data.cpu().numpy()
             # test_losses =torch.mean(torch.tensor(test_losses,dtype=torch.float)).data.cpu().numpy()
             val_losses = torch.mean(torch.tensor(val_losses,dtype=torch.float)).data.cpu().numpy()
+            coors_losses = torch.mean(torch.tensor(coors_losses,dtype=torch.float)).data.cpu().numpy()
 
             if args.loss_fn == 'mse_loss':
                 end = time.time()
@@ -234,7 +236,7 @@ def run(local_rank,args):
 
                 end = time.time()
                 with open(log_path,'a') as f:
-                    f.write(str(epoch)+ '\t'+str(train_losses)+ '\t'+str(val_losses)+ '\t'+str(test_losses)\
+                    f.write(str(epoch)+ '\t'+str(train_losses)+ '\t'+str(val_losses)+ '\t'+str(coors_losses)\
                         #'\t'+str(train_auroc)+ '\t'+str(train_adjust_logauroc)+ '\t'+str(train_auprc)+ '\t'+str(train_balanced_acc)+ '\t'+str(train_acc)+ '\t'+str(train_precision)+ '\t'+str(train_sensitity)+ '\t'+str(train_specifity)+ '\t'+str(train_f1)\
 
                     + '\t'+str(test_auroc)+ '\t'+str(test_adjust_logauroc)+ '\t'+str(test_auprc)+ '\t'+str(test_balanced_acc)+ '\t'+str(test_acc)+ '\t'+str(test_precision)+ '\t'+str(test_sensitity)+ '\t'+str(test_specifity)+ '\t'+str(test_f1) +'\t'\
@@ -262,9 +264,9 @@ def run(local_rank,args):
                 break
             if epoch == num_epochs-1:
                 save_model(model,optimizer,args,epoch,save_path,mode = 'end')
-        if args.ngpu > 1:
+        if args.ngpu >= 1:
             dist.barrier() 
-    if args.ngpu > 1:
+    if args.ngpu >= 1:
         dist.barrier() 
     print('training done!')
     
@@ -283,7 +285,7 @@ if '__main__' == __name__:
     parser = argparse.ArgumentParser(description='json param')
     parser.add_argument('--local_rank', default=-1, type=int) 
     parser.add_argument("--json_path", help="file path of param", type=str, \
-        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/new_data_train_keys/config_files/gnn_edge_3d_pos_screen_dgl_FP_pose_enhanced_challenge_cross_10_threshold_10_large_aux_loss.json')
+        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/new_data_train_keys/config_files/gnn_edge_3d_pos_screen_dgl_FP_pose_enhanced_challenge_cross_10_threshold_55_large_noisenode.json')
     args = parser.parse_args()
     local_rank = args.local_rank
     # label_smoothing# temp_args = parser.parse_args()
@@ -294,13 +296,13 @@ if '__main__' == __name__:
     args.local_rank = local_rank
 
     if args.ngpu>0:
-        cmd = get_available_gpu(num_gpu=args.ngpu, min_memory=15000, sample=3, nitro_restriction=False, verbose=True)
+        cmd = get_available_gpu(num_gpu=args.ngpu, min_memory=30000, sample=3, nitro_restriction=False, verbose=True)
         if cmd[-1] == ',':
             os.environ['CUDA_VISIBLE_DEVICES']=cmd[:-1]
         else:
             os.environ['CUDA_VISIBLE_DEVICES']=cmd
     os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = "29511"
+    os.environ["MASTER_PORT"] = "29512"
     # os.environ["TORCH_CPP_LOG_LEVEL"]="INFO"
     # os.environ[
     #     "TORCH_DISTRIBUTED_DEBUG"
