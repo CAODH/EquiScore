@@ -74,7 +74,7 @@ def run(local_rank,args,*more_args,**kwargs):
     else:
         raise ValueError('not support this loss : %s'%args.loss_fn)
     # getEF(model,args,args.test_path,save_path,args.device,args.debug,args.batch_size,args.A2_limit,loss_fn,args.EF_rates,flag = '_' + args.test_name,prot_split_flag = '_')
-    getEFMultiPose(model,args,args.test_path,save_path,args.debug,args.batch_size,loss_fn,rates = args.EF_rates,flag = '_RTMScore_testdata' + args.test_name,pose_num = 5)
+    getEFMultiPose(model,args,args.test_path,save_path,args.debug,args.batch_size,loss_fn,rates = args.EF_rates,flag = '_RTMScore_testdata' + args.test_name,pose_num = 3)
 if '__main__' == __name__:
     from torch import distributed as dist
     import torch.multiprocessing as mp
