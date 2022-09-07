@@ -72,7 +72,7 @@ class graphformerDataset(Dataset):
     def collate(self, samples):
         # The input samples is a list of pairs (graph, label).
         ''' collate function for building graph dataloader'''
-        # samples = list(filter(lambda  x : x is not None,samples))
+        samples = list(filter(lambda  x : x is not None,samples))
         g,full_g,Y = map(list, zip(*samples))
 
         batch_g = dgl.batch(g)
@@ -87,7 +87,11 @@ class graphformerDataset(Dataset):
         if not self.args.test:
             g,Y= pickle.loads(self.txn.get(key.encode(), db=self.graph_db))
         else:
-            g,Y = graphformerDataset._GetGraph(key,self.args)
+            try:
+                g,Y = graphformerDataset._GetGraph(key,self.args)
+                
+            except:
+                return None
 
         a,b = g.edges()
         dm_all = distance_matrix(g.ndata['coors'].numpy(),g.ndata['coors'].numpy())#g.ndata['coors'].matmul(g.ndata['coors'].T)
@@ -118,9 +122,9 @@ class graphformerDataset(Dataset):
             except:
                 with open(key, 'rb') as f:
                     m1,m2,atompairs,iter_types= pickle.load(f)
-                f.close()
+                # f.close()
         except:
-            print('file: {} is not a valid file！'.format(key))
+            # print('file: {} is not a valid file！'.format(key))
             return None
         n1,d1,adj1 = utils.get_mol_info(m1)
         n2,d2,adj2 = utils.get_mol_info(m2)

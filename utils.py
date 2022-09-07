@@ -553,21 +553,24 @@ def getEF(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_f
         if args.ngpu >= 1:
             dist.barrier()
 def getNumPose(test_keys,nums = 5):
-    pros = defaultdict(list)
+    ligands = defaultdict(list)
+
+
     for key in test_keys:
-        key_split = key.split('_-')
-        pros[key_split[0]].append(key)
-    for key in pros.keys():
-        pros[key].sort(key = lambda x : float(x.split('_-')[-1].replace('.sdf','')),reverse=True)
-        pros[key] = pros[key][:nums]
+        key_split = key.split('_')
+        ligand_name = '_'.join(key_split[-2].split('-')[:-1])
+        ligands[ligand_name].append(key)
     result = []
-    for temp  in pros.values():
-        result += temp
+    for ligand_name in ligands.keys():
+
+        ligands[ligand_name].sort(key = lambda x : int(x.split('_')[-2].split('-')[-1]),reverse=False)
+        result += ligands[ligand_name][:nums]
     return result
 def getEFMultiPose(model,args,test_path,save_path,debug,batch_size,loss_fn,rates = 0.01,flag = '',pose_num = 5):
-        save_file = save_path + '/EF_test_multi_pose' + flag
+        save_file = save_path + '/EF_test_multi_pose' + '_{}_'.format(pose_num) + flag
         test_keys = os.listdir(test_path)
         # 每个复合物提取固定比例的pose
+        tested_pros = getTestedPro(save_file)
         test_keys = getNumPose(test_keys,nums = pose_num)
         # print('tests nums',len(test_keys))
         pros = defaultdict(list)
@@ -583,11 +586,17 @@ def getEFMultiPose(model,args,test_path,save_path,debug,batch_size,loss_fn,rates
             rate_str += str(rate)+ '\t'
         for pro in pros.keys():
             try :
+                if pro in tested_pros:
+                    if args.ngpu >= 1:
+                        dist.barrier()
+                    print('this pro :  %s  is tested'%pro)
+                    continue
                 test_keys_pro = pros[pro]
                 if test_keys_pro is None:
                     if args.ngpu >= 1:
                         dist.barrier()
                     continue
+                print('protein keys num ',len(test_keys_pro))
 
                 test_dataset = graphformerDataset(test_keys_pro,args, test_path,debug)
                 val_sampler = SequentialDistributedSampler(test_dataset,args.batch_size) if args.ngpu >= 1 else None
@@ -598,6 +607,7 @@ def getEFMultiPose(model,args,test_path,save_path,debug,batch_size,loss_fn,rates
                 if args.ngpu >= 1:
                     dist.barrier()
                 if args.local_rank == 0:
+                    # print(test_true,test_pred)
                     test_auroc,test_adjust_logauroc,test_auprc,test_balanced_acc,test_acc,test_precision,test_sensitity,test_specifity,test_f1 = get_metrics(test_true,test_pred)
                     test_losses = torch.mean(torch.tensor(test_losses,dtype=torch.float)).data.cpu().numpy()
                     Y_sum = 0
@@ -607,7 +617,7 @@ def getEFMultiPose(model,args,test_path,save_path,debug,batch_size,loss_fn,rates
                     # new_keys = []
                     key_logits = defaultdict(list)
                     for pred,key in zip(test_pred,test_keys_pro):
-                        new_key = '_'.join(key.split('_')[:-1])
+                        new_key = '_'.join(key.split('/')[-1].split('_')[:-2] + key.split('/')[-1].split('_')[-2].split('-')[:-1])
                         key_logits[new_key].append(pred)
                     new_keys = list(key_logits.keys())
                     max_pose_logits = [max(logits) for logits in  list(key_logits.values())]
@@ -618,7 +628,7 @@ def getEFMultiPose(model,args,test_path,save_path,debug,batch_size,loss_fn,rates
                     test_pred = []
                     for key,logit in zip(new_keys,max_pose_logits):
                         key_split = key.split('_') 
-                        if 'active' in key_split:
+                        if 'actives' in key_split:
                             test_keys_pro.insert(0,key)
                             test_pred.insert(0,logit)
                             Y_sum += 1
