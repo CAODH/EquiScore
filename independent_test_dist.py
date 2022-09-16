@@ -73,8 +73,8 @@ def run(local_rank,args,*more_args,**kwargs):
         loss_fn = PolyLoss_FL(epsilon=args.eps,gamma = 2.0).to(args.device)
     else:
         raise ValueError('not support this loss : %s'%args.loss_fn)
-    # getEF(model,args,args.test_path,save_path,args.device,args.debug,args.batch_size,args.A2_limit,loss_fn,args.EF_rates,flag = '_' + args.test_name,prot_split_flag = '_')
-    getEFMultiPose(model,args,args.test_path,save_path,args.debug,args.batch_size,loss_fn,rates = args.EF_rates,flag = '_RTMScore_testdata' + args.test_name,pose_num = 3)
+    getEF(model,args,args.test_path,save_path,args.device,args.debug,args.batch_size,args.A2_limit,loss_fn,args.EF_rates,flag = '_RTMSCORE_DUDE' + args.test_name,prot_split_flag = '_')
+    # getEFMultiPose(model,args,args.test_path,save_path,args.debug,args.batch_size,loss_fn,rates = args.EF_rates,flag = '_RTMScore_testdata' + args.test_name,pose_num = 1)
 if '__main__' == __name__:
     from torch import distributed as dist
     import torch.multiprocessing as mp

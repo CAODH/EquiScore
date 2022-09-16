@@ -143,7 +143,7 @@ class MultiHeadAttentionLayer(nn.Module):
         ##
         full_g.apply_edges(edge_mul_score('detla_coors', 'score'))# accu detla_coors 
         full_g.send_and_recv(eids, dgl.function.copy_e('detla_coors','detla_coors'), fn.sum('detla_coors', 'coors_add'))
-        full_g.ndata['coors'] += full_g.ndata['coors_add']
+        full_g.ndata['coors'] += full_g.ndata['coors_add']# BEST MODEL IS full_g.ndata['coors'] += full_g.ndata['coors_add']
         #################################################################
 
         #########################################################

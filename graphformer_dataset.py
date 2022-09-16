@@ -249,12 +249,12 @@ if __name__ == "__main__":
     # mol_pocket_inter_idx_type = env.open_db('mol_pocket_interIdx_type'.encode())
     dgl_graph_db = env.open_db('data'.encode())
     # 把数据写入到LMDB中
-    with open (args.train_keys, 'rb') as fp:
-        train_keys = pickle.load(fp)
-    with open (args.val_keys, 'rb') as fp:
+    # with open (args.train_keys, 'rb') as fp:
+        # train_keys = pickle.load(fp)
+    with open (args.test_keys, 'rb') as fp:
         val_keys = pickle.load(fp)
 
-    keys =  val_keys + train_keys
+    keys =  val_keys #+ train_keys
     ##########################################
     def saveDB(key):
         with env.begin(write=True) as txn:
