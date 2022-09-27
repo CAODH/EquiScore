@@ -72,7 +72,7 @@ class graphformerDataset(Dataset):
     def collate(self, samples):
         # The input samples is a list of pairs (graph, label).
         ''' collate function for building graph dataloader'''
-        # samples = list(filter(lambda  x : x is not None,samples))
+        samples = list(filter(lambda  x : x is not None,samples))
         g,full_g,Y = map(list, zip(*samples))
 
         batch_g = dgl.batch(g)
