@@ -24,3 +24,5 @@ load save model!
 Let's use 7 GPUs!
 load save model!
 Let's use 7 GPUs!
+/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/utils.py:234: RuntimeWarning: invalid value encountered in true_divide
+  intercept = y[1:] - x[1:] * (dy / (x[1:] - x[:-1]))
