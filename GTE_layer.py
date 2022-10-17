@@ -122,6 +122,7 @@ class MultiHeadAttentionLayer(nn.Module):
         # scaling
         # rel_dist decay 
         full_g.apply_edges(scaling('score', np.sqrt(self.out_dim)))
+        
         full_g.apply_edges(guss_decoy('score','rel_pos_3d'))# distance decay
         ##########################################
         #  sent attn score to sparse edges
