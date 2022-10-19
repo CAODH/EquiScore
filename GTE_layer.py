@@ -121,10 +121,16 @@ class MultiHeadAttentionLayer(nn.Module):
         full_g.edata['rel_pos_3d'] = self.coors_mlp(full_g.edata['rel_pos_3d'].float())
         # scaling
         # rel_dist decay 
+
         full_g.apply_edges(scaling('score', np.sqrt(self.out_dim)))
-        
-        full_g.apply_edges(guss_decoy('score','rel_pos_3d'))# distance decay
+
+        ########################################
+        # distance decay
+        full_g.apply_edges(guss_decoy('score','rel_pos_3d'))# distance decay ,best model need this update!! 
+        # full_g.edata['score'] = full_g.edata['score'].sum(-1, keepdim=True)# only be  used to ablation study
+
         ##########################################
+        # update score from edge 
         #  sent attn score to sparse edges
         src,dst = g.edges() # get sparse edges
         g.edata['score'] = full_g.edge_subgraph(full_g.edge_ids(src,dst),relabel_nodes=False).edata['score']
@@ -133,8 +139,11 @@ class MultiHeadAttentionLayer(nn.Module):
         # Compute attention score
         g.apply_edges(edge_bias('score', 'proj_e'))  # add edge bias 
         # add edge_bias to full_g 
-        full_g.apply_edges(func=partUpdataScore('score','score',g),edges=g.edges())
+        full_g.apply_edges(func=partUpdataScore('score','score',g),edges=g.edges()) # best model need this module ,ablation to # it only!!!
         # Copy edge features as e_out to be passed to FFN_e
+        ###################################################
+
+
         # softmax
         # for softmax numerical stability
         eids = full_g.edges()
