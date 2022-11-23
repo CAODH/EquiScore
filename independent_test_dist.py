@@ -75,6 +75,7 @@ def run(local_rank,args,*more_args,**kwargs):
         raise ValueError('not support this loss : %s'%args.loss_fn)
     getEF(model,args,args.test_path,save_path,args.device,args.debug,args.batch_size,args.A2_limit,loss_fn,args.EF_rates,flag = '_add_bedroc_' + args.test_name,prot_split_flag = '_')
     # getEFMultiPose(model,args,args.test_path,save_path,args.debug,args.batch_size,loss_fn,rates = args.EF_rates,flag = '_RTMScore_testdata_bedroc' + args.test_name,pose_num = 1)
+    # getEFMultiPose(model,args,args.test_path,save_path,args.debug,args.batch_size,loss_fn,rates = args.EF_rates,flag = '_RTMScore_testdata_bedroc_idx_style' + args.test_name,pose_num = 3,idx_style = True)
 if '__main__' == __name__:
     from torch import distributed as dist
     import torch.multiprocessing as mp
@@ -90,7 +91,7 @@ if '__main__' == __name__:
     parser = argparse.ArgumentParser(description='json param')
     parser.add_argument('--local_rank', default=-1, type=int) 
     parser.add_argument("--json_path", help="file path of param", type=str, \
-        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/new_data_train_keys/config_files/gnn_edge_3d_pos_screen_dgl_FP_pose_enhanced_challenge_cross_10_threshold_55_large_without_virtual_node_without_fp_edge.json')
+        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/new_data_train_keys/config_files/gnn_edge_3d_pos_screen_dgl_FP_pose_enhanced_challenge_cross_10_threshold_55_large_random_shuffle.json')
     args = parser.parse_args()
     local_rank = args.local_rank
     # label_smoothing# temp_args = parser.parse_args()

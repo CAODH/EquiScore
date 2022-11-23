@@ -573,12 +573,32 @@ def getNumPose(test_keys,nums = 5):
         ligands[ligand_name].sort(key = lambda x : int(x.split('_')[-2].split('-')[-1]),reverse=False)
         result += ligands[ligand_name][:nums]
     return result
-def getEFMultiPose(model,args,test_path,save_path,debug,batch_size,loss_fn,rates = 0.01,flag = '',pose_num = 5):
+def getIdxPose(test_keys,idx = 0):
+    ligands = defaultdict(list)
+
+
+    for key in test_keys:
+        key_split = key.split('_')
+        ligand_name = '_'.join(key_split[-2].split('-')[:-1])
+        ligands[ligand_name].append(key)
+    result = []
+    for ligand_name in ligands.keys():
+
+        ligands[ligand_name].sort(key = lambda x : int(x.split('_')[-2].split('-')[-1]),reverse=False)
+        if idx < len(ligands[ligand_name]):
+            result.append(ligands[ligand_name][idx]) 
+        else:
+            result.append(ligands[ligand_name][-1]) 
+    return result
+def getEFMultiPose(model,args,test_path,save_path,debug,batch_size,loss_fn,rates = 0.01,flag = '',pose_num = 5,idx_style = False):
         save_file = save_path + '/EF_test_multi_pose' + '_{}_'.format(pose_num) + flag
         test_keys = os.listdir(test_path)
         # 每个复合物提取固定比例的pose
         tested_pros = getTestedPro(save_file)
-        test_keys = getNumPose(test_keys,nums = pose_num)
+        if idx_style:
+            test_keys = getIdxPose(test_keys,idx = pose_num)
+        else:
+            test_keys = getNumPose(test_keys,nums = pose_num) 
         # print('tests nums',len(test_keys))
         pros = defaultdict(list)
         for key in test_keys:
