@@ -73,9 +73,10 @@ def run(local_rank,args,*more_args,**kwargs):
         loss_fn = PolyLoss_FL(epsilon=args.eps,gamma = 2.0).to(args.device)
     else:
         raise ValueError('not support this loss : %s'%args.loss_fn)
-    getEF(model,args,args.test_path,save_path,args.device,args.debug,args.batch_size,args.A2_limit,loss_fn,args.EF_rates,flag = '_add_bedroc_' + args.test_name,prot_split_flag = '_')
-    # getEFMultiPose(model,args,args.test_path,save_path,args.debug,args.batch_size,loss_fn,rates = args.EF_rates,flag = '_RTMScore_testdata_bedroc' + args.test_name,pose_num = 1)
-    # getEFMultiPose(model,args,args.test_path,save_path,args.debug,args.batch_size,loss_fn,rates = args.EF_rates,flag = '_RTMScore_testdata_bedroc_idx_style' + args.test_name,pose_num = 3,idx_style = True)
+    # flag = '_add_bedroc_'
+    # getEF(model,args,args.test_path,save_path,args.device,args.debug,args.batch_size,args.A2_limit,loss_fn,args.EF_rates,flag = '_add_bedroc_' + '{}_'.format(model_name)+ args.test_name,prot_split_flag = '_')
+    # getEFMultiPose(model,args,args.test_path,save_path,args.debug,args.batch_size,loss_fn,rates = args.EF_rates,flag = '_RTMScore_testdata_bedroc_' + '{}_'.format(model_name) +  args.test_name,pose_num = 1)
+    getEFMultiPose(model,args,args.test_path,save_path,args.debug,args.batch_size,loss_fn,rates = args.EF_rates,flag = '_RTMScore_testdata_bedroc_idx_style_' + '{}_'.format(model_name)+  args.test_name,pose_num = 3,idx_style = True)
 if '__main__' == __name__:
     from torch import distributed as dist
     import torch.multiprocessing as mp
@@ -91,7 +92,7 @@ if '__main__' == __name__:
     parser = argparse.ArgumentParser(description='json param')
     parser.add_argument('--local_rank', default=-1, type=int) 
     parser.add_argument("--json_path", help="file path of param", type=str, \
-        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/new_data_train_keys/config_files/gnn_edge_3d_pos_screen_dgl_FP_pose_enhanced_challenge_cross_10_threshold_55_large_random_shuffle.json')
+        default='/home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/new_data_train_keys/config_files_random_shuffle_42/gnn_edge_3d_pos_screen_dgl_FP_pose_enhanced_challenge_cross_10_threshold_55_large_random_shuffle.json')
     args = parser.parse_args()
     local_rank = args.local_rank
     # label_smoothing# temp_args = parser.parse_args()
@@ -101,7 +102,7 @@ if '__main__' == __name__:
     # 下面这个参数需要加上，torch内部调用多进程时，会使用该参数，对每个gpu进程而言，其local_rank都是不同的；
     args.local_rank = local_rank
     if args.ngpu>0:
-        cmd = get_available_gpu(num_gpu=args.ngpu, min_memory=30000, sample=3, nitro_restriction=False, verbose=True)
+        cmd = get_available_gpu(num_gpu=args.ngpu, min_memory=28000, sample=3, nitro_restriction=False, verbose=True)
         if cmd[-1] == ',':
             os.environ['CUDA_VISIBLE_DEVICES']=cmd[:-1]
         else:

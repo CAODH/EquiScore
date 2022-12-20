@@ -52,15 +52,6 @@ class GTENet(nn.Module):
         if self.args.in_degree_bias:
             h = h+ self.in_degree_encoder(g.ndata['in_degree'])
         e = self.edge_encoder(g.edata['edge_attr']).mean(-2)
-        # if self.args.only_dis_adj2:
-
-        #     full_g.edata['adj2'] = torch.where(full_g.edata['adj2'] > self.mu,torch.exp(-torch.pow(full_g.edata['adj2']-self.mu, 2)/(self.dev + 1e-6)),\
-        #         torch.tensor(1.0).to(self.dev.device))+ full_g.edata['adj1']
-        # # # if self.args.rel_3d_pos_bias:
-        #     rel_3d_bias = self.rel_3d_encoder(full_g.edata['rel_pos_3d'])#.permute(0, 3, 1, 2)
-        #     rel_3d_bias = nn.functional.relu(rel_3d_bias)
-        #     full_g.edata['rel_pos_3d'] = self.linear_3d_pos(rel_3d_bias).view(-1,self.args.head_size).contiguous().float()
-        # # convnets
         for conv in self.layers:
             h, e = conv(g,full_g,h,e)
             h = F.dropout(h, p=self.args.dropout_rate, training=self.training)
@@ -71,6 +62,30 @@ class GTENet(nn.Module):
         hg = self.MLP_layer(hg)
         
         return h,g,full_g,hg
+    def getAttFirstLayer(self,g,full_g):
+        h = g.ndata['x']
+        # print('max,min atom fea',torch.max(h),torch.min(h))
+        h = self.atom_encoder(h.long()).mean(-2)
+        # h = self.in_feat_dropout(h)
+        if self.args.lap_pos_enc:
+            h_lap_pos_enc = g.ndata['lap_pos_enc']
+            h_lap_pos_enc = self.embedding_lap_pos_enc(h_lap_pos_enc.float()) 
+            h = h + h_lap_pos_enc
+        if self.args.in_degree_bias:
+            h = h+ self.in_degree_encoder(g.ndata['in_degree'])
+        e = self.edge_encoder(g.edata['edge_attr']).mean(-2)
+
+        for conv in [self.layers[0]]:
+            h, e = conv(g,full_g,h,e)
+            h = F.dropout(h, p=self.args.dropout_rate, training=self.training)
+            e = F.dropout(e, p=self.args.dropout_rate, training=self.training)
+        # left 3 lines for ligand atoms 
+        h = h * g.ndata['V']
+        hg = self.weight_and_sum(g,h)
+        hg = self.MLP_layer(hg)
+        
+        return h,g,full_g,hg
+    
 
     def forward(self, g, full_g):
         h = g.ndata['x']

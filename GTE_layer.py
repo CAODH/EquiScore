@@ -125,7 +125,7 @@ class MultiHeadAttentionLayer(nn.Module):
         full_g.apply_edges(scaling('score', np.sqrt(self.out_dim)))
 
         ########################################
-        # distance decay
+        # distance decay just for ablation test
         full_g.apply_edges(guss_decoy('score','rel_pos_3d'))# distance decay ,best model need this update!! 
         # full_g.edata['score'] = full_g.edata['score'].sum(-1, keepdim=True)# only be  used to ablation study
 
@@ -139,6 +139,7 @@ class MultiHeadAttentionLayer(nn.Module):
         # Compute attention score
         g.apply_edges(edge_bias('score', 'proj_e'))  # add edge bias 
         # add edge_bias to full_g 
+        # just for abalation test
         full_g.apply_edges(func=partUpdataScore('score','score',g),edges=g.edges()) # best model need this module ,ablation to # it only!!!
         # Copy edge features as e_out to be passed to FFN_e
         ###################################################
@@ -150,7 +151,6 @@ class MultiHeadAttentionLayer(nn.Module):
         ################################
         full_g.edata['score'] = edge_softmax(graph = full_g,logits = full_g.edata['score'].clamp(-5,5))
         ############## score as coors update factor and update coors ##############
-        ##
         full_g.apply_edges(edge_mul_score('detla_coors', 'score'))# accu detla_coors 
         full_g.send_and_recv(eids, dgl.function.copy_e('detla_coors','detla_coors'), fn.sum('detla_coors', 'coors_add'))
         full_g.ndata['coors'] += full_g.ndata['coors_add']# BEST MODEL IS full_g.ndata['coors'] += full_g.ndata['coors_add']
@@ -208,8 +208,6 @@ class GTELayer(nn.Module):
         self.layer_norm2_h = GraphNorm(hidden_dim = self.args.n_out_feature)
         self.layer_norm2_e = nn.LayerNorm(self.args.edge_dim)
             
-
-        
     def forward(self, g, full_g,x, e):
         y = self.layer_norm1_h(g,x)
         e_norm = self.layer_norm1_e(e)
@@ -228,6 +226,7 @@ class GTELayer(nn.Module):
         y = self.self_ffn_dropout_2(y)
         x = x + y
         return x, e
+        
         
     def __repr__(self):
         return '{}(in_channels={}, out_channels={}, heads={})'.format(self.__class__.__name__,
