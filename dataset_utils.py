@@ -1,33 +1,16 @@
-'''1、 数据里面已经包含了ligand的mol 和pocket 的mol
-处理数据需要分开两个分子处理一下，合并起来再处理一下，分别保存
-2、分子特征暂时只用GNN_DTI里面提供的，后面再考虑grapformer里面的一些特征
-3、拿到编码边的方法
-4、拿到编码路径的方法（相对位置）
-5、拿到编码空间距离的方法（GNN_DTI里面用的构建分子间的边就是这么用的）
-6、拿到编码度的方法（one_hot）
-以上编码方式都是可以训练的所以，需要在forward的时候做
-写个脚本处理的数据都存到一个文件里面然后训练再读出来
-'''
 import torch
 import numpy as np
-# from ogb.lsc.pcqm4m_pyg import PygPCQM4MDataset
 from utils import *
 from rdkit import Chem
 import rdkit.Chem.AllChem as AllChem
-from dataset import *
-import joblib
+# from dataset import *
 import numpy as np
-import math
+import rdkit
 from scipy.spatial.distance import cdist
 from scipy.spatial import distance_matrix
-import networkx as nx
 import dgl
 import pyximport
-pyximport.install(setup_args={'include_dirs': np.get_include()})
-import algos
-import pickle
-
-
+# pyximport.install(setup_args={'include_dirs': np.get_include()})
 import os.path as osp
 from rdkit import RDConfig
 from rdkit.Chem import ChemicalFeatures
@@ -39,7 +22,7 @@ possible_bond_stereo_list = list(range(16))
 possible_is_conjugated_list = [False, True]
 possible_is_in_ring_list = [False, True]
 possible_bond_dir_list = list(range(16))
-
+from rdkit.Chem.rdmolops import GetAdjacencyMatrix
 def bond_to_feature_vector(bond):
     # 0
     bond_type = int(bond.GetBondType())
@@ -74,7 +57,54 @@ def GetNum(x,allowed_set):
         return [allowed_set.index(x)]
     except:
         return [len(allowed_set) -1]
+def get_aromatic_rings(mol:rdkit.Chem.Mol) -> list:
+    ''' return aromaticatoms rings'''
+    aromaticity_atom_id_set = set()
+    rings = []
+    for atom in mol.GetAromaticAtoms():
+        aromaticity_atom_id_set.add(atom.GetIdx())
+    # get ring info 
+    ssr = Chem.GetSymmSSSR(mol)
+    for ring in ssr:
+        ring_id_set = set(ring)
+        # check atom in this ring is aromaticity
+        if ring_id_set <= aromaticity_atom_id_set:
+            rings.append(list(ring))
+    return rings
+def add_atom_to_mol(mol:rdkit.Chem.Mol,adj:np.array,H:np.array,d:np.array,n:int) :
+    '''docstring: 
+    add virtual aromatic atom feature/adj/3d_positions to raw data
+    mol : rdkit mol 
+    adj :
+    H : node feature
+    node d : 3d positions
+    n: node nums 
+    '''
+    assert len(adj) == len(H),'adj nums not equal to nodes'
+    rings = get_aromatic_rings(mol)
+    num_aromatic = len(rings)
+    
+    h,b = adj.shape
+    # print(num_aromatic,h,b)
+    # print(d.shape,H.shape)
+    all_zeros = np.zeros((num_aromatic+h,num_aromatic+b))
+    #add all zeros vector to bottom and right
 
+    all_zeros[:h,:b] = adj
+    for i,ring in enumerate(rings):
+        all_zeros[h+i,:][ring] = 1
+        all_zeros[:,h+i][ring] = 1
+        all_zeros[h+i,:][h+i] = 1
+        d = np.concatenate([d,np.mean(d[ring],axis = 0,keepdims=True)],axis = 0)
+        H  = np.concatenate([H,np.array([15]*(H.shape[1]))[np.newaxis]],axis = 0)
+    assert len(all_zeros) == len(H),'adj nums not equal to nodes'
+    return all_zeros,H,d,n+num_aromatic
+def get_mol_info(m1):
+    n1 = m1.GetNumAtoms()
+    c1 = m1.GetConformers()[0]
+    d1 = np.array(c1.GetPositions())
+    adj1 = GetAdjacencyMatrix(m1)+np.eye(n1)
+    return n1,d1,adj1
 def atom_feature_graphformer(m, atom_i, i_donor, i_acceptor):
 
     atom = m.GetAtomWithIdx(atom_i)
@@ -103,7 +133,7 @@ def atom_feature_attentive_FP(atom,
                     Chem.rdchem.HybridizationType.SP3, Chem.rdchem.HybridizationType.
                                         SP3D, Chem.rdchem.HybridizationType.SP3D2,'other'
                   ]) + [atom.GetIsAromatic()]
-        # In case of explicit hydrogen(QM8, QM9), avoid calling `GetTotalNumHs`
+
         if not explicit_H:
             results = results + GetNum(atom.GetTotalNumHs(),
                                                       [0, 1, 2, 3, 4])
@@ -329,39 +359,30 @@ def pandas_bins(dis_matrix,num_bins = None,noise = False):
     bins_index = np.array(pd.cut(dis_matrix.flatten(),bins = bins,labels = [i for i in range(len(bins) -1)])).reshape(shape)
     return bins_index
 def preprocess_item(item, args,adj):
-    # noise = False
-    # time_s = time.time()
+
     edge_attr, edge_index, x  = item['edge_feat'], item['edge_index'], item['node_feat']
     # print('get edge from  molgraph: ',time.time()-time_s)
     N = x.size(0)
+    if min(x)< 0:
+        print(x)
     # print('num features:',N)
-    if args.fundation_model == 'graphformer':
+    if args.fundation_model == 'EquiScore':
         offset = 16 if args.FP else 10
         x = convert_to_single_emb(x,offset = offset)
     adj = torch.tensor(adj,dtype=torch.long)
     # edge feature here
     g = dgl.graph((edge_index[0, :], edge_index[1, :]),num_nodes=len(adj))
-    # print('get dgl_graph: ',time.time()-time_s)
-    # 这里不包含self loop
-    # g.add
     if args.lap_pos_enc:
-
         g.ndata['lap_pos_enc'] = get_pos_lp_encoding(adj.numpy(),pos_enc_dim = args.pos_enc_dim)
- 
     g.ndata['x']  = x
     adj_in = adj.long().sum(dim=1).view(-1)
+    if min(adj_in) < 0:
+        print(adj_in)
     adj_in = torch.where(adj_in < 0,0,adj_in)
+    
     g.ndata['in_degree'] = torch.where(adj_in > 8,9,adj_in) if args.in_degree_bias else None
     # print('max() min()',max(adj_in),min(adj_in))
-    g.edata['edge_attr'] = convert_to_single_emb(edge_attr)
-
-    # src,dst = np.where(np.ones_like(adj)==1)
-    # full_g = dgl.graph((src,dst))
-
-    # if args.rel_3d_pos_bias:
-    #     all_rel_pos_3d_with_noise = torch.from_numpy(pandas_bins(item['rel_pos_3d'],num_bins = None,noise = args.noise)).long() 
-    #     full_g.edata['rel_pos_3d'] = all_rel_pos_3d_with_noise.view(-1,1).contiguous()#torch.long
-    
+    g.edata['edge_attr'] = convert_to_single_emb(edge_attr)   
     return g
 
 

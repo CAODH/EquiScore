@@ -1,9 +1,4 @@
-import pickle
-# import optuna
-# from optuna.trial import TrialState
-
 import time
-import numpy as np
 import utils
 from utils import *
 import torch.nn as nn
@@ -11,28 +6,23 @@ import torch
 import time
 import os
 os.environ['CUDA_LAUNCH_BLOCKING']='1'
-# os.envirment[]
-from collections import defaultdict
 import argparse
 import time
 from torch.utils.data import DataLoader          
 # from torch.utils.data import DataLoader
 from prefetch_generator import BackgroundGenerator
-from GTE_net import GTENet
+from equiscore import EquiScore
 class DataLoaderX(DataLoader):
     def __iter__(self):
         return BackgroundGenerator(super().__iter__())                            
-from graphformer_dataset import graphformerDataset, collate_fn, DTISampler
 now = time.localtime()
 from rdkit import RDLogger
 RDLogger.DisableLog('rdApp.*')
 s = "%04d-%02d-%02d %02d:%02d:%02d" % (now.tm_year, now.tm_mon, now.tm_mday, now.tm_hour, now.tm_min, now.tm_sec)
 print (s)
 os.chdir(os.path.abspath(os.path.dirname(__file__)))
-
 from torch.multiprocessing import Process
 def run(local_rank,args,*more_args,**kwargs):
-
     args.local_rank = local_rank
     torch.distributed.init_process_group(backend="nccl",init_method='env://',rank = args.local_rank,world_size = args.ngpu)  # 并行训练初始化，'nccl'模式
     torch.cuda.set_device(args.local_rank) 
@@ -45,9 +35,8 @@ def run(local_rank,args,*more_args,**kwargs):
     else:
         args.N_atom_features = 28
 
-    model = GTENet(args) if args.gnn_model == 'graph_transformer_dgl' else None
+    model = EquiScore(args) if args.gnn_model == 'EquiScore' else None
    
-
     # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     args.device = args.local_rank
     best_name = args.save_model
@@ -74,7 +63,7 @@ def run(local_rank,args,*more_args,**kwargs):
     else:
         raise ValueError('not support this loss : %s'%args.loss_fn)
     # flag = '_add_bedroc_'
-    getEF(model,args,args.test_path,save_path,args.device,args.debug,args.batch_size,args.A2_limit,loss_fn,args.EF_rates,flag = '_add_bedroc_' + '{}_'.format(model_name)+ args.test_name,prot_split_flag = '_')
+    getEF(model,args,args.test_path,save_path,args.device,args.debug,args.batch_size,args.A2_limit,loss_fn,args.EF_rates,flag = '_add_bedroc_20230214_codereview' + '{}_'.format(model_name)+ args.test_name,prot_split_flag = '_')
     # getEFMultiPose(model,args,args.test_path,save_path,args.debug,args.batch_size,loss_fn,rates = args.EF_rates,flag = '_RTMScore_testdata_bedroc_' + '{}_'.format(model_name) +  args.test_name,pose_num = 1)
     # getEFMultiPose(model,args,args.test_path,save_path,args.debug,args.batch_size,loss_fn,rates = args.EF_rates,flag = '_RTMScore_testdata_bedroc_idx_style_' + '{}_'.format(model_name)+  args.test_name,pose_num = 3,idx_style = True)
 if '__main__' == __name__:
@@ -92,7 +81,7 @@ if '__main__' == __name__:
     parser = argparse.ArgumentParser(description='json param')
     parser.add_argument('--local_rank', default=-1, type=int) 
     parser.add_argument("--json_path", help="file path of param", type=str, \
-        default='/home/caoduanhua/score_function/GNN/config_keys_results/new_data_train_keys/config_files_random_shuffle_42/gnn_edge_3d_pos_screen_dgl_FP_pose_enhanced_challenge_cross_10_threshold_55_large_random_shuffle_without_equi.json')
+        default='/home/caoduanhua/score_function/GNN/config_keys_results/new_data_train_keys/config_files_42/gnn_edge_3d_pos_screen_dgl_FP_pose_enhanced_challenge_cross_10_threshold_55_large.json')
     args = parser.parse_args()
     local_rank = args.local_rank
     # label_smoothing# temp_args = parser.parse_args()

@@ -3,26 +3,24 @@ import pickle
 # from optuna.trial import TrialState
 from dist_utils import *
 import time
-import numpy as np
+import rdkit
 import utils
 from utils import *
-import torch.nn as nn
 import torch
 import time
 import os
 os.environ['CUDA_LAUNCH_BLOCKING']='1'
-# os.envirment[]
-from collections import defaultdict
+import glob
 import argparse
 import time
 from torch.utils.data import DataLoader          
 # from torch.utils.data import DataLoader
 from prefetch_generator import BackgroundGenerator
-from GTE_net import GTENet
+from equiscore import EquiScore
 class DataLoaderX(DataLoader):
     def __iter__(self):
         return BackgroundGenerator(super().__iter__())                            
-from graphformer_dataset import graphformerDataset, collate_fn, DTISampler
+from dataset import Dataset, DTISampler
 now = time.localtime()
 from rdkit import RDLogger
 RDLogger.DisableLog('rdApp.*')
@@ -45,7 +43,7 @@ def run(local_rank,args,*more_args,**kwargs):
     else:
         args.N_atom_features = 28
 
-    model = GTENet(args) if args.gnn_model == 'graph_transformer_dgl' else None
+    model = EquiScore(args) if args.gnn_model == 'graph_transformer_dgl' else None
    
     # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     args.device = args.local_rank
@@ -57,7 +55,7 @@ def run(local_rank,args,*more_args,**kwargs):
     args.test_path = os.path.join(args.test_path,args.test_name)
     test_keys_pro = glob.glob(args.test_path + '/*')
     test_keys_pro = [key for key in test_keys_pro if 'mapk1' in key.lower()]
-    test_dataset = graphformerDataset(test_keys_pro,args, args.test_path,args.debug)
+    test_dataset = Dataset(test_keys_pro,args, args.test_path,args.debug)
     test_sampler = SequentialDistributedSampler(test_dataset,args.batch_size) if args.ngpu >= 1 else None
     test_dataloader = DataLoaderX(test_dataset, batch_size = args.batch_size, \
     shuffle=False, num_workers = 8, collate_fn=test_dataset.collate,pin_memory = True,sampler = test_sampler)
@@ -90,7 +88,7 @@ def run(local_rank,args,*more_args,**kwargs):
         with open(args.pred_save_path,'wb') as f:
             pickle.dump((test_keys_pro,test_pred),f)
     # return test_losses,test_true,test_pred
-# import copy
+
     # getEF(model,args,args.test_path,save_path,args.device,args.debug,args.batch_size,args.A2_limit,loss_fn,args.EF_rates,flag = '_' + args.test_name,prot_split_flag = '_')
     # getEFMultiPose(model,args,args.test_path,save_path,args.debug,args.batch_size,loss_fn,rates = args.EF_rates,flag = '_RTMScore_testdata' + args.test_name,pose_num = 3)
 if '__main__' == __name__:

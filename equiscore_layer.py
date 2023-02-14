@@ -1,76 +1,9 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from graphnorm import GraphNorm
 import dgl
 import dgl.function as fn
 from dgl.nn.functional import edge_softmax
-import time
 import numpy as np
-from LGEG_utils import *
-"""
-     with edge features
-"""
-"""
-    Util functions
-"""
-def src_dot_dst(src_field, dst_field, out_field):
-    def func(edges):
-        return {out_field: (edges.src[src_field] * edges.dst[dst_field])}
-    return func
-def scaling(field, scale_constant):
-    def func(edges):
-        return {field: ((edges.data[field]) / scale_constant)}
-    return func
+from equiscore_utils import *
 
-def edge_bias(node_attn, bias_edge):
-    """
-       node attn score :node_attn
-       edge_bias : edge bias from edge feas
-    """
-    def func(edges):
-        return {node_attn: (edges.data[node_attn] + edges.data[bias_edge])}   
-    return func
-# To copy edge features to be passed to FFN_e
-def out_edge_features(edge_feat):
-    def func(edges):
-        return {'e_out': edges.data[edge_feat] }
-    return func
-def edge_mul_score(field,score):
-    def func(edges):
-        # print(edges.data[field].shape,edges.data[score].shape )
-        return {field:edges.data[field]*edges.data[score].sum(1).reshape(-1,1)}
-    return func
-def exp(field):
-    def func(edges):
-         return {field: torch.exp((edges.data[field]))}
-    return func
-def square(field,out_field):
-    def func(edges):
-         return {out_field: torch.square((edges.data[field])).sum(dim = -1,keepdim = True)}
-    return func
-# for global decoy func
-def guss_decoy(field,rel_pos):
-    '''
-    adj ; 3d distance with decay
-    like:
-        full_g.edata['adj2'] = torch.where(full_g.edata['adj2'] > self.mu,torch.exp(-torch.pow(full_g.edata['adj2']-self.mu, 2)/(self.dev + 1e-6)),\
-                    torch.tensor(1.0).to(self.dev.device))+ full_g.edata['adj1']
-    rel_pos :3d distance pass a linear
-    '''
-    def func(edges):
-        # print()
-        # return {field: edges.data[field].sum(-1, keepdim=True)*edges.data[adj].unsqueeze(1) + edges.data[rel_pos].unsqueeze(-1)}
-        return {field: edges.data[field].sum(-1, keepdim=True)*edges.data[rel_pos].unsqueeze(-1)}
-        # return {field: edges.data[field].sum(-1, keepdim=True)*edges.data[adj].unsqueeze(1) + edges.data[rel_pos].unsqueeze(-1)}
-       
-    return func
-
-def partUpdataScore(out_filed,in_filed,graph_sparse):
-    '''update part of full graph edge score'''
-    def func(edges):
-        return {out_filed:graph_sparse.edata[in_filed]}
-    return func
 
 """
     Single Attention Head
@@ -185,7 +118,7 @@ class MultiHeadAttentionLayer(nn.Module):
         h_out = self.output_layer(h_out.view(-1, self.out_dim * self.num_heads))
         return h_out, e_out
     
-class GTELayer(nn.Module):
+class EquiScoreLayer(nn.Module):
     """
         Param: 
     """

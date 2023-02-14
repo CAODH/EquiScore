@@ -3,53 +3,26 @@ import time
 import numpy as np
 import utils
 from utils import *
+from loss_utils import *
+from dataset_utils import *
+from dist_utils import *
 import torch.nn as nn
 import torch
 import time
 import os
 os.environ['CUDA_LAUNCH_BLOCKING']='1'
-# os.envirment[]
-from collections import defaultdict
 import argparse
 import time
 from torch.utils.data import DataLoader          
-# from torch.utils.data import DataLoader
-import dgl
-from dgl.dataloading import GraphDataLoader
 from prefetch_generator import BackgroundGenerator
-from GTE_net import GTENet
+from equiscore import EquiScore
 class DataLoaderX(DataLoader):
     def __iter__(self):
         return BackgroundGenerator(super().__iter__())    
-# class DataLoaderX(torch.utils.data.DataLoader):
-
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-#         self._DataLoader__initialized = False
-#         self.batch_sampler = _RepeatSampler(self.batch_sampler)
-#         self._DataLoader__initialized = True
-#         self.iterator = super().__iter__()
-
-#     def __len__(self):
-#         return len(self.batch_sampler.sampler)
-
-#     def __iter__(self):
-#         return BackgroundGenerator(super().__iter__())  
-
-# class _RepeatSampler(object):
-#     """ Sampler that repeats forever.   """
-#     def __init__(self, sampler):
-#         self.sampler = sampler
-
-#     def __iter__(self):
-#         while True:
-#             yield from iter(self.sampler)
-
-from graphformer_dataset import graphformerDataset,  DTISampler
+# from dataset import ESESDataset, DTISampler
 now = time.localtime()
 from rdkit import RDLogger
-# import torch.multiprocessing as mp
-# mp.set_spawn_method("spawn")
+
 RDLogger.DisableLog('rdApp.*')
 s = "%04d-%02d-%02d %02d:%02d:%02d" % (now.tm_year, now.tm_mon, now.tm_mday, now.tm_hour, now.tm_min, now.tm_sec)
 print (s)
@@ -127,7 +100,7 @@ def run(local_rank,args):
         print (f'Number of val data: {len(val_keys)}')
         print (f'Number of test data: {len(test_keys)}')
 
-    model = GTENet(args) if args.gnn_model == 'graph_transformer_dgl' else None
+    model = EquiScore(args) if args.gnn_model == 'EquiScore' else None
 
     print ('number of parameters : ', sum(p.numel() for p in model.parameters() if p.requires_grad))
     # device = torch.device("cuda:{}".format(args.local_rank) if torch.cuda.is_available() else "cpu")
@@ -146,10 +119,10 @@ def run(local_rank,args):
         optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
         epoch_start = 0
         write_log_head(args,log_path,model,train_keys,val_keys)
-    train_dataset = graphformerDataset(train_keys,args, args.data_path,args.debug)#keys,args, data_dir,debug
-    val_dataset = graphformerDataset(val_keys,args, args.data_path,args.debug)
-    test_dataset = graphformerDataset(test_keys,args, args.data_path,args.debug) #测试集看不出什么东西，直接忽略
-    # test_dataset = MolDataset(test_keys, args.data_path,args.debug)
+    train_dataset = ESDataset(train_keys,args, args.data_path,args.debug)#keys,args, data_dir,debug
+    val_dataset = ESDataset(val_keys,args, args.data_path,args.debug)
+    test_dataset = ESDataset(test_keys,args, args.data_path,args.debug) #测试集看不出什么东西，直接忽略
+    # test_dataset = MolESDataset(test_keys, args.data_path,args.debug)
     train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset) if args.ngpu >= 1 else None
     val_sampler = SequentialDistributedSampler(val_dataset,args.batch_size) if args.ngpu >= 1 else None
     test_sampler = SequentialDistributedSampler(test_dataset,args.batch_size) if args.ngpu >= 1 else None
@@ -208,7 +181,7 @@ def run(local_rank,args):
             # 每个epoch 训练的样本蛋白次序被打乱,每个蛋白的样本数量作为batch_size ,
             train_keys,batch_sizes = shuffle_train_keys(train_keys)
             
-            train_dataset = graphformerDataset(train_keys,args, args.data_path,args.debug)
+            train_dataset = ESDataset(train_keys,args, args.data_path,args.debug)
             # 按生成的次序取样本，不随机打乱
             train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset) if args.ngpu > 1 else None
             train_dataloader = DataLoaderX(train_dataset, args.batch_size, sampler = train_sampler,prefetch_factor = 4,\
@@ -218,21 +191,16 @@ def run(local_rank,args):
 
         if args.ngpu >= 1:
             dist.barrier() 
-        # time_e = time.time()
-        val_losses,val_true,val_pred = evaluator(model,val_dataloader,loss_fn,args,val_sampler)
-        # print('tim for eval epoch : ',time.time() - time_e)
-        # test_losses,test_true,test_pred = evaluator(model,test_dataloader,loss_fn,args,test_sampler)
+        # time_e = time.time()        val_losses,val_true,val_pred = evaluator(model,val_dataloader,loss_fn,args,val_sampler)
+
         if args.ngpu >= 1:
             dist.barrier() 
-        # if args.lr_decay:
-        #     scheduler.step()
-
         if local_rank == 0:
             test_losses = 0.0
             train_losses = torch.mean(torch.tensor(train_losses,dtype=torch.float)).data.cpu().numpy()
             # test_losses =torch.mean(torch.tensor(test_losses,dtype=torch.float)).data.cpu().numpy()
             val_losses = torch.mean(torch.tensor(val_losses,dtype=torch.float)).data.cpu().numpy()
-            # coors_losses = torch.mean(torch.tensor(coors_losses,dtype=torch.float)).data.cpu().numpy()
+
 
             if args.loss_fn == 'mse_loss':
                 end = time.time()
@@ -251,8 +219,6 @@ def run(local_rank,args):
 
                     + str(end-st)+ '\n')
                     f.close()
-            # if (epoch + 1)%20 == 0:
-            #         save_model(model,optimizer,args,epoch,save_path,mode = 'best_{}'.format(epoch + 1))
             counter +=1 
             if val_losses < best_loss:
                 best_loss = val_losses
@@ -307,12 +273,6 @@ if '__main__' == __name__:
             os.environ['CUDA_VISIBLE_DEVICES']=cmd
     os.environ["MASTER_ADDR"] = "localhost"
     os.environ["MASTER_PORT"] = "29510"
-    # os.environ["TORCH_CPP_LOG_LEVEL"]="INFO"
-    # os.environ[
-    #     "TORCH_DISTRIBUTED_DEBUG"
-    # ] = "DETAIL"  # set to DETAIL for runtime logging.
-    
-    # mp.spawn(run, nprocs=args.ngpu, args=(args,)) slow than lanch 
     from torch.multiprocessing import Process
     world_size = args.ngpu
     processes = []

@@ -1,5 +1,102 @@
 import torch
 import math
+import numpy as np
+import os.path
+import time
+from torch import distributed as dist
+import random
+def seed_torch(seed=42):
+    seed = int(seed)
+    random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.enabled = False
+
+def set_cuda_visible_device(ngpus):
+    import subprocess
+    import os
+    empty = []
+    for i in range(8):
+        command = 'nvidia-smi -i '+str(i)+' | grep "No running" | wc -l'
+        output = subprocess.check_output(command, shell=True).decode("utf-8")
+        #print('nvidia-smi -i '+str(i)+' | grep "No running" | wc -l > empty_gpu_check')
+        if int(output)==1:
+            empty.append(i)
+    if len(empty)<ngpus:
+        print ('avaliable gpus are less than required')
+        exit(-1)
+    cmd = ''
+    for i in range(ngpus):        
+        cmd+=str(empty[i])+','
+    return cmd
+def get_available_gpu(num_gpu=1, min_memory=1000, sample=3, nitro_restriction=True, verbose=True):
+    '''
+    :param num_gpu: number of GPU you want to use
+    :param min_memory: minimum memory
+    :param sample: number of sample
+    :param nitro_restriction: if True then will not distribute the last GPU for you.
+    :param verbose: verbose mode
+    :return: str of best choices, e.x. '1, 2'
+    '''
+    sum = None
+    for _ in range(sample):
+        info = os.popen('nvidia-smi --query-gpu=utilization.gpu,memory.free --format=csv').read()
+        # print(info)
+        info = np.array([[id] + t.replace('%', '').replace('MiB','').split(',') for id, t in enumerate(info.split('\n')[1:-1])]).\
+            astype(np.int)
+        # print(info)
+        sum = info + (sum if sum is not None else 0)
+        # print(sum)
+        time.sleep(0.2)
+    avg = sum//sample
+    # print(avg)
+
+    if nitro_restriction:
+        avg = avg[:-1]
+    available = avg[np.where(avg[:,2] > min_memory)]  
+    # print(available)  
+    if len(available) < num_gpu:
+        print ('avaliable gpus are less than required')
+        exit(-1)
+        # print()
+    if available.shape[0] == 0:
+        print('No GPU available')
+        return ''
+    select = ', '.join(available[np.argsort(available[:,1])[:num_gpu],0].astype(np.str).tolist())
+    if verbose:
+        print('Available GPU List')
+        first_line = [['id', 'utilization.gpu(%)', 'memory.free(MiB)']]
+        matrix = first_line + available.astype(np.int).tolist()
+        s = [[str(e) for e in row] for row in matrix]
+        lens = [max(map(len, col)) for col in zip(*s)]
+        fmt = '\t'.join('{{:{}}}'.format(x) for x in lens)
+        table = [fmt.format(*row) for row in s]
+        print('\n'.join(table))
+        print('Select id #' + select + ' for you.')
+    return select
+def data_to_device(sample,device):
+
+        data_flag = []
+        data = []
+        # print('sample',sample)
+        for i in sample.get_att():
+            if type(i) is torch.Tensor:
+                data.append(i.to(device))
+                data_flag.append(1)
+            else:
+                data_flag.append(None)
+        return data_flag,data
+def average_gradients(model):  ##每个gpu上的梯度求平均
+    size = float(dist.get_world_size())
+    for param in model.parameters():
+        if param.requires_grad:
+            dist.all_reduce(param.grad.data,op = torch.distributed.ReduceOp.SUM)
+            param.grad.data /= size
 # 来源：https://github.com/huggingface/transformers/blob/447808c85f0e6d6b0aeeb07214942bf1e578f9d2/src/transformers/trainer_pt_utils.py
 class SequentialDistributedSampler(torch.utils.data.sampler.Sampler):
     """
@@ -35,11 +132,7 @@ class SequentialDistributedSampler(torch.utils.data.sampler.Sampler):
         return iter(indices)
     def __len__(self):
         return self.num_samples
-# 合并结果的函数
-# 1. all_gather，将各个进程中的同一份数据合并到一起。
-#   和all_reduce不同的是，all_reduce是平均，而这里是合并。
-# 2. 要注意的是，函数的最后会裁剪掉后面额外长度的部分，这是之前的SequentialDistributedSampler添加的。
-# 3. 这个函数要求，输入tensor在各个进程中的大小是一模一样的。
+
 def distributed_concat(tensor, num_total_examples):
     output_tensors = [tensor.clone() for _ in range(torch.distributed.get_world_size())]
     torch.distributed.all_gather(output_tensors, tensor)

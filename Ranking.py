@@ -1,28 +1,24 @@
 import pickle
-# import optuna
-# from optuna.trial import TrialState
 from dist_utils import *
 import time
-import numpy as np
 import utils
 from utils import *
-import torch.nn as nn
+import glob
 import torch
 import time
 import os
 os.environ['CUDA_LAUNCH_BLOCKING']='1'
 # os.envirment[]
-from collections import defaultdict
 import argparse
 import time
 from torch.utils.data import DataLoader          
 # from torch.utils.data import DataLoader
 from prefetch_generator import BackgroundGenerator
-from GTE_net import GTENet
+from equiscore import EquiScore
 class DataLoaderX(DataLoader):
     def __iter__(self):
         return BackgroundGenerator(super().__iter__())                            
-from graphformer_dataset import graphformerDataset, collate_fn, DTISampler
+from dataset import Dataset, collate_fn, DTISampler
 now = time.localtime()
 from rdkit import RDLogger
 RDLogger.DisableLog('rdApp.*')
@@ -45,7 +41,7 @@ def run(local_rank,args,*more_args,**kwargs):
     else:
         args.N_atom_features = 28
 
-    model = GTENet(args) if args.gnn_model == 'graph_transformer_dgl' else None
+    model = EquiScore(args) if args.gnn_model == 'graph_transformer_dgl' else None
    
     # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     args.device = args.local_rank
@@ -56,7 +52,7 @@ def run(local_rank,args,*more_args,**kwargs):
         os.makedirs(save_path)
     args.test_path = os.path.join(args.test_path,args.test_name)
     test_keys_pro = glob.glob(args.test_path + '/*')
-    test_dataset = graphformerDataset(test_keys_pro,args, args.test_path,args.debug)
+    test_dataset = Dataset(test_keys_pro,args, args.test_path,args.debug)
     test_sampler = SequentialDistributedSampler(test_dataset,args.batch_size) if args.ngpu >= 1 else None
     test_dataloader = DataLoaderX(test_dataset, batch_size = args.batch_size, \
     shuffle=False, num_workers = 8, collate_fn=test_dataset.collate,pin_memory = True,sampler = test_sampler)
