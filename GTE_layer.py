@@ -150,7 +150,7 @@ class MultiHeadAttentionLayer(nn.Module):
         eids = full_g.edges()
         ################################
         full_g.edata['score'] = edge_softmax(graph = full_g,logits = full_g.edata['score'].clamp(-5,5))
-        ############## score as coors update factor and update coors ##############
+        ############## score as coors update factor and update coors ############## Best model need this module just for abalation 
         full_g.apply_edges(edge_mul_score('detla_coors', 'score'))# accu detla_coors 
         full_g.send_and_recv(eids, dgl.function.copy_e('detla_coors','detla_coors'), fn.sum('detla_coors', 'coors_add'))
         full_g.ndata['coors'] += full_g.ndata['coors_add']# BEST MODEL IS full_g.ndata['coors'] += full_g.ndata['coors_add']

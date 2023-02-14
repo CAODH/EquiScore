@@ -1,7 +1,7 @@
 import pickle
 # import optuna
 # from optuna.trial import TrialState
-
+from dist_utils import *
 import time
 import numpy as np
 import utils
@@ -47,7 +47,6 @@ def run(local_rank,args,*more_args,**kwargs):
 
     model = GTENet(args) if args.gnn_model == 'graph_transformer_dgl' else None
    
-
     # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     args.device = args.local_rank
     best_name = args.save_model
@@ -56,27 +55,43 @@ def run(local_rank,args,*more_args,**kwargs):
     if not os.path.exists(save_path):
         os.makedirs(save_path)
     args.test_path = os.path.join(args.test_path,args.test_name)
+    test_keys_pro = glob.glob(args.test_path + '/*')
+    test_dataset = graphformerDataset(test_keys_pro,args, args.test_path,args.debug)
+    test_sampler = SequentialDistributedSampler(test_dataset,args.batch_size) if args.ngpu >= 1 else None
+    test_dataloader = DataLoaderX(test_dataset, batch_size = args.batch_size, \
+    shuffle=False, num_workers = 8, collate_fn=test_dataset.collate,pin_memory = True,sampler = test_sampler)
     #model, args.device,args,args.save_model
     model = utils.initialize_model(model, args.device,args, load_save_file = best_name )[0]
 
-    if args.loss_fn == 'bce_loss':
-        loss_fn = nn.BCELoss().to(args.device)# 
-    elif args.loss_fn == 'focal_loss':
-        loss_fn = FocalLoss().to(args.device)
-    elif args.loss_fn == 'cross_entry':
-        loss_fn = torch.nn.CrossEntropyLoss(label_smoothing=args.label_smothing).to(args.device)
-    elif args.loss_fn == 'mse_loss':
-        loss_fn = nn.MSELoss().to(args.device)
-    elif args.loss_fn == 'poly_loss_ce':
-        loss_fn = PolyLoss_CE(epsilon = args.eps).to(args.device)
-    elif args.loss_fn == 'poly_loss_fl':
-        loss_fn = PolyLoss_FL(epsilon=args.eps,gamma = 2.0).to(args.device)
-    else:
-        raise ValueError('not support this loss : %s'%args.loss_fn)
-    # flag = '_add_bedroc_'
-    getEF(model,args,args.test_path,save_path,args.device,args.debug,args.batch_size,args.A2_limit,loss_fn,args.EF_rates,flag = '_add_bedroc_' + '{}_'.format(model_name)+ args.test_name,prot_split_flag = '_')
-    # getEFMultiPose(model,args,args.test_path,save_path,args.debug,args.batch_size,loss_fn,rates = args.EF_rates,flag = '_RTMScore_testdata_bedroc_' + '{}_'.format(model_name) +  args.test_name,pose_num = 1)
-    # getEFMultiPose(model,args,args.test_path,save_path,args.debug,args.batch_size,loss_fn,rates = args.EF_rates,flag = '_RTMScore_testdata_bedroc_idx_style_' + '{}_'.format(model_name)+  args.test_name,pose_num = 3,idx_style = True)
+    model.eval()
+    with torch.no_grad():
+        test_pred = []
+        for i_batch, (g,full_g,Y) in enumerate(test_dataloader):
+            # time_s = time.time()
+            # print('g,full_g',g,full_g,Y)
+            model.zero_grad()
+            g = g.to(args.local_rank,non_blocking=True)
+            full_g = full_g.to(args.local_rank,non_blocking=True)
+            # Y = Y.long().to(args.local_rank,non_blocking=True)
+            pred = model(g,full_g)
+            if pred.dim()==2:
+                pred = torch.softmax(pred,dim = -1)[:,1]
+            pred = pred if args.loss_fn == 'auc_loss' else pred
+            test_pred.append(pred.data) if args.ngpu >= 1 else test_pred.append(pred.data)
+            # print(test_pred)
+        # gather ngpu result to single tensor
+        if args.ngpu >= 1:
+            test_pred = distributed_concat(torch.concat(test_pred, dim=0), 
+                                            len(test_sampler.dataset)).cpu().numpy()
+        else:
+            test_pred = torch.concat(test_pred, dim=0).cpu().numpy()
+    if args.ngpu >= 1:
+        with open(args.pred_save_path,'wb') as f:
+            pickle.dump((test_keys_pro,test_pred),f)
+    # return test_losses,test_true,test_pred
+# import copy
+    # getEF(model,args,args.test_path,save_path,args.device,args.debug,args.batch_size,args.A2_limit,loss_fn,args.EF_rates,flag = '_' + args.test_name,prot_split_flag = '_')
+    # getEFMultiPose(model,args,args.test_path,save_path,args.debug,args.batch_size,loss_fn,rates = args.EF_rates,flag = '_RTMScore_testdata' + args.test_name,pose_num = 3)
 if '__main__' == __name__:
     from torch import distributed as dist
     import torch.multiprocessing as mp
@@ -92,7 +107,7 @@ if '__main__' == __name__:
     parser = argparse.ArgumentParser(description='json param')
     parser.add_argument('--local_rank', default=-1, type=int) 
     parser.add_argument("--json_path", help="file path of param", type=str, \
-        default='/home/caoduanhua/score_function/GNN/config_keys_results/new_data_train_keys/config_files_random_shuffle_42/gnn_edge_3d_pos_screen_dgl_FP_pose_enhanced_challenge_cross_10_threshold_55_large_random_shuffle_without_equi.json')
+        default='/home/caoduanhua/score_function/GNN/config_keys_results/new_data_train_keys/config_rank/gnn_edge_3d_pos_screen_dgl_FP_pose_enhanced_challenge_cross_10_threshold_55_large_rank_fep.json')
     args = parser.parse_args()
     local_rank = args.local_rank
     # label_smoothing# temp_args = parser.parse_args()
@@ -102,7 +117,7 @@ if '__main__' == __name__:
     # 下面这个参数需要加上，torch内部调用多进程时，会使用该参数，对每个gpu进程而言，其local_rank都是不同的；
     args.local_rank = local_rank
     if args.ngpu>0:
-        cmd = get_available_gpu(num_gpu=args.ngpu, min_memory=28000, sample=3, nitro_restriction=False, verbose=True)
+        cmd = get_available_gpu(num_gpu=args.ngpu, min_memory=30000, sample=3, nitro_restriction=False, verbose=True)
         if cmd[-1] == ',':
             os.environ['CUDA_VISIBLE_DEVICES']=cmd[:-1]
         else:
