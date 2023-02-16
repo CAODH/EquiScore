@@ -9,7 +9,7 @@ import rdkit
 from scipy.spatial.distance import cdist
 from scipy.spatial import distance_matrix
 import dgl
-import pyximport
+# import pyximport
 # pyximport.install(setup_args={'include_dirs': np.get_include()})
 import os.path as osp
 from rdkit import RDConfig
@@ -160,6 +160,7 @@ def get_atom_graphformer_feature(m,FP = False):
             H.append(atom_feature_graphformer(m, i, None, None))
     H = np.array(H)        
     # print('H in get func',H)
+
     return H      
 
 # ===================== BOND END =====================
@@ -363,12 +364,12 @@ def preprocess_item(item, args,adj):
     edge_attr, edge_index, x  = item['edge_feat'], item['edge_index'], item['node_feat']
     # print('get edge from  molgraph: ',time.time()-time_s)
     N = x.size(0)
-    if min(x)< 0:
-        print(x)
-    # print('num features:',N)
     if args.fundation_model == 'EquiScore':
         offset = 16 if args.FP else 10
         x = convert_to_single_emb(x,offset = offset)
+    if x.min()< 0:
+        print('convert feat',x.min())
+    
     adj = torch.tensor(adj,dtype=torch.long)
     # edge feature here
     g = dgl.graph((edge_index[0, :], edge_index[1, :]),num_nodes=len(adj))
@@ -376,10 +377,7 @@ def preprocess_item(item, args,adj):
         g.ndata['lap_pos_enc'] = get_pos_lp_encoding(adj.numpy(),pos_enc_dim = args.pos_enc_dim)
     g.ndata['x']  = x
     adj_in = adj.long().sum(dim=1).view(-1)
-    if min(adj_in) < 0:
-        print(adj_in)
     adj_in = torch.where(adj_in < 0,0,adj_in)
-    
     g.ndata['in_degree'] = torch.where(adj_in > 8,9,adj_in) if args.in_degree_bias else None
     # print('max() min()',max(adj_in),min(adj_in))
     g.edata['edge_attr'] = convert_to_single_emb(edge_attr)   

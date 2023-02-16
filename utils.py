@@ -17,7 +17,7 @@ class DataLoaderX(DataLoader):
         return BackgroundGenerator(super().__iter__())                            
 # from dataset import ESDataset,  DTISampler
 # from dataset  import *
-from dataset import *
+from dataset import ESDataset
 from dist_utils import *
 N_atom_features = 28
 from scipy.spatial import distance_matrix
@@ -300,7 +300,7 @@ def getEF(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_f
         for rate in rates:
             rate_str += str(rate)+ '\t'
         for pro in pros.keys():
-            # try :
+            try :
                 if pro in tested_pros:
                     if args.ngpu >= 1:
                         dist.barrier()
@@ -357,13 +357,13 @@ def getEF(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_f
                         f.write( EF_str + '\t'+str(test_auroc)+ '\t' + str(BEDROC) + '\t'+str(test_adjust_logauroc)+ '\t'+str(test_auprc)+ '\t'+str(test_balanced_acc)+ '\t'+str(test_acc)+ '\t'+str(test_precision)+ '\t'+str(test_sensitity)+ '\t'+str(test_specifity)+ '\t'+str(test_f1) +'\t'+ str(end-st)+ '\n')
                         f.close()
                     EFs.append(EF)
-            # except:
-            #     print(pro,':skip for some bug')
-            #     if args.ngpu >= 1:
-            #         dist.barrier()
-            #     continue
-            # if args.ngpu >= 1:
-            #     dist.barrier()
+            except:
+                print(pro,':skip for some bug')
+                if args.ngpu >= 1:
+                    dist.barrier()
+                continue
+            if args.ngpu >= 1:
+                dist.barrier()
         if args.local_rank == 0:
             EFs = list(np.sum(np.array(EFs),axis=0)/len(EFs))
             EFs_str = '['

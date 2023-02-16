@@ -2,10 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from dgl.nn import WeightAndSum
-
 """
 with edge features
-    
 """
 from equiscore_layer import EquiScoreLayer
 from equiscore_utils import MLPReadout
@@ -85,7 +83,7 @@ class EquiScore(nn.Module):
     
     def forward(self, g, full_g):
         h = g.ndata['x']
-        print(torch.max(h),torch.min(h),self.atom_encoder.weight.shape,h.shape)
+        # print(torch.max(h),torch.min(h),self.atom_encoder.weight.shape,h.shape)
         h = self.atom_encoder(h.long()).mean(-2)
 
         if self.args.lap_pos_enc:

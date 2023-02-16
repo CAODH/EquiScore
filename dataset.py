@@ -2,6 +2,7 @@
 import lmdb
 from torch.utils.data import Dataset
 from torch.utils.data.sampler import Sampler
+# from dataset_utils import get_atom_graphformer_feature
 import utils 
 import numpy as np
 import torch
@@ -100,16 +101,17 @@ class ESDataset(Dataset):
         except:
             # print('file: {} is not a valid file！'.format(key))
             return None
-        n1,d1,adj1 = utils.get_mol_info(m1)
-        n2,d2,adj2 = utils.get_mol_info(m2)
+        n1,d1,adj1 = get_mol_info(m1)
+        n2,d2,adj2 = get_mol_info(m2)
 
         H1 = np.concatenate([get_atom_graphformer_feature(m1,FP = args.FP) ,np.array([0]).reshape(1,-1).repeat(n1,axis = 0)],axis=1)
         H2 = np.concatenate([get_atom_graphformer_feature(m2,FP = args.FP) ,np.array([1]).reshape(1,-1).repeat(n2,axis = 0)],axis=1)
+        # print()
         # print('max,min atom fea BEFORE',np.max(H1),np.min(H1))
         if args.virtual_aromatic_atom:
-            adj1,H1,d1,n1 = utils.add_atom_to_mol(m1,adj1,H1,d1,n1)
+            adj1,H1,d1,n1 = add_atom_to_mol(m1,adj1,H1,d1,n1)
             # print( adj1,H1,d1,n1)
-            adj2,H2,d2,n2 = utils.add_atom_to_mol(m2,adj2,H2,d2,n2)
+            adj2,H2,d2,n2 = add_atom_to_mol(m2,adj2,H2,d2,n2)
             # print( adj2,H2,d2,n2)
         # print('max,min atom fea after',np.max(H1),np.min(H1))
         H = torch.from_numpy(np.concatenate([H1, H2], 0))

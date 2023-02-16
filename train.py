@@ -4,8 +4,9 @@ import numpy as np
 import utils
 from utils import *
 from loss_utils import *
-from dataset_utils import *
+# from dataset_utils import *
 from dist_utils import *
+from dataset import *
 import torch.nn as nn
 import torch
 import time
@@ -191,7 +192,8 @@ def run(local_rank,args):
 
         if args.ngpu >= 1:
             dist.barrier() 
-        # time_e = time.time()        val_losses,val_true,val_pred = evaluator(model,val_dataloader,loss_fn,args,val_sampler)
+        # time_e = time.time()        
+        val_losses,val_true,val_pred = evaluator(model,val_dataloader,loss_fn,args,val_sampler)
 
         if args.ngpu >= 1:
             dist.barrier() 
@@ -255,7 +257,7 @@ if '__main__' == __name__:
     parser = argparse.ArgumentParser(description='json param')
     parser.add_argument('--local_rank', default=-1, type=int) 
     parser.add_argument("--json_path", help="file path of param", type=str, \
-        default='/home/caoduanhua/score_function/GNN/config_keys_results/new_data_train_keys/config_file_casf/gnn_edge_3d_pos_screen_dgl_FP_pose_enhanced_challenge_cross_10_threshold_55_large.json')
+        default='/home/caoduanhua/score_function/GNN/config_keys_results/new_data_train_keys/config_files_42/gnn_edge_3d_pos_screen_dgl_FP_pose_enhanced_challenge_cross_10_threshold_55_large.json')
     args = parser.parse_args()
     local_rank = args.local_rank
     # label_smoothing# temp_args = parser.parse_args()

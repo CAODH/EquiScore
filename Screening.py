@@ -1,31 +1,29 @@
-import pickle
-from dist_utils import *
 import time
 import utils
-from utils import *
+# from utils import *
+import torch.nn as nn
 import torch
 import time
 import os
-import rdkit
+# from dist_utils import SequentialDistributedSampler
+import glob
 os.environ['CUDA_LAUNCH_BLOCKING']='1'
 import argparse
 import time
-from torch.utils.data import DataLoader   
-import glob       
-# from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader          
 from prefetch_generator import BackgroundGenerator
+from dataset import ESDataset
+import pickle
 from equiscore import EquiScore
 class DataLoaderX(DataLoader):
     def __iter__(self):
         return BackgroundGenerator(super().__iter__())                            
-from dataset import Dataset, DTISampler
 now = time.localtime()
 from rdkit import RDLogger
 RDLogger.DisableLog('rdApp.*')
 s = "%04d-%02d-%02d %02d:%02d:%02d" % (now.tm_year, now.tm_mon, now.tm_mday, now.tm_hour, now.tm_min, now.tm_sec)
 print (s)
 os.chdir(os.path.abspath(os.path.dirname(__file__)))
-
 from torch.multiprocessing import Process
 def run(local_rank,args,*more_args,**kwargs):
 
@@ -52,7 +50,7 @@ def run(local_rank,args,*more_args,**kwargs):
         os.makedirs(save_path)
     args.test_path = os.path.join(args.test_path,args.test_name)
     test_keys_pro = glob.glob(args.test_path + '/*')
-    test_dataset = Dataset(test_keys_pro,args, args.test_path,args.debug)
+    test_dataset = ESDataset(test_keys_pro,args, args.test_path,args.debug)
     test_sampler = SequentialDistributedSampler(test_dataset,args.batch_size) if args.ngpu >= 1 else None
     test_dataloader = DataLoaderX(test_dataset, batch_size = args.batch_size, \
     shuffle=False, num_workers = 8, collate_fn=test_dataset.collate,pin_memory = True,sampler = test_sampler)
@@ -103,7 +101,7 @@ if '__main__' == __name__:
     parser = argparse.ArgumentParser(description='json param')
     parser.add_argument('--local_rank', default=-1, type=int) 
     parser.add_argument("--json_path", help="file path of param", type=str, \
-        default='/home/caoduanhua/score_function/GNN/config_keys_results/new_data_train_keys/config_file_screen/gnn_edge_3d_pos_screen_dgl_FP_pose_enhanced_challenge_cross_10_threshold_55_large_screen_cgas_mouse.json')
+        default='/home/caoduanhua/score_function/GNN/config_keys_results/new_data_train_keys/config_file_screen/gnn_edge_3d_pos_screen_dgl_FP_pose_enhanced_challenge_cross_10_threshold_55_large_screen_7v67.json')
     args = parser.parse_args()
     local_rank = args.local_rank
     # label_smoothing# temp_args = parser.parse_args()

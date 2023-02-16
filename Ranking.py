@@ -41,7 +41,7 @@ def run(local_rank,args,*more_args,**kwargs):
     else:
         args.N_atom_features = 28
 
-    model = EquiScore(args) if args.gnn_model == 'graph_transformer_dgl' else None
+    model = EquiScore(args) if args.gnn_model == 'EquiScore' else None
    
     # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     args.device = args.local_rank
