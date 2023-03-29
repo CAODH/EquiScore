@@ -30,7 +30,7 @@ def get_args_from_json(json_file_path, args_dict):
         args_dict[key] = summary_dict[key]
     return args_dict
 
-def initialize_model(model, device, args,load_save_file=False,init_classifer = True):
+def initialize_model(model, device, args,load_save_file = False,init_classifer = True):
     for param in model.parameters():
         if param.dim() == 1:
             continue
@@ -330,7 +330,7 @@ def getEF(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_f
                             Y_sum += 1
                     actions = int(Y_sum)
                     action_rate = actions/len(test_keys_pro)
-                    #保存logits 进行下一步分析
+                    # 保存logits 进行下一步分析
                     # test_pred = np.concatenate(np.array(test_pred), 0)
                     EF = []
                     hits_list = []
