@@ -1,4 +1,4 @@
-# train.py
+ <font size = 4 color = 'yellow'>train.py`<font>`
 
 1. write a json file like default in your json file (default = /home/caoduanhua/score_function/GNN/GNN_graphformer_pyg/config_files/train.json)
 2. make train/val data by divide.py (in a new dir))
