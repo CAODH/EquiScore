@@ -58,8 +58,8 @@ class MultiHeadAttentionLayer(nn.Module):
         full_g.apply_edges(scaling('score', np.sqrt(self.out_dim)))
 
         ########################################
-        # distance decay just for ablation test
-        full_g.apply_edges(guss_decoy('score','rel_pos_3d'))# distance decay ,best model need this update!! 
+        # distance gate just for ablation test
+        full_g.apply_edges(guss_decoy('score','rel_pos_3d'))# 注释这一行 并同时解除下一行注释 距离门控消融distance decay ,best model need this update!! 
         # full_g.edata['score'] = full_g.edata['score'].sum(-1, keepdim=True)# only be  used to ablation study
 
         ##########################################
@@ -73,7 +73,7 @@ class MultiHeadAttentionLayer(nn.Module):
         g.apply_edges(edge_bias('score', 'proj_e'))  # add edge bias 
         # add edge_bias to full_g 
         # just for abalation test
-        full_g.apply_edges(func=partUpdataScore('score','score',g),edges=g.edges()) # best model need this module ,ablation to # it only!!!
+        full_g.apply_edges(func=partUpdataScore('score','score',g),edges=g.edges()) # 注释这一行edge_bias消融实验
         # Copy edge features as e_out to be passed to FFN_e
         ###################################################
 
@@ -86,7 +86,10 @@ class MultiHeadAttentionLayer(nn.Module):
         ############## score as coors update factor and update coors ############## Best model need this module just for abalation 
         full_g.apply_edges(edge_mul_score('detla_coors', 'score'))# accu detla_coors 
         full_g.send_and_recv(eids, dgl.function.copy_e('detla_coors','detla_coors'), fn.sum('detla_coors', 'coors_add'))
-        full_g.ndata['coors'] += full_g.ndata['coors_add']# BEST MODEL IS full_g.ndata['coors'] += full_g.ndata['coors_add']
+        # next used # to update coors
+        full_g.ndata['coors'] += full_g.ndata['coors_add'] # 注释这一行等变消融实验
+        
+        # BEST MODEL IS need full_g.ndata['coors'] += full_g.ndata['coors_add']
         #################################################################
         #########################################################
         full_g.edata['score'] = self.attn_dropout(full_g.edata['score'])

@@ -257,7 +257,7 @@ if '__main__' == __name__:
     parser = argparse.ArgumentParser(description='json param')
     parser.add_argument('--local_rank', default=-1, type=int) 
     parser.add_argument("--json_path", help="file path of param", type=str, \
-        default='/home/caoduanhua/score_function/GNN/config_keys_results/new_data_train_keys/config_fep/gnn_edge_3d_pos_screen_dgl_FP_pose_enhanced_challenge_cross_10_threshold_55_large_fep_without_quivariant.json')
+        default='/home/caoduanhua/score_function/GNN/config_keys_results/new_data_train_keys/config_fep/gnn_edge_3d_pos_screen_dgl_FP_pose_enhanced_challenge_cross_10_threshold_55_large_fep_without_distance_gate.json')
     args = parser.parse_args()
     local_rank = args.local_rank
     # label_smoothing# temp_args = parser.parse_args()
@@ -274,7 +274,7 @@ if '__main__' == __name__:
         else:
             os.environ['CUDA_VISIBLE_DEVICES']=cmd
     os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = "29518"
+    os.environ["MASTER_PORT"] = "29510"
     from torch.multiprocessing import Process
     world_size = args.ngpu
     processes = []
