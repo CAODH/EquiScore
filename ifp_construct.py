@@ -13,7 +13,7 @@ def get_nonBond_pair(m1,m2):
     ligand = plf.Molecule.from_rdkit(m1)
     fp.run_from_iterable([ligand],prot,progress=False,n_jobs = 1)
     df = fp.to_dataframe(return_atoms=True)
-    # find IFP  atom pairs ,match with rdkit id 
+    # find IFP  atom pairs , match with rdkit id 
     res_to_idx = defaultdict(dict)
     for atom in m2.GetAtoms():
         # prot.residues

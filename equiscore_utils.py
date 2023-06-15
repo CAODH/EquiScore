@@ -140,7 +140,7 @@ def scaling(field, scale_constant):
 def edge_bias(node_attn, bias_edge):
     """
        node attn score :node_attn
-       edge_bias : edge bias from edge feas
+       edge_bias : edge bias from edge features
     """
     def func(edges):
         return {node_attn: (edges.data[node_attn] + edges.data[bias_edge])}   
@@ -166,22 +166,17 @@ def square(field,out_field):
 # for global decoy func
 def guss_decoy(field,rel_pos):
     '''
-    adj ; 3d distance with decay
-    like:
-        full_g.edata['adj2'] = torch.where(full_g.edata['adj2'] > self.mu,torch.exp(-torch.pow(full_g.edata['adj2']-self.mu, 2)/(self.dev + 1e-6)),\
-                    torch.tensor(1.0).to(self.dev.device))+ full_g.edata['adj1']
     rel_pos :3d distance pass a linear
     '''
     def func(edges):
-        # print()
-        # return {field: edges.data[field].sum(-1, keepdim=True)*edges.data[adj].unsqueeze(1) + edges.data[rel_pos].unsqueeze(-1)}
+        
         return {field: edges.data[field].sum(-1, keepdim=True)*edges.data[rel_pos].unsqueeze(-1)}
-        # return {field: edges.data[field].sum(-1, keepdim=True)*edges.data[adj].unsqueeze(1) + edges.data[rel_pos].unsqueeze(-1)}
+    
        
     return func
 
 def partUpdataScore(out_filed,in_filed,graph_sparse):
-    '''update part of full graph edge score'''
+    '''update part of geometric distance based graph edge score'''
     def func(edges):
         return {out_filed:graph_sparse.edata[in_filed]}
     return func

@@ -22,6 +22,10 @@ from dist_utils import *
 N_atom_features = 28
 from scipy.spatial import distance_matrix
 def get_args_from_json(json_file_path, args_dict):
+    '''
+    use this function to update the args_dict from a json file if you want to use a json save parameters 
+    
+    '''
     import json
     summary_filename = json_file_path
     with open(summary_filename) as f:
@@ -45,7 +49,7 @@ def initialize_model(model, device, args,load_save_file = False,init_classifer =
         model_dict = state_dict['model']
         # model_dict.pop('deta')
         model_state_dict = model.state_dict()
-        # model_dict = {k:v for k,v in model_dict.items() if 'FC' not in k}# gengxin
+        model_dict = {k:v for k,v in model_dict.items() if k in model_state_dict}
         model_state_dict.update(model_dict)
         model.load_state_dict(model_state_dict) 
         
@@ -135,31 +139,30 @@ def evaluator(model,loader,loss_fn,args,test_sampler):
     with torch.no_grad():
         test_losses,test_true,test_pred = [], [],[]
         for i_batch, (g,full_g,Y) in enumerate(loader):
-            # time_s = time.time()
-            # print('g,full_g',g,full_g,Y)
+ 
             model.zero_grad()
             g = g.to(args.local_rank,non_blocking=True)
             full_g = full_g.to(args.local_rank,non_blocking=True)
             Y = Y.long().to(args.local_rank,non_blocking=True)
             pred = model(g,full_g)
             loss = loss_fn(pred ,Y) 
-            # print(loss)
+ 
             if args.ngpu >= 1:
             # dist.barrier() 
                 dist.all_reduce(loss.data,op = torch.distributed.ReduceOp.SUM)
                 loss /= float(dist.get_world_size()) # get all loss value 
-            #collect loss, true label and predicted label
+            # collect loss, true label and predicted label
             test_losses.append(loss.data)
             if args.ngpu >= 1:
                 test_true.append(Y.data)
             else:
                 test_true.append(Y.data)
-            # print(test_true)
+
             if pred.dim()==2:
                 pred = torch.softmax(pred,dim = -1)[:,1]
             pred = pred if args.loss_fn == 'auc_loss' else pred
             test_pred.append(pred.data) if args.ngpu >= 1 else test_pred.append(pred.data)
-            # print(test_pred)
+
         # gather ngpu result to single tensor
         if args.ngpu >= 1:
             test_true = distributed_concat(torch.concat(test_true, dim=0), 
@@ -172,64 +175,26 @@ def evaluator(model,loader,loss_fn,args,test_sampler):
             test_pred = torch.concat(test_pred, dim=0).cpu().numpy()
     return test_losses,test_true,test_pred
 import copy
-def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss,scheduler):
-# 加入辅助函数和r_drop 方式
-        #collect losses of each iteration
+def train(model,args,optimizer,loss_fn,train_dataloader,scheduler):
+
+    #collect losses of each iteration
     train_losses = [] 
-    coors_losses = []
-    # train_true = []
-    # train_pred = []3
-    # start = time.time()
     model.train()
-    # print('start to runing')
+
     for i_batch, (g,full_g,Y) in enumerate(train_dataloader):
-        # time_batch = time.time()
-        # print('time load data:',time_batch - start)
         g = g.to(args.device,non_blocking=True)
         full_g = full_g.to(args.device,non_blocking=True)
-        if args.r_drop:
-            r_g= copy.deepcopy(g)
-            r_full_g = copy.deepcopy(full_g)
+
         Y = Y.long().to(args.device,non_blocking=True)
         if args.lap_pos_enc:
             batch_lap_pos_enc = g.ndata['lap_pos_enc']
             sign_flip = torch.rand(batch_lap_pos_enc.size(1)).to(args.device,non_blocking=True)
             sign_flip[sign_flip>=0.5] = 1.0; sign_flip[sign_flip<0.5] = -1.0
             g.ndata['lap_pos_enc'] = batch_lap_pos_enc * sign_flip.unsqueeze(0)
-        # time_batch = time.time()
-        # print('time load data:',time_batch )
+
         logits = model(g,full_g)
         loss = loss_fn(logits, Y)
         train_losses.append(loss)
-        # ligand_num = sum(g.ndata['V'])
-        # print(dgl.sum_nodes(g,'V'),(full_g.ndata['coors']*g.ndata['V']).shape)
-        # loss_coors = torch.nn.functional.mse_loss(torch.mul(full_g.ndata['coors'],g.ndata['V']),torch.mul(g.ndata['coors'],g.ndata['V']),reduction='sum')/(torch.sum(g.ndata['V']).long() + 1e-6)#.reshape(0,1)
-        # print(loss,loss_coors)
-        # loss += loss_coors*0.1
-        # coors_losses.append(loss_coors*0.1)
-        # print('run model time:',time.time() - time_batch )
-        if args.auxiliary_loss:
-            aux_loss = auxiliary_loss(logits,Y)
-
-        if args.r_drop:
-            newlogits = model(r_g,r_full_g)
-            loss += loss_fn(newlogits, Y)
-            loss /=2
-            # kl div
-            p = torch.log_softmax(logits.view(-1,2), dim=-1)
-            p_tec = torch.softmax(logits.view(-1,2), dim=-1)
-            q = torch.log_softmax(newlogits.view(-1,2), dim=-1)
-            q_tec = torch.softmax(newlogits.view(-1,2), dim=-1)
-            kl_loss = torch.nn.functional.kl_div(p, q_tec, reduction='none').sum()
-            reverse_kl_loss = torch.nn.functional.kl_div(q, p_tec, reduction='none').sum()
-            #------------------------
-            # alpha = 5
-            loss += args.alpha*(kl_loss + reverse_kl_loss)/2
-            if args.auxiliary_loss:
-                aux_loss  += auxiliary_loss(newlogits,Y)
-                aux_loss /= 2
-        if args.auxiliary_loss:
-            loss += aux_loss
 
         loss = loss/args.grad_sum
         loss.backward()
@@ -238,17 +203,14 @@ def train(model,args,optimizer,loss_fn,train_dataloader,auxiliary_loss,scheduler
             model.zero_grad()
 
         if args.ngpu >= 1:
-            # dist.barrier() 
             dist.all_reduce(loss.data,op = torch.distributed.ReduceOp.SUM)
             loss /= float(dist.get_world_size()) # get all loss value 
         loss = loss.data*args.grad_sum 
-        # train_losses.append(loss)
-        # coors_losses.append(loss_coors*0.1)
         if args.lr_decay:
             scheduler.step()
-        # start = time.time()
     return model,train_losses,optimizer,scheduler
 def getToyKey(train_keys):
+    '''get toy dataset for test'''
     train_keys_toy_d = []
     train_keys_toy_a = []
     
@@ -261,11 +223,10 @@ def getToyKey(train_keys):
        
         if '_active_' not in key:
             train_keys_toy_d.append(key)
-    # print(train_keys_toy_a)
-    # print(train_keys_toy_d)
+
     if len(train_keys_toy_a) == 0 or len(train_keys_toy_d) == 0:
         return None
-    # train_keys_toy_a[:300] + train_keys_toy_d[:(max_all-300)]
+
     return train_keys_toy_a[:300] + train_keys_toy_d[:(max_all-300)]
 def getTestedPro(file_name):
     if os.path.exists(file_name):
@@ -278,20 +239,21 @@ def getTestedPro(file_name):
         return lines
     else:
         return []
-def getEF(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_fn,rates = 0.01,flag = '',prot_split_flag = '_'):
+def getEF(model,args,test_path,save_path,debug,batch_size,loss_fn,rates = 0.01,flag = '',prot_split_flag = '_'):
         save_file = save_path + '/EF_test' + flag
         tested_pros = getTestedPro(save_file)
         test_keys = [key for key in os.listdir(test_path) if '.' not in key]
         pros = defaultdict(list)
         for key in test_keys:
             key_split = key.split(prot_split_flag)
-            # if 'KAT2A' == key_split[0]:
+ 
             if '_active' in key:
                 pros[key_split[0]].insert(0,os.path.join(test_path ,key))
-            else:#阳性标签排在前面
+            else:
+                ''' all positive label sample will be place in head of list'''
                 pros[key_split[0]].append(os.path.join(test_path ,key))
 
-            #agg sme pro
+
         EFs = []
         st = time.time()
         if type(rates) is not list:
@@ -330,18 +292,17 @@ def getEF(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_f
                             Y_sum += 1
                     actions = int(Y_sum)
                     action_rate = actions/len(test_keys_pro)
-                    # 保存logits 进行下一步分析
-                    # test_pred = np.concatenate(np.array(test_pred), 0)
+
                     EF = []
                     hits_list = []
                     for rate in rates:
+                        ''' cal different rates of EF'''
                         find_limit = int(len(test_keys_pro)*rate)
-                        # print(find_limit)
                         _,indices = torch.sort(torch.tensor(test_pred),descending = True)
                         hits = torch.sum(indices[:find_limit] < actions)
                         EF.append((hits/find_limit)/action_rate)
                         hits_list.append(hits)
-                        # print(hits,actions,action_rate)
+
                     
                     EF_str = '['
                     hits_str = '['
@@ -380,15 +341,12 @@ def getEF(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_f
             dist.barrier()
 def getNumPose(test_keys,nums = 5):
     ligands = defaultdict(list)
-
-
     for key in test_keys:
         key_split = key.split('_')
         ligand_name = '_'.join(key_split[-2].split('-')[:-1])
         ligands[ligand_name].append(key)
     result = []
     for ligand_name in ligands.keys():
-
         ligands[ligand_name].sort(key = lambda x : int(x.split('_')[-2].split('-')[-1]),reverse=False)
         result += ligands[ligand_name][:nums]
     return result
@@ -412,13 +370,13 @@ def getIdxPose(test_keys,idx = 0):
 def getEFMultiPose(model,args,test_path,save_path,debug,batch_size,loss_fn,rates = 0.01,flag = '',pose_num = 5,idx_style = False):
         save_file = save_path + '/EF_test_multi_pose' + '_{}_'.format(pose_num) + flag
         test_keys = os.listdir(test_path)
-        # 每个复合物提取固定比例的pose
+        # for multi pose complex ,get pose_num poses to cal EF
         tested_pros = getTestedPro(save_file)
         if idx_style:
             test_keys = getIdxPose(test_keys,idx = pose_num)
         else:
             test_keys = getNumPose(test_keys,nums = pose_num) 
-        # print('tests nums',len(test_keys))
+ 
         pros = defaultdict(list)
         for key in test_keys:
             key_split = key.split('_')
@@ -453,14 +411,13 @@ def getEFMultiPose(model,args,test_path,save_path,debug,batch_size,loss_fn,rates
                 if args.ngpu >= 1:
                     dist.barrier()
                 if args.local_rank == 0:
-                    # print(test_true,test_pred)
+ 
                     test_auroc,BEDROC,test_adjust_logauroc,test_auprc,test_balanced_acc,test_acc,test_precision,test_sensitity,test_specifity,test_f1 = get_metrics(test_true,test_pred)
                     test_losses = torch.mean(torch.tensor(test_losses,dtype=torch.float)).data.cpu().numpy()
                     Y_sum = 0
                     # multi pose 
-                    # 一个ligand 一个名字，带有所有的概率，用来求概率最大值，然后，
-                    # ligand_single_pose_with_max_logits = []
-                    # new_keys = []
+                    # get max logits for every ligand
+
                     key_logits = defaultdict(list)
                     for pred,key in zip(test_pred,test_keys_pro):
                         new_key = '_'.join(key.split('/')[-1].split('_')[:-2] + key.split('/')[-1].split('_')[-2].split('-')[:-1])
@@ -468,8 +425,6 @@ def getEFMultiPose(model,args,test_path,save_path,debug,batch_size,loss_fn,rates
                     new_keys = list(key_logits.keys())
                     max_pose_logits = [max(logits) for logits in  list(key_logits.values())]
 
-                    # test_keys_pro = new_keys
-                    # test_pred = max_pose_logits
                     test_keys_pro = []
                     test_pred = []
                     for key,logit in zip(new_keys,max_pose_logits):
@@ -478,15 +433,14 @@ def getEFMultiPose(model,args,test_path,save_path,debug,batch_size,loss_fn,rates
                             test_keys_pro.insert(0,key)
                             test_pred.insert(0,logit)
                             Y_sum += 1
-                        else:#阳性标签排在前面
+                        else:
+                            ''' all positive label sample will be place in head of list'''
                             test_keys_pro.append(key)
                             test_pred.append(logit)
 
                     actions = int(Y_sum)
                     action_rate = actions/len(test_keys_pro)
                     
-                    #保存logits 进行下一步分析
-                    # test_pred = np.concatenate(np.array(test_pred), 0)
                     EF = []
                     hits_list = []
                     for rate in rates:
@@ -534,20 +488,19 @@ def getEFMultiPose(model,args,test_path,save_path,debug,batch_size,loss_fn,rates
         if args.ngpu >= 1:
             dist.barrier()
 def getEF_from_MSE(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_fn,rates = 0.01):
-
+        
+        '''cal EF for regression model if you want to training a regression model, you can use this function to cal EF'''
         
         save_file = save_path + '/EF_test'
         test_keys = [key for key in os.listdir(test_path) if '.' not in key]
-        
         pros = defaultdict(list)
         for key in test_keys:
             key_split = key.split('_')
             if 'active' in key_split:
                 pros[key_split[0]].insert(0,key)
-            else:#阳性标签排在前面
+            else:
                 pros[key_split[0]].append(key)
 
-            #agg sme pro
         EFs = []
         st = time.time()
         if type(rates) is not list:
@@ -556,20 +509,11 @@ def getEF_from_MSE(model,args,test_path,save_path,device,debug,batch_size,A2_lim
         for rate in rates:
             rate_str += str(rate)+ '\t'
         for pro in pros.keys():
-            # with open(save_file,'a') as f:
-
-            #     # f.write('')
-            #     f.write(pro+ '\n'+'EF:'+rate_str+ '\t'+'test_auroc'+ '\t'+'test_adjust_logauroc'+ '\t'+'test_auprc'+ '\t'+'test_balanced_acc'+ '\t'+'test_acc'+ '\t'+'test_precision'+ '\t'+'test_sensitity'+ '\t'+'test_specifity'+ '\t'+'test_f1' +'\t' +'time'+ '\n')
-            #     f.close()
             try :
 
                 test_keys_pro = pros[pro]
-
-                # test_keys_pro =  getToyKey(test_keys_pro)#just for test
                 if test_keys_pro is None:
                     continue
-                # print(len(test_keys_pro))
-
                 test_dataset = ESDataset(test_keys_pro,args, test_path,debug)
                 test_dataloader = DataLoader(test_dataset, batch_size = batch_size, \
                 shuffle=False, num_workers = args.num_workers, collate_fn=test_dataset.collate)
@@ -584,14 +528,10 @@ def getEF_from_MSE(model,args,test_path,save_path,device,debug,batch_size,A2_lim
                         Y_sum += 1
                 actions = int(Y_sum)
                 action_rate = actions/len(test_keys_pro)
-    #保存logits 进行下一步分析
+
                 
                 test_pred = np.concatenate(np.array(test_pred), 0)
-                # if args.save_logits:
 
-                #     with open(save_path + '/pcba_{}_logits'.format(pro),'wb') as f:
-                #         pickle.dump((test_pred,actions),f)
-                #         f.close()
     
                 EF = []
                 hits_list = []
@@ -639,7 +579,7 @@ import pickle
 
 def get_train_val_keys(keys):
     train_keys = keys
-    #按照蛋白来随机分
+    # split data by protein
     # from collections import defaultdict
     pro_dict = defaultdict(list)
     for key in train_keys:
@@ -656,8 +596,6 @@ def get_train_val_keys(keys):
         count +=1
         if count < train_num:
             train_list += pro_dict[pro_list[i]]
-            # if len(pro_dict[pro_list[i]]) != 11:
-            #     print(len(pro_dict[pro_list[i]]))
         else:
             val_list +=  pro_dict[pro_list[i]]
     return train_list,val_list

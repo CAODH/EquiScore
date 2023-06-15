@@ -36,7 +36,7 @@ def extract(ligand, pdb,key):
     io.save(fn, ResidueSelect())
     try:
         m2 = Chem.MolFromPDBFile(fn)
-        #may contain metal atom, causing MolFromPDBFile return None
+        # may contain metal atom, causing MolFromPDBFile return None
         if m2 is None:
             print("first read PDB fail",fn)
             # copy file to tmp dir 
@@ -71,11 +71,10 @@ def preprocessor(docking_result_sdf_fn,origin_recptor_pdb,data_dir):
     sdf_fn = docking_result_sdf_fn.split("/")[-1].split(".")[0] 
     if not os.path.exists(data_dir):
         os.mkdir(data_dir)
-    if os.path.getsize(docking_result_sdf_fn):#docking ligand file may be 0 size
-        total=Chem.SDMolSupplier(docking_result_sdf_fn)#, removeHs = False)
-        # print(len(total))
+    if os.path.getsize(docking_result_sdf_fn): #docking ligand file may be 0 size
+        total=Chem.SDMolSupplier(docking_result_sdf_fn)
         for i,m1 in enumerate(total):
-            key=sdf_fn #+ '_{}'.format(i)
+            key=sdf_fn 
             if not os.path.exists(os.path.join(data_dir,key)):
 
                 if len(m1.GetConformers())==0:
@@ -132,6 +131,7 @@ if __name__ == '__main__':
     parser.add_argument("--prefix", help="Anything that helps you distinguish between compounds.", type=str,default='Compound')
     parser.add_argument("--process_num", help="process num for multi process ", type=int,default=1)
     args = parser.parse_args()
+
     os.makedirs(args.single_sdf_save_path,exist_ok=True)
     if args.docking_result.endswith('maegz'):
         total=Chem.rdmolfiles.MaeMolSupplier(gzip.open(args.docking_result))
@@ -142,12 +142,11 @@ if __name__ == '__main__':
     else:
         print('docking result file format error! only support maegz,mae or sdf')
         exit()
-    # pbar = tqdm.tqdm(total)
-    # length = len(total)
+   
     for i,sample in enumerate(total):
         if i==0 and len(sample.GetAtoms()) > 500:
             print('atoms nums',len(sample.GetAtoms()),'may you not split protein and compounds ? save protein in a file in this dir')
-            Chem.MolToPDBFile(sample,f'./protein.pdb')
+            Chem.MolToPDBFile(sample,f'./data/protein.pdb')
             print('save protein success')
             # break
         else:

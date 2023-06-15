@@ -6,10 +6,10 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 class AutomaticWeightedLoss(nn.Module):
     """automatically weighted multi-task loss
-    Params：
-        num: int，the number of loss
+    Params:
+        num: int,the number of loss
         x: multi-task loss
-    Examples：
+    Examples:
         loss1=1
         loss2=2
         awl = AutomaticWeightedLoss(2)
@@ -40,11 +40,8 @@ class FocalLoss(nn.Module):
             input = input.transpose(1,2)    # N,C,H*W => N,H*W,C
             input = input.contiguous().view(-1,input.size(2))   # N,H*W,C => N*H*W,C
         target = target.view(-1,1).long()
-        # target = target.i()
-        # print(input.shape)
+
         logpt = F.log_softmax(input,dim = -1)
-        # print(logpt.shape)
-        # print(target.shape)
       
         logpt = logpt.gather(1,target)
         logpt = logpt.view(-1)

@@ -12,13 +12,6 @@ class EquiScore(nn.Module):
     def __init__(self, args):
         super().__init__()
         self.args = args
-        self.mu = nn.Parameter(torch.Tensor([args.initial_mu]).float())
-        self.dev = nn.Parameter(torch.Tensor([args.initial_dev]).float())
-        if args.auxiliary_loss:
-            if args.deta_const:
-                self.deta = 0.2
-            else:
-                self.deta = nn.Parameter(torch.Tensor([0.5]).float())
         atom_dim = 16*12 if self.args.FP else 10*6
         # self.in_feat_dropout = nn.Dropout(self.args.dropout)
         self.atom_encoder = nn.Embedding(atom_dim  + 1, self.args.n_out_feature, padding_idx=0)

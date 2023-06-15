@@ -44,59 +44,51 @@ class MultiHeadAttentionLayer(nn.Module):
         
     def propagate_attention(self, g,full_g):
 
-        ############### global module start ################################
-        # apply sparse graph nodes fea to dense graph for global attention module
-        full_g.apply_edges(src_dot_dst('K_h', 'Q_h', 'score')) #, edges)
+        ############### geometric distance based graph attention module ################################
+        full_g.apply_edges(src_dot_dst('K_h', 'Q_h', 'score'))
         ################################## transform coors as rel distance to decay attention score #########################################
-        full_g.apply_edges(fn.u_sub_v('coors', 'coors', 'detla_coors')) #, edges)
-        full_g.apply_edges(square('detla_coors', 'rel_pos_3d')) #, edges)
-        # print(full_g.edata['rel_pos_3d'].shape,full_g.edata['rel_pos_3d'][:20])
+        full_g.apply_edges(fn.u_sub_v('coors', 'coors', 'detla_coors')) 
+        full_g.apply_edges(square('detla_coors', 'rel_pos_3d'))
+
         full_g.edata['rel_pos_3d'] = self.coors_mlp(full_g.edata['rel_pos_3d'].float())
         # scaling
-        # rel_dist decay 
-
         full_g.apply_edges(scaling('score', np.sqrt(self.out_dim)))
-
         ########################################
-        # distance gate just for ablation test
-        full_g.apply_edges(guss_decoy('score','rel_pos_3d'))# 注释这一行 并同时解除下一行注释 距离门控消融distance decay ,best model need this update!! 
-        # full_g.edata['score'] = full_g.edata['score'].sum(-1, keepdim=True)# only be  used to ablation study
-
+        # distance gate 
+        full_g.apply_edges(guss_decoy('score','rel_pos_3d'))
+        # full_g.edata['score'] = full_g.edata['score'].sum(-1, keepdim=True) # only be used to ablation study
         ##########################################
-        # update score from edge 
-        #  sent attn score to sparse edges
-        src,dst = g.edges() # get sparse edges
+        # read score on structual based edges
+        # sent attn score to structual based edges
+        src,dst = g.edges() # get structual based edges
         g.edata['score'] = full_g.edge_subgraph(full_g.edge_ids(src,dst),relabel_nodes=False).edata['score']
+        # project score to edge features to update features
         g.edata['e_out'] = self.attn_proj(g.edata['score'].view(-1,self.num_heads).contiguous()) # score to edge feas
-        ############### local module start ################################
+        ############### structual edges(covalent bond based edges) bias################################
         # Compute attention score
         g.apply_edges(edge_bias('score', 'proj_e'))  # add edge bias 
-        # add edge_bias to full_g 
-        # just for abalation test
-        full_g.apply_edges(func=partUpdataScore('score','score',g),edges=g.edges()) # 注释这一行edge_bias消融实验
+        # add edge_bias and update on geometric distanced based edges
+        full_g.apply_edges(func=partUpdataScore('score','score',g),edges=g.edges()) # 
         # Copy edge features as e_out to be passed to FFN_e
         ###################################################
-
-
         # softmax
         # for softmax numerical stability
         eids = full_g.edges()
         ################################
         full_g.edata['score'] = edge_softmax(graph = full_g,logits = full_g.edata['score'].clamp(-5,5))
-        ############## score as coors update factor and update coors ############## Best model need this module just for abalation 
+        ############## score as coors update factor and update vector features ##############
         full_g.apply_edges(edge_mul_score('detla_coors', 'score'))# accu detla_coors 
         full_g.send_and_recv(eids, dgl.function.copy_e('detla_coors','detla_coors'), fn.sum('detla_coors', 'coors_add'))
-        # next used # to update coors
-        full_g.ndata['coors'] += full_g.ndata['coors_add'] # 注释这一行等变消融实验
-        
-        # BEST MODEL IS need full_g.ndata['coors'] += full_g.ndata['coors_add']
+        # to update vector features
+        full_g.ndata['coors'] += full_g.ndata['coors_add'] 
         #################################################################
         #########################################################
+        # attention dropout for control overfitting
         full_g.edata['score'] = self.attn_dropout(full_g.edata['score'])
+        #feature update
         full_g.send_and_recv(eids, fn.src_mul_edge('V_h', 'score', 'V_h'), fn.sum('V_h', 'wV'))
         # full_g.send_and_recv(eids, fn.copy_edge('score', 'score'), fn.sum('score', 'z')) # div
-        ############### global module end ################################
-        ############## coors update factor##############
+
 
     def forward(self, g, full_g,h, e):
         Q_h = self.Q(h)
@@ -109,8 +101,7 @@ class MultiHeadAttentionLayer(nn.Module):
         full_g.ndata['K_h'] = K_h.view(-1, self.num_heads, self.out_dim)
         full_g.ndata['V_h'] = V_h.view(-1, self.num_heads, self.out_dim)
         g.edata['proj_e'] = proj_e.view(-1, self.num_heads, 1)
-        # g.edata['attn_proj'] = 
-        ########################## norm coors for LGEG model############### 
+        ########################## norm coors for EquiScore ############### 
         full_g.ndata['coors'] = self.coor_norm(full_g.ndata['coors'])
 
         self.propagate_attention(g,full_g)
@@ -135,10 +126,9 @@ class EquiScoreLayer(nn.Module):
         self.layer_norm1_e = nn.LayerNorm(self.args.edge_dim)
         # FFN for h
         self.FFN_h_layer = FeedForwardNetwork(self.args.n_out_feature, self.args.ffn_size, self.args.dropout_rate)
-        # self.FFN_h_layer2 = nn.Linear(out_dim*2, out_dim)
-        # FFN for e
+
         self.FFN_e_layer = FeedForwardNetwork(self.args.edge_dim, self.args.ffn_size, self.args.dropout_rate)
-        # self.FFN_e_layer2 = nn.Linear(self.args.edge_dim*2, self.args.edge_dim)
+ 
         self.layer_norm2_h = GraphNorm(hidden_dim = self.args.n_out_feature)
         self.layer_norm2_e = nn.LayerNorm(self.args.edge_dim)
             

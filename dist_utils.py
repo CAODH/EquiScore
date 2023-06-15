@@ -6,6 +6,10 @@ import time
 from torch import distributed as dist
 import random
 def seed_torch(seed=42):
+    '''
+    random seed for reproducibility
+
+    '''
     seed = int(seed)
     random.seed(seed)
     os.environ['PYTHONHASHSEED'] = str(seed)
@@ -91,13 +95,16 @@ def data_to_device(sample,device):
             else:
                 data_flag.append(None)
         return data_flag,data
-def average_gradients(model):  ##每个gpu上的梯度求平均
+def average_gradients(model):
+    '''
+    average gradients for distributed training
+    '''
     size = float(dist.get_world_size())
     for param in model.parameters():
         if param.requires_grad:
             dist.all_reduce(param.grad.data,op = torch.distributed.ReduceOp.SUM)
             param.grad.data /= size
-# 来源：https://github.com/huggingface/transformers/blob/447808c85f0e6d6b0aeeb07214942bf1e578f9d2/src/transformers/trainer_pt_utils.py
+# from：https://github.com/huggingface/transformers/blob/447808c85f0e6d6b0aeeb07214942bf1e578f9d2/src/transformers/trainer_pt_utils.py
 class SequentialDistributedSampler(torch.utils.data.sampler.Sampler):
     """
     Distributed Sampler that subsamples indicies sequentially,

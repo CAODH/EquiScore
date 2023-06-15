@@ -197,7 +197,7 @@ def get_rel_pos(mol):
     rel_pos_3d = cdist(atom_poses, atom_poses)
     return rel_pos_3d
 #===================3d position end ========================
-#===================data attris start ========================
+#===================data attributes start ========================
 # from dataset import *
 def molEdge(mol,n1,n2,adj_mol = None):
     edges_list = []
@@ -222,14 +222,12 @@ def molEdge(mol,n1,n2,adj_mol = None):
         dm = adj_mol[n:n1,:n1]
         # adj_mol += np.eye(len(adj_mol))
         edge_pos_u,edge_pos_v = np.where(dm == 1)
-        # print('mol virtual edge',edge_pos_u,edge_pos_v)
         
         u,v = list((edge_pos_u + n)) +  list( edge_pos_v),list( edge_pos_v) + list((edge_pos_u + n))
         # print('mol virtual edge',u,v)
         edges_list.extend([*zip(u,v)])
         edge_features_list.extend([[33,17,3,3,17]]*len(u))
-        # adj_mol += np.eye(len(adj_mol))
-    # assert np.max(edges_list) < len(adj_mol),'edge_index must be less than nodes! ' 
+
     return edges_list ,edge_features_list
 def pocketEdge(mol,n1,n2,adj_pocket = None):
     edges_list = []
@@ -262,8 +260,6 @@ def pocketEdge(mol,n1,n2,adj_pocket = None):
         edges_list.extend([*zip(u,v)])
         edge_features_list.extend([[33,17,3,3,17]]*len(u))
    
-        # adj_pocket += np.eye(all_n)
-    # assert np.max(edges_list) < len(adj_pocket),'edge_index must be less than nodes! ' 
     return edges_list ,edge_features_list
 def getEdge(mols,n1,n2,adj_in = None):
     num_bond_features = 5
@@ -282,7 +278,7 @@ def getEdge(mols,n1,n2,adj_in = None):
     if adj_in is  None:
         pass
     else:
-        #加入虚拟边，然后为虚拟边加入特征向量 add fingerprint edges features
+        #add virtual edge , add fingerprint edges features
         dm = adj_in[:n1,n1:]
         edge_pos_u,edge_pos_v = np.where(dm == 1)
         
@@ -296,7 +292,6 @@ def getEdge(mols,n1,n2,adj_in = None):
     else:
         edge_index = np.array(edges_list, dtype = np.int64).T
         edge_attr = torch.tensor(edge_features_list, dtype = torch.int64)
-        # assert np.max(edge_index) < len(adj_in),'edge_index must be less than nodes! ' 
     return edge_index,edge_attr
 
 
@@ -306,14 +301,12 @@ def mol2graph(mol,x,args,n1,n2,adj = None,dm = None):
     :input: SMILES string (str)
     :return: graph object
     """
-    # x = get_atom_feature(mol,is_ligand=is_ligand)#array
     if args.edge_bias:
         # time_s = time.time()
         edge_index, edge_attr= getEdge(mol,adj_in = adj,n1 = n1,n2 = n2)
         # print()
     else:
         edge_index, edge_attr= None,None
-    # attn
 
     if args.rel_3d_pos_bias and dm is not None:
         if len(dm) == 2:
@@ -364,7 +357,7 @@ def preprocess_item(item, args,adj):
     edge_attr, edge_index, x  = item['edge_feat'], item['edge_index'], item['node_feat']
     # print('get edge from  molgraph: ',time.time()-time_s)
     N = x.size(0)
-    if args.fundation_model == 'EquiScore':
+    if args.model == 'EquiScore':
         offset = 16 if args.FP else 10
         x = convert_to_single_emb(x,offset = offset)
     if x.min()< 0:
