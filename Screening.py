@@ -1,11 +1,9 @@
 import time
 import utils
-# from utils import *
 import torch.nn as nn
 import torch
 import time
 import os
-# from dist_utils import SequentialDistributedSampler
 import glob
 os.environ['CUDA_LAUNCH_BLOCKING']='1'
 import argparse
@@ -72,7 +70,9 @@ def run(local_rank,args,*more_args,**kwargs):
         with open(args.pred_save_path,'wb') as f:
             pickle.dump((test_keys_pro,test_pred),f)
 if '__main__' == __name__:
+
     '''distribution training'''
+    
     from torch import distributed as dist
     import torch.multiprocessing as mp
     from dist_utils import *

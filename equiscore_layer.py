@@ -40,11 +40,11 @@ class MultiHeadAttentionLayer(nn.Module):
             nn.Linear(1, edge_dim),
             nn.Dropout(dropout_rate),
             nn.ReLU(),
-            nn.Linear(edge_dim, num_heads))#.view(-1,self.args.head_size).contiguous().float()
+            nn.Linear(edge_dim, num_heads))
         
     def propagate_attention(self, g,full_g):
 
-        ############### geometric distance based graph attention module ################################
+        ############### geometric distance based graph attention module ###############################
         full_g.apply_edges(src_dot_dst('K_h', 'Q_h', 'score'))
         ################################## transform coors as rel distance to decay attention score #########################################
         full_g.apply_edges(fn.u_sub_v('coors', 'coors', 'detla_coors')) 
@@ -63,9 +63,9 @@ class MultiHeadAttentionLayer(nn.Module):
         src,dst = g.edges() # get structual based edges
         g.edata['score'] = full_g.edge_subgraph(full_g.edge_ids(src,dst),relabel_nodes=False).edata['score']
         # project score to edge features to update features
-        g.edata['e_out'] = self.attn_proj(g.edata['score'].view(-1,self.num_heads).contiguous()) # score to edge feas
+        g.edata['e_out'] = self.attn_proj(g.edata['score'].view(-1,self.num_heads).contiguous()) # score to edge features
         ############### structual edges(covalent bond based edges) bias################################
-        # Compute attention score
+        # Compute attention score bias
         g.apply_edges(edge_bias('score', 'proj_e'))  # add edge bias 
         # add edge_bias and update on geometric distanced based edges
         full_g.apply_edges(func=partUpdataScore('score','score',g),edges=g.edges()) # 
@@ -77,7 +77,7 @@ class MultiHeadAttentionLayer(nn.Module):
         ################################
         full_g.edata['score'] = edge_softmax(graph = full_g,logits = full_g.edata['score'].clamp(-5,5))
         ############## score as coors update factor and update vector features ##############
-        full_g.apply_edges(edge_mul_score('detla_coors', 'score'))# accu detla_coors 
+        full_g.apply_edges(edge_mul_score('detla_coors', 'score'))# accumlate detla_coors 
         full_g.send_and_recv(eids, dgl.function.copy_e('detla_coors','detla_coors'), fn.sum('detla_coors', 'coors_add'))
         # to update vector features
         full_g.ndata['coors'] += full_g.ndata['coors_add'] 

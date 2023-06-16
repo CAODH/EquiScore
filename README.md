@@ -4,7 +4,7 @@
 
 Implementation of EquiScore, by Duanhua Cao.
 
-This repository contains all code, instructions and model weights necessary to run the method or to retrain a model.
+This repository contains all code, instructions and model weights necessary to **screen compounds** by EquiScore, eval EquiScore or to retrain a new model.
 
 If you have any question, feel free to open an issue or reach out to us: [caodh@zju.edu](caodh@zju.edu).
 
@@ -12,31 +12,31 @@ If you have any question, feel free to open an issue or reach out to us: [caodh@
 
 ## Dataset
 
-The files in `data` contain the names for the Uniport ID-based data split.
-
-If you want to train one of our models with the data then:
+If you want to train one of our models with the PDBscreen data you should to do:
 
 1. download it from [zenodo]() 
 
-2. unzip the directory by tar command and place it into `data` such that you have the path `/EquiScore/data/training_data/PDBscreen`
+2. uncompress the directory by tar command and place it into `data` such that you have the path `/EquiScore/data/training_data/PDBscreen`
 
 ## Setup Environment
 
-We will set up the environment using [Anaconda](https://docs.anaconda.com/anaconda/install/index.html). Clone the
-current repo
+We recommend people to set up the environment using [Anaconda](https://docs.anaconda.com/anaconda/install/index.html). 
 
-    git clone https://github.com/caoduanhua/EquiScore.git
+   Clone the current repo
 
-This is an example for how to set up a working conda environment to run the code (but make sure to use the correct pytorch, pytorch-geometric, cuda versions or cpu only versions):
+   git clone https://github.com/caoduanhua/EquiScore.git
+
+This is an example for how to set up a working conda environment to run the code (but make sure to use the correct pytorch, DGL, cuda versions or cpu only versions):
 
    `conda create --name EquiScore python=3.8 conda activate EquiScore`
-   and then install all pkgs, in environment.yml file.
+   
+   and then install all pkgs in environment.yml file.
 
 Fortunately! you slao can setup conda environment by command `conda env create -f environment.yml` and done!
 
 ## Using the provided model weights to screen a compound for your target protein
 
-   We implemented a Screening.py python script , to help anyone want to screen compounds from a compound library.
+   We implemented a Screening.py python script, to help anyone want to screen compounds from a compound library.
 
 ### just some steps need to do
 
@@ -49,21 +49,21 @@ Fortunately! you slao can setup conda environment by command `conda env create -
 
 3. Then, you have all data to predict protein-ligand interaction by EquiScore! Be patient. This is the last step!
 
-   `python Screening.py --ngpu 1 --test --test_path ./data/sample_data/ --test_name tmp_pockets --pred_save_path  ./data/test_results/       EquiScore_pred_for_tmp_pocket.pkl`
+   `python Screening.py --ngpu 1 --test --test_path ./data/sample_data/ --test_name tmp_pockets --pred_save_path  ./data/test_results/       EquiScore_pred_for_tmp_pockets.pkl`
 
 4. Util now, you get all prediction result in pred_save_path, and you can read it for select compound by yourself!
 
 # Using the provided model weights for evaluation and Reproduces the benchmark result
 
-    Just like screen compounds for a target, benchmark dataset have many targets for screen, so we implemented a script to calculate the result
+    Just like screen compounds for a target, benchmark dataset have many targets for screen, so we implemented a script to calculate the results
 
 ## just some steps need to set
 
-1. We provided pockets on zenodo (download pockets from [zenodo]()). IF YOU WANT GET RAW DATASET PLEASE DOWNLOAD RAW DATA FROM REFERENCE PAPERS.
+1. We provided benchmarks' pockets on zenodo (download pockets from [zenodo]()). IF YOU WANT GET RAW DATASET PLEASE DOWNLOAD RAW DATA FROM REFERENCE PAPERS.
 
-1. you need download the dataset and extract data to ./data/external_test_data
+1. you need download the dataset and extract data to ./data/external_test_data (for example, all pockets in DEKOIS2.0 docking by Glide SP should be extract into one dir like ./data/external_test_data/dekois2_pocket)
 
-2. get pocket like "Screen a compound for your target protein" steps , all pocket file name should contain '_active' for active ligand, '_decoy' for decoys and  all pocket in a dir for one benchmark dataset (for example, all pockets in DEKOIS2.0 docking by Glide SP should be extract into one dir like ./data/external_test_data/dekois2_pocket)
+2. you can also get pocket like "Screen a compound for your target protein" steps , all pocket file name should contain '_active' for active ligand, '_decoy' for decoys and all pocket in a dir for one benchmark dataset.
 
 3. run script (You can use the nohup command and output redirects as you normally like):
    
@@ -77,16 +77,19 @@ Fortunately! you slao can setup conda environment by command `conda env create -
 
 1. you need download the traing dataset , and extract pocket data to ./data/training_data/PDBscreen
 
-   (you can use You can also use your own private data, As long as it can fit to EquiScore after processing)
+   (You can also use your own private data, As long as it can fit to EquiScore after processing)
 
 2. use uniport id to deduplicated data and split data in ./data/data_splits/screen_model/data_split_for_training.py;
 
-   in this script , will help deduplicated dataset by uniport id and split train/val data and save data path into pkl file
+   in this script, will help deduplicated dataset by uniport id and split train/val data and save data path into a pkl file
    
    "train_keys.pkl, val_keys.pkl, test_keys.pkl"
 
-3. run train.py script : `python train.py --ngpu 1 --train_keys your_keys_path --val_keys your_keys_path --test_keys_path your_keys_path`
-   (or if you want speed up training , please save data to LMDB database in dataset.py and add --lmdb_cache lmdb_cache_path )
+3. run train.py script: 
+
+   `python train.py --ngpu 1 --train_keys your_keys_path --val_keys your_keys_path --test_keys_path your_keys_path`
+
+   (or if you want speed up training, please save data to LMDB database in dataset.py and add --lmdb_cache lmdb_cache_path )
 
 ## Citation
 

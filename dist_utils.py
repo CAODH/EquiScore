@@ -28,7 +28,6 @@ def set_cuda_visible_device(ngpus):
     for i in range(8):
         command = 'nvidia-smi -i '+str(i)+' | grep "No running" | wc -l'
         output = subprocess.check_output(command, shell=True).decode("utf-8")
-        #print('nvidia-smi -i '+str(i)+' | grep "No running" | wc -l > empty_gpu_check')
         if int(output)==1:
             empty.append(i)
     if len(empty)<ngpus:
@@ -50,24 +49,17 @@ def get_available_gpu(num_gpu=1, min_memory=1000, sample=3, nitro_restriction=Tr
     sum = None
     for _ in range(sample):
         info = os.popen('nvidia-smi --query-gpu=utilization.gpu,memory.free --format=csv').read()
-        # print(info)
         info = np.array([[id] + t.replace('%', '').replace('MiB','').split(',') for id, t in enumerate(info.split('\n')[1:-1])]).\
             astype(np.int)
-        # print(info)
         sum = info + (sum if sum is not None else 0)
-        # print(sum)
         time.sleep(0.2)
     avg = sum//sample
-    # print(avg)
-
     if nitro_restriction:
         avg = avg[:-1]
     available = avg[np.where(avg[:,2] > min_memory)]  
-    # print(available)  
     if len(available) < num_gpu:
         print ('avaliable gpus are less than required')
         exit(-1)
-        # print()
     if available.shape[0] == 0:
         print('No GPU available')
         return ''
@@ -84,10 +76,11 @@ def get_available_gpu(num_gpu=1, min_memory=1000, sample=3, nitro_restriction=Tr
         print('Select id #' + select + ' for you.')
     return select
 def data_to_device(sample,device):
+        
+        '''set graph data to device'''
 
         data_flag = []
         data = []
-        # print('sample',sample)
         for i in sample.get_att():
             if type(i) is torch.Tensor:
                 data.append(i.to(device))
@@ -98,6 +91,7 @@ def data_to_device(sample,device):
 def average_gradients(model):
     '''
     average gradients for distributed training
+    
     '''
     size = float(dist.get_world_size())
     for param in model.parameters():

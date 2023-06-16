@@ -20,7 +20,6 @@ from equiscore import EquiScore
 class DataLoaderX(DataLoader):
     def __iter__(self):
         return BackgroundGenerator(super().__iter__())    
-# from dataset import ESESDataset, DTISampler
 now = time.localtime()
 from rdkit import RDLogger
 
@@ -42,7 +41,7 @@ def run(local_rank,args):
     lr = args.lr
     save_dir = args.save_dir
     train_time = time.strftime('%Y-%m-%d-%H-%M-%S')
-    #make save dir if it doesn't exist
+    # make save dir if it doesn't exist
     if args.hot_start:
         if os.path.exists(args.save_model):
             best_name = args.save_model
@@ -58,6 +57,7 @@ def run(local_rank,args):
     log_path = save_path+'/logs' 
 
     #read data. data is stored in format of dictionary. Each key has information about protein-ligand complex.
+
     if args.train_val_mode == 'uniport_cluster':
         with open (args.train_keys, 'rb') as fp:
             train_keys = pickle.load(fp)
@@ -111,8 +111,7 @@ def run(local_rank,args):
         shuffle=False, num_workers = args.num_workers, collate_fn=val_dataset.collate,pin_memory=True,prefetch_factor = 4)
     test_dataloader = DataLoaderX(test_dataset, args.batch_size, sampler=test_sampler,\
         shuffle=False, num_workers = args.num_workers, collate_fn=test_dataset.collate,pin_memory=True,prefetch_factor = 4) 
-    #optimizer
-    # optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+
     scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.max_lr,pct_start=args.pct_start,\
          steps_per_epoch=len(train_dataloader), epochs=args.epoch,last_epoch = -1 if len(train_dataloader)*epoch_start == 0 else len(train_dataloader)*epoch_start )
     #loss function ,in this paper just use cross entropy loss but you can try focal loss too!
@@ -201,7 +200,9 @@ if '__main__' == __name__:
     os.environ["MASTER_PORT"] = args.MASTER_PORT
     from torch.multiprocessing import Process
     world_size = args.ngpu
+
     # use multiprocess to train
+
     processes = []
     for rank in range(world_size):
         p = Process(target=run, args=(rank, args))
