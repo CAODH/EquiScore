@@ -24,11 +24,13 @@ We recommend people to set up the environment using [Anaconda](https://docs.anac
 
    Clone the current repo
 
-    git clone git@github.com:CAODH/EquiScore.git
+   git clone git@github.com:CAODH/EquiScore.git
 
 This is an example for how to set up a working conda environment to run the code (but make sure to use the correct pytorch, DGL, cuda versions or cpu only versions):
 
-   `conda create --name EquiScore python=3.8 conda activate EquiScore`
+   `conda create --name EquiScore python=3.8` 
+
+   `conda activate EquiScore`
 
    and then install all pkgs in environment.yml file.
 
@@ -36,20 +38,23 @@ Fortunately! you slao can setup conda environment by command `conda env create -
 
 ## **Using the provided model weights to screen a compound for your target protein**
 
-   We implemented a Screening.py python script, to help anyone want to screen compounds from a compound library.
+   We implemented a Screening.py python script, to help **anyone want to screen Hits from a compound library**.
 
    We provide a toy example under the ./data/sample_data folder for illustration.
 
 ### **just some steps need to do**
 
-1. Docking compounds with target protein to get docking pose , in this step ,you can use any method to get docking pose(**Glide,Vina,Surflex,Gold,LeDock**), or you can try a **deep learning method**.
+1. Docking compounds with target protein to get docking pose, EquiScore is robust to pose sources and you can choose any method you are familiar with to generate poses(**Glide,Vina,Surflex,Gold,LeDock**), or you can try a **deep learning method**.
+
 2. Assume that you have obtained the results of the docking in the previous step. Then, get pocket region and compound pose.
    run script:
 
    `python get_pocket.py --docking_result ./data/sample_data/sample_compounds.sdf --recptor_pdb ./data/sample_data/sample_protein.pdb --single_sdf_save_path ./data/sample_data/tmp_sdfs --pocket_save_dir ./data/sample_data/tmp_pockets`
+
 3. Then, you have all data to predict protein-ligand interaction by EquiScore! Be patient. This is the last step!
 
    `python Screening.py --ngpu 1 --test --test_path ./data/sample_data/ --test_name tmp_pockets --pred_save_path  ./data/test_results/       EquiScore_pred_for_tmp_pockets.pkl`
+
 4. Util now, you get all prediction result in pred_save_path, and you can read it for select compound by yourself!
 
 ## **Using the provided model weights for evaluation and Reproduces the benchmark result**
@@ -59,6 +64,7 @@ Fortunately! you slao can setup conda environment by command `conda env create -
 ### **just some steps need to set**
 
 1. We provided Preprocessed pockets on zenodo (download pockets from [zenodo]()). IF YOU WANT GET RAW DATASET PLEASE DOWNLOAD RAW DATA FROM REFERENCE PAPERS.
+
 2. you need download the Preprocessed dataset and extract data to ./data/external_test_data.
 
    (for example, all pockets in DEKOIS2.0 docking by Glide SP should be extract into one dir like ./data/external_test_data/dekois2_pocket)
@@ -74,10 +80,9 @@ Fortunately! you slao can setup conda environment by command `conda env create -
 ### **Retraining EquiScore or fine tune your model is also very simnple!**
 
 1. you need download the traing dataset , and extract pocket data to ./data/training_data/PDBscreen
-
    (You can also use your own private data, As long as it can fit to EquiScore after processing)
+   
 2. use uniport id to deduplicated data and split data in `./data/data_splits/screen_model/data_split_for_training.py`
-
    in this script, will help deduplicated dataset by uniport id and split train/val data and save data path into a pkl file
 
    like "train_keys.pkl, val_keys.pkl, test_keys.pkl"
