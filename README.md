@@ -1,12 +1,12 @@
 # EquiScore: A generic protein-ligand interaction scoring method integrating physical prior knowledge with data augmentation modeling
 
-### [Paper on arXiv](https://arxiv.org/abs/2210.01776)
+### [Paper on arXiv]()
 
 Implementation of EquiScore, by Duanhua Cao.
 
 This repository contains all code, instructions and model weights necessary to run the method or to retrain a model.
 
-If you have any question, feel free to open an issue or reach out to us: [caoduanhua@zju.edu](caodh@zju.edu).
+If you have any question, feel free to open an issue or reach out to us: [caodh@zju.edu](caodh@zju.edu).
 
 ![Alt Text](./figs/model_framework.png)
 
@@ -45,6 +45,7 @@ We implemented a Screening.py python script , to help anyone want to screen comp
 
 2. Assume that you have obtained the results of the docking in the previous step. Then, get pocket region and compound pose.
    run script:
+
    python get_pocket.py --docking_result ./data/sample_data/sample_compounds.sdf --recptor_pdb ./data/sample_data/sample_protein.pdb --single_sdf_save_path ./data/sample_data/tmp_sdfs --pocket_save_dir ./data/sample_data/tmp_pockets
 
 3. Then, you have all data to predict protein-ligand interaction by EquiScore! Be patient. This is the last step!
@@ -66,7 +67,9 @@ We implemented a Screening.py python script , to help anyone want to screen comp
 2. get pocket like "Screen a compound for your target protein" steps , all pocket file name should contain '_active' for active ligand, '_decoy' for decoys and  all pocket in a dir for one benchmark dataset (for example, all pockets in DEKOIS2.0 docking by Glide SP should be extract into one dir like ./data/external_test_data/dekois2_pocket)
 
 3. run script (You can use the nohup command and output redirects as you normally like):
+   
    python independent_test_dist.py --test --test_path './data/external_test_data' --test_name dekois2_pocket --test_mode milti_pose
+   
     use milti_pose arg if one ligand have multi pose and set pose_num and idx_style in args ，see args --help for more details 
 
 # Retraining EquiScore
