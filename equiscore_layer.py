@@ -6,7 +6,7 @@ from equiscore_utils import *
 
 
 """
-    Single Attention Head
+    Multi Attention Head
 """
 class FeedForwardNetwork(nn.Module):
     def __init__(self, hidden_size, ffn_size, dropout_rate):
@@ -87,7 +87,7 @@ class MultiHeadAttentionLayer(nn.Module):
         full_g.edata['score'] = self.attn_dropout(full_g.edata['score'])
         #feature update
         full_g.send_and_recv(eids, fn.src_mul_edge('V_h', 'score', 'V_h'), fn.sum('V_h', 'wV'))
-        # full_g.send_and_recv(eids, fn.copy_edge('score', 'score'), fn.sum('score', 'z')) # div
+
 
 
     def forward(self, g, full_g,h, e):

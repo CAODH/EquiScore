@@ -6,7 +6,7 @@ Implementation of EquiScore, by Duanhua Cao.
 
 This repository contains all code, instructions and model weights necessary to run the method or to retrain a model.
 
-If you have any question, feel free to open an issue or reach out to us: [caoduanhua@zju.edu](caoduanhua@zju.edu).
+If you have any question, feel free to open an issue or reach out to us: [caoduanhua@zju.edu](caodh@zju.edu).
 
 ![Alt Text](./figs/model_framework.png)
 
@@ -18,7 +18,7 @@ If you want to train one of our models with the data then:
 
 1. download it from [zenodo]() 
 
-2. unzip the directory by tar command and place it into `data` such that you have the path `data/PDBscreen`
+2. unzip the directory by tar command and place it into `data` such that you have the path `/EquiScore/data/training_data/PDBscreen`
 
 ## Setup Environment
 
@@ -49,9 +49,9 @@ We implemented a Screening.py python script , to help anyone want to screen comp
 
 3. Then, you have all data to predict protein-ligand interaction by EquiScore! Be patient. This is the last step!
 
-   python Screening.py --ngpu 1 --test --test_path ./data/external_test_data --test_name dekois2_pocket --pred_save_path  ./data/test_results/EquiScore_pred_for_dekois2_pocket.pkl
+   python Screening.py --ngpu 1 --test --test_path ./data/sample_data/ --test_name tmp_pockets --pred_save_path  ./data/test_results/EquiScore_pred_for_tmp_pocket.pkl
 
-4. Util now ,you get all prediction result in pred_save_path, and you can read it for select compound by yourself!
+4. Util now, you get all prediction result in pred_save_path, and you can read it for select compound by yourself!
 
 # Using the provided model weights for evaluation and Reproduces the benchmark result
 
@@ -67,15 +67,20 @@ We implemented a Screening.py python script , to help anyone want to screen comp
 
 3. run script (You can use the nohup command and output redirects as you normally like):
    python independent_test_dist.py --test --test_path './data/external_test_data' --test_name dekois2_pocket --test_mode milti_pose
+    use milti_pose arg if one ligand have multi pose and set pose_num and idx_style in args ，see args --help for more details 
 
 # Retraining EquiScore
+## retraining EquiScore or fine tune your model is also very simnple!
 
 1. you need download the traing dataset , and extract pocket data to ./data/training_data/PDBscreen
 
-2. run use uniport id to deduplicated data and split data in ./data/data_splits/screen_model/data_split_for_training.py;
+   (you can use You can also use your own private data, As long as it can fit to EquiScore after processing)
+
+2. use uniport id to deduplicated data and split data in ./data/data_splits/screen_model/data_split_for_training.py;
+
    in this script , will help deduplicated dataset by uniport id and split train/val data and save data path into pkl file
    
-   "train_keys.pkl val_keys.pkl test_keys.pkl"
+   "train_keys.pkl, val_keys.pkl, test_keys.pkl"
 
 3. run train.py script : python train.py --ngpu 1 --train_keys your_keys_path --val_keys your_keys_path --test_keys_path your_keys_path (or if you want speed up training , please save data to LMDB database in dataset.py and add --lmdb_cache lmdb_cache_path )
 

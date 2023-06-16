@@ -183,7 +183,7 @@ if __name__ == "__main__":
     with open (args.test_keys, 'rb') as fp:
         val_keys = pickle.load(fp)
     keys =  val_keys 
-    ################save processed data into database and then you can index data by key##########################
+    ################save processed data into database and then you can index data by the key in training_keys.pkl file##########################
     def saveDB(key):
         with env.begin(write=True) as txn:
             try:

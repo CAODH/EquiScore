@@ -51,7 +51,6 @@ def bond_to_feature_vector(bond):
     ]
     return bond_feature
 
-#by caodunahua under this line
 def GetNum(x,allowed_set):
     try:
         return [allowed_set.index(x)]
@@ -72,24 +71,23 @@ def get_aromatic_rings(mol:rdkit.Chem.Mol) -> list:
             rings.append(list(ring))
     return rings
 def add_atom_to_mol(mol:rdkit.Chem.Mol,adj:np.array,H:np.array,d:np.array,n:int) :
-    '''docstring: 
-    add virtual aromatic atom feature/adj/3d_positions to raw data
-    mol : rdkit mol 
-    adj :
-    H : node feature
-    node d : 3d positions
-    n: node nums 
+    '''
+    docstring: 
+        add virtual aromatic atom feature/adj/3d_positions to raw data
+
+        mol : rdkit mol object
+        adj : adj matrix
+        H : node feature
+        node d : 3d positions
+        n: node nums 
     '''
     assert len(adj) == len(H),'adj nums not equal to nodes'
     rings = get_aromatic_rings(mol)
     num_aromatic = len(rings)
     
     h,b = adj.shape
-    # print(num_aromatic,h,b)
-    # print(d.shape,H.shape)
     all_zeros = np.zeros((num_aromatic+h,num_aromatic+b))
     #add all zeros vector to bottom and right
-
     all_zeros[:h,:b] = adj
     for i,ring in enumerate(rings):
         all_zeros[h+i,:][ring] = 1
@@ -213,7 +211,6 @@ def molEdge(mol,n1,n2,adj_mol = None):
             edges_list.append((j, i))
             edge_features_list.append(edge_feature)
     # add virtual aromatic nodes feature
-    # add mol 
     if adj_mol is None:
         return edges_list ,edge_features_list
     else:
@@ -270,8 +267,6 @@ def getEdge(mols,n1,n2,adj_in = None):
     edge_features_list = mol1_edge_attr + mol2_edge_attr
     # add self edge
     u,v = np.where(np.eye(n1+n2) == 1)
-    # u_new = np.concatenate([u,v],axis = 0)
-    # v_new = np.concatenate([v,u],axis = 0)
     edges_list.extend([*zip(u,v)])
     edge_features_list.extend([[34,17,4,4,18]]*len(u))
 

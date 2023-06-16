@@ -28,15 +28,12 @@ RDLogger.DisableLog('rdApp.*')
 s = "%04d-%02d-%02d %02d:%02d:%02d" % (now.tm_year, now.tm_mon, now.tm_mday, now.tm_hour, now.tm_min, now.tm_sec)
 print (s)
 os.chdir(os.path.abspath(os.path.dirname(__file__)))
-
 def run(local_rank,args):
-    # seed_everything()
-    # rank = torch.distributed.get_rank()
     args.local_rank = local_rank
-    # print('in run args',local_rank,args.local_rank)
     torch.distributed.init_process_group(backend="nccl",init_method='env://',rank = args.local_rank,world_size = args.ngpu)  # multi gpus training，'nccl' mode
     torch.cuda.set_device(args.local_rank) 
     seed_torch(seed = args.seed + args.local_rank)
+    # use attentiveFP feature or not
     if args.FP:
         args.N_atom_features = 39
     else:
@@ -55,12 +52,11 @@ def run(local_rank,args):
             raise ValueError('save_model is not a valid file check it again!')
     else:
         save_path = os.path.join(save_dir,args.model,train_time)
-    # save_path = save_dir+ args.fundation_model + '/'+ args.layer_type +'/'+ train_time
-    # print('save_path:',save_path)
+
     if not os.path.exists(save_path):
         os.system('mkdir -p ' + save_path)
     log_path = save_path+'/logs' 
-    # model_path = save_dir+train_time+'/models' 
+
     #read data. data is stored in format of dictionary. Each key has information about protein-ligand complex.
     if args.train_val_mode == 'uniport_cluster':
         with open (args.train_keys, 'rb') as fp:
@@ -92,13 +88,14 @@ def run(local_rank,args):
         optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
         epoch_start = 0
         write_log_head(args,log_path,model,train_keys,val_keys)
+    # dataset processing
     train_dataset = ESDataset(train_keys,args, args.data_path,args.debug)#keys,args, data_dir,debug
     val_dataset = ESDataset(val_keys,args, args.data_path,args.debug)
     test_dataset = ESDataset(test_keys,args, args.data_path,args.debug) 
     train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset) if args.ngpu >= 1 else None
     val_sampler = SequentialDistributedSampler(val_dataset,args.batch_size) if args.ngpu >= 1 else None
     test_sampler = SequentialDistributedSampler(test_dataset,args.batch_size) if args.ngpu >= 1 else None
-
+#    use sampler to balance the training data or not 
     if args.sampler:
         num_train_chembl = len([0 for k in train_keys if '_active' in k])
         num_train_decoy = len([0 for k in train_keys if '_active' not in k])
@@ -118,7 +115,7 @@ def run(local_rank,args):
     # optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.max_lr,pct_start=args.pct_start,\
          steps_per_epoch=len(train_dataloader), epochs=args.epoch,last_epoch = -1 if len(train_dataloader)*epoch_start == 0 else len(train_dataloader)*epoch_start )
-    #loss function
+    #loss function ,in this paper just use cross entropy loss but you can try focal loss too!
     if args.loss_fn == 'bce_loss':
         loss_fn = nn.BCELoss().to(args.device,non_blocking=True)# 
     elif args.loss_fn == 'focal_loss':
@@ -134,7 +131,7 @@ def run(local_rank,args):
     else:
         raise ValueError('not support this loss : %s'%args.loss_fn)
 
-    best_loss = 1000000000#by caodunahua
+    best_loss = 1000000000
     best_f1 = -1
     counter = 0
     for epoch in range(epoch_start,num_epochs):
@@ -191,7 +188,9 @@ if '__main__' == __name__:
     import torch.multiprocessing as mp
     from dist_utils import *
     from parsing import parse_train_args
+    # get args from parsering function
     args = parse_train_args()
+    # set gpu to use
     if args.ngpu>0:
         cmd = get_available_gpu(num_gpu=args.ngpu, min_memory=28000, sample=3, nitro_restriction=False, verbose=True)
         if cmd[-1] == ',':
@@ -202,6 +201,7 @@ if '__main__' == __name__:
     os.environ["MASTER_PORT"] = args.MASTER_PORT
     from torch.multiprocessing import Process
     world_size = args.ngpu
+    # use multiprocess to train
     processes = []
     for rank in range(world_size):
         p = Process(target=run, args=(rank, args))
