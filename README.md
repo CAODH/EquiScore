@@ -14,11 +14,13 @@ If you have any question, feel free to open an issue or reach out to us: [caodh@
 
 The files in `data` contain the names for the Uniport ID-based data split.
 
-If you want to train one of our models with the data then:
+If you want to train one of our models with the PDBscreen data, you need to do :
 
-1. download it from [zenodo]() 
+1. download Preprocessed PDBscreen data from [zenodo]() 
 
 2. unzip the directory by tar command and place it into `data` such that you have the path `/EquiScore/data/training_data/PDBscreen`
+
+3. see retraining EquiScore part for details.
 
 ## Setup Environment
 
@@ -41,7 +43,7 @@ Fortunately! you slao can setup conda environment by command `conda env create -
 
 ### **just some steps need to do**
 
-1. Docking compounds with target protein to get docking pose , in this step ,you can use any method to get docking pose(Glide,Vina,Surflex,Gold,LeDock), or you can try a deep learning method.
+1. Docking compounds with target protein to get docking pose , in this step ,you can use any method to get docking pose(**Glide,Vina,Surflex,Gold,LeDock**), or you can try a **deep learning method**.
 
 2. Assume that you have obtained the results of the docking in the previous step. Then, get pocket region and compound pose.
    run script:
@@ -60,19 +62,19 @@ Fortunately! you slao can setup conda environment by command `conda env create -
 
 ### **just some steps need to set**
 
-1. We provided pockets on zenodo (download pockets from [zenodo]()). IF YOU WANT GET RAW DATASET PLEASE DOWNLOAD RAW DATA FROM REFERENCE PAPERS.
+1. We provided Preprocessed pockets on zenodo (download pockets from [zenodo]()). IF YOU WANT GET RAW DATASET PLEASE DOWNLOAD RAW DATA FROM REFERENCE PAPERS.
 
-1. you need download the dataset and extract data to ./data/external_test_data
+1. you need download the Preprocessed dataset and extract data to ./data/external_test_data.
 
-2. get pocket like "Screen a compound for your target protein" steps , all pocket file name should contain '_active' for active ligand,'_decoy' for decoys and  all pocket in a dir for one benchmark dataset 
+   (for example, all pockets in DEKOIS2.0 docking by Glide SP should be extract into one dir like ./data/external_test_data/dekois2_pocket)
 
- (for example, all pockets in DEKOIS2.0 docking by Glide SP should be extract into one dir like ./data/external_test_data/dekois2_pocket)
+2. fi you want to preprocessed data to get pocket , all pocket file name should contain '_active' for active ligand,'_decoy' for decoys and  all pocket in a dir for one benchmark dataset 
 
 3. run script (You can use the nohup command and output redirects as you normally like):
    
    `python independent_test_dist.py --test --test_path './data/external_test_data' --test_name dekois2_pocket --test_mode milti_pose`
    
-    use milti_pose arg if one ligand have multi pose and set pose_num and idx_style in args ，see args `--help for more details` 
+    use **milti_pose** arg if one ligand have multi pose and set pose_num and **idx_style** in args ，see args `--help for more details` 
 
 ## **Retraining EquiScore**
 
@@ -82,16 +84,16 @@ Fortunately! you slao can setup conda environment by command `conda env create -
 
    (you can use You can also use your own private data, As long as it can fit to EquiScore after processing)
 
-2. use uniport id to deduplicated data and split data in ./data/data_splits/screen_model/data_split_for_training.py;
-   in this script , will help deduplicated dataset by uniport id and split train/val data and save data path into pkl file
+2. use uniport id to deduplicated data and split data in `./data/data_splits/screen_model/data_split_for_training.py`
 
+   in this script , it will help you **deduplicated dataset by uniport id and split train/val data** and save data path into pkl file
    `"train_keys.pkl, val_keys.pkl, test_keys.pkl"`
 
 3. run train.py script : 
 
    `python train.py --ngpu 1 --train_keys your_keys_path --val_keys your_keys_path --test_keys_path your_keys_path`
 
-   (or if you want speed up training , please save data to LMDB database in dataset.py and add --lmdb_cache lmdb_cache_path )
+   (**or if you want speed up training , please save data to LMDB database in dataset.py and add --lmdb_cache lmdb_cache_path** )
 
 ## Citation
 
