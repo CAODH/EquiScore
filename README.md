@@ -10,7 +10,7 @@ If you have any question, feel free to open an issue or reach out to us: [caodh@
 
 ![Alt Text](./figs/model_framework.png)
 
-# Dataset
+## Dataset
 
 The files in `data` contain the names for the Uniport ID-based data split.
 
@@ -29,28 +29,27 @@ current repo
 
 This is an example for how to set up a working conda environment to run the code (but make sure to use the correct pytorch, pytorch-geometric, cuda versions or cpu only versions):
 
-    conda create --name EquiScore python=3.8
-    conda activate EquiScore
-    and then install all pkgs, in environment.yml file.
+   `conda create --name EquiScore python=3.8 conda activate EquiScore`
+   and then install all pkgs, in environment.yml file.
 
-    Fortunately! you slao can setup conda environment by command "conda env create -f environment.yml" and done!
+Fortunately! you slao can setup conda environment by command `conda env create -f environment.yml` and done!
 
-# Using the provided model weights to screen a compound for your target protein
+## Using the provided model weights to screen a compound for your target protein
 
-We implemented a Screening.py python script , to help anyone want to screen compounds from a compound library.
+   We implemented a Screening.py python script , to help anyone want to screen compounds from a compound library.
 
-## just some steps need to do
+### just some steps need to do
 
 1. Docking compounds with target protein to get docking pose , in this step ,you can use any method to get docking pose(Glide,Vina,Surflex,Gold,LeDock), or you can try a deep learning method.
 
 2. Assume that you have obtained the results of the docking in the previous step. Then, get pocket region and compound pose.
    run script:
 
-   python get_pocket.py --docking_result ./data/sample_data/sample_compounds.sdf --recptor_pdb ./data/sample_data/sample_protein.pdb --single_sdf_save_path ./data/sample_data/tmp_sdfs --pocket_save_dir ./data/sample_data/tmp_pockets
+   `python get_pocket.py --docking_result ./data/sample_data/sample_compounds.sdf --recptor_pdb ./data/sample_data/sample_protein.pdb --single_sdf_save_path ./data/sample_data/tmp_sdfs --pocket_save_dir ./data/sample_data/tmp_pockets`
 
 3. Then, you have all data to predict protein-ligand interaction by EquiScore! Be patient. This is the last step!
 
-   python Screening.py --ngpu 1 --test --test_path ./data/sample_data/ --test_name tmp_pockets --pred_save_path  ./data/test_results/EquiScore_pred_for_tmp_pocket.pkl
+   `python Screening.py --ngpu 1 --test --test_path ./data/sample_data/ --test_name tmp_pockets --pred_save_path  ./data/test_results/       EquiScore_pred_for_tmp_pocket.pkl`
 
 4. Util now, you get all prediction result in pred_save_path, and you can read it for select compound by yourself!
 
@@ -68,12 +67,13 @@ We implemented a Screening.py python script , to help anyone want to screen comp
 
 3. run script (You can use the nohup command and output redirects as you normally like):
    
-   python independent_test_dist.py --test --test_path './data/external_test_data' --test_name dekois2_pocket --test_mode milti_pose
+   `python independent_test_dist.py --test --test_path './data/external_test_data' --test_name dekois2_pocket --test_mode milti_pose`
    
-    use milti_pose arg if one ligand have multi pose and set pose_num and idx_style in args ，see args --help for more details 
+    use milti_pose arg if one ligand have multi pose and set pose_num and idx_style in args ，see args `--help for more details` 
 
-# Retraining EquiScore
-## retraining EquiScore or fine tune your model is also very simnple!
+## Retraining EquiScore
+
+### retraining EquiScore or fine tune your model is also very simnple!
 
 1. you need download the traing dataset , and extract pocket data to ./data/training_data/PDBscreen
 
@@ -85,9 +85,13 @@ We implemented a Screening.py python script , to help anyone want to screen comp
    
    "train_keys.pkl, val_keys.pkl, test_keys.pkl"
 
-3. run train.py script : python train.py --ngpu 1 --train_keys your_keys_path --val_keys your_keys_path --test_keys_path your_keys_path (or if you want speed up training , please save data to LMDB database in dataset.py and add --lmdb_cache lmdb_cache_path )
+3. run train.py script : `python train.py --ngpu 1 --train_keys your_keys_path --val_keys your_keys_path --test_keys_path your_keys_path`
+   (or if you want speed up training , please save data to LMDB database in dataset.py and add --lmdb_cache lmdb_cache_path )
 
 ## Citation
+
    EquiScore: A generic protein-ligand interaction scoring method integrating physical prior knowledge with data augmentation modeling
+
 ## License
+
 MIT
