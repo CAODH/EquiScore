@@ -60,10 +60,11 @@ def extract(ligand, pdb,key):
 def preprocessor(docking_result_sdf_fn,origin_recptor_pdb,data_dir):
     """
     get pocket from docking result and save to file:(m1,m2)
+
     input:
         docking_result_sdf_fn: docking result sdf file, one ligand in sdf file will speed up this process in multi-process
         origin_recptor_pdb: receptor pdb file
-        data_dir: save pocket file dir
+        data_dir: path for save pocket file
     output:
         0: success
         -1: fail
@@ -79,7 +80,6 @@ def preprocessor(docking_result_sdf_fn,origin_recptor_pdb,data_dir):
 
                 if len(m1.GetConformers())==0:
                     print(f"{key} mol no conformer!")
-                    # return -1
                     continue
                 try:
                     m2 = extract(m1, origin_recptor_pdb,key)
@@ -114,7 +114,6 @@ def get_pocket_with_water(complex_sample,receptor_fn):
     # print(status)
 if __name__ == '__main__':
 
-    # from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED, FIRST_COMPLETED
     import time
     from multiprocessing import Pool
     import os
@@ -131,7 +130,6 @@ if __name__ == '__main__':
     parser.add_argument("--prefix", help="Anything that helps you distinguish between compounds.", type=str,default='Compound')
     parser.add_argument("--process_num", help="process num for multi process ", type=int,default=1)
     args = parser.parse_args()
-
     os.makedirs(args.single_sdf_save_path,exist_ok=True)
     if args.docking_result.endswith('maegz'):
         total=Chem.rdmolfiles.MaeMolSupplier(gzip.open(args.docking_result))
@@ -148,12 +146,10 @@ if __name__ == '__main__':
             print('atoms nums',len(sample.GetAtoms()),'may you not split protein and compounds ? save protein in a file in this dir')
             Chem.MolToPDBFile(sample,f'./data/protein.pdb')
             print('save protein success')
-            # break
         else:
             if sample is  not None:
                 name = '{}_{}_{}.sdf'.format(os.path.basename(args.docking_result).split('.')[0],args.prefix,i)
                 out_sdf(sample,os.path.join(args.single_sdf_save_path,name))
-        # pbar.set_description('{}/{}'.format(i + 1,length))
     
     total_sdfs = [os.path.join(args.single_sdf_save_path,filename)for filename in os.listdir(args.single_sdf_save_path)]
     file_tuple_list = []

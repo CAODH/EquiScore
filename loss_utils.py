@@ -70,12 +70,9 @@ class auxiliary_loss(nn.Module):
         pos_num = torch.sum(labels)
         neg_num = len(labels)-pos_num
         if len(labels) > neg_num > 0:
-            # print('y_pred:',y_pred)
-            # print('labels:',labels.bool())
             pos_pred = y_pred[labels.bool()]
             neg_pred = y_pred[(1-labels).bool()]
             loss = self.deta*torch.sum(neg_pred - pos_pred.reshape(-1,1))/(pos_num*neg_num)
-            # loss = Variable(loss, requires_grad=True)
         else: 
             loss = 0
         return loss 

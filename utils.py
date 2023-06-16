@@ -7,16 +7,14 @@ import torch.nn as nn
 from rdkit.ML.Scoring.Scoring import CalcBEDROC
 from collections import defaultdict
 from sklearn.metrics import roc_auc_score,confusion_matrix,roc_curve
-from sklearn.metrics import accuracy_score,auc,balanced_accuracy_score#g,l;x,y;g,l
-from sklearn.metrics import recall_score,precision_score,precision_recall_curve#g,l;g,l;g,p
-from sklearn.metrics import confusion_matrix,f1_score#g,l;g,l
+from sklearn.metrics import accuracy_score,auc,balanced_accuracy_score
+from sklearn.metrics import recall_score,precision_score,precision_recall_curve
+from sklearn.metrics import confusion_matrix,f1_score
 from prefetch_generator import BackgroundGenerator
 from torch.utils.data import DataLoader
 class DataLoaderX(DataLoader):
     def __iter__(self):
         return BackgroundGenerator(super().__iter__())                            
-# from dataset import ESDataset,  DTISampler
-# from dataset  import *
 from dataset import ESDataset
 from dist_utils import *
 N_atom_features = 28
@@ -41,14 +39,12 @@ def initialize_model(model, device, args,load_save_file = False,init_classifer =
             continue
             nn.init.constant_(param, 0)
         else:
-            #nn.init.normal(param, 0.0, 0.15)
             nn.init.xavier_normal_(param)
             
 
     if load_save_file:
         state_dict = torch.load(load_save_file,map_location = 'cpu')
         model_dict = state_dict['model']
-        # model_dict.pop('deta')
         model_state_dict = model.state_dict()
         model_dict = {k:v for k,v in model_dict.items() if k in model_state_dict}
         model_state_dict.update(model_dict)
@@ -57,7 +53,6 @@ def initialize_model(model, device, args,load_save_file = False,init_classifer =
         optimizer =state_dict['optimizer']
         epoch = state_dict['epoch']
         print('load save model!')
-    # model.to(device)
     if torch.cuda.device_count() > 1:
         print("Let's use", torch.cuda.device_count(), "GPUs!")
       
@@ -105,14 +100,13 @@ def get_metrics(train_true,train_pred):
         train_true = np.concatenate(np.array(train_true,dtype=object), 0).astype(np.long)
     except:
         pass
-    # print(train_pred,train_true)
     train_pred_label = np.where(train_pred > 0.5,1,0).astype(np.long)
 
     tn, fp, fn, tp = confusion_matrix(train_true,train_pred_label).ravel()
     train_auroc = roc_auc_score(train_true, train_pred) 
     train_acc = accuracy_score(train_true,train_pred_label)
     train_precision = precision_score(train_true,train_pred_label)
-    train_sensitity = tp/(tp + fn)#recall_score(train_true,train_pred_label)
+    train_sensitity = tp/(tp + fn)
     train_specifity = tn/(fp+tn)
     ps,rs,_ = precision_recall_curve(train_true,train_pred)
     train_auprc = auc(rs,ps)
@@ -123,14 +117,11 @@ def get_metrics(train_true,train_pred):
     # BEDROC
     sort_ind = np.argsort(train_pred)[::-1] # Descending order
     BEDROC = CalcBEDROC(train_true[sort_ind].reshape(-1, 1), 0, alpha = 80.5)
-
-
-
     return train_auroc,BEDROC,train_adjusted_logauroc,train_auprc,train_balanced_acc,train_acc,train_precision,train_sensitity,train_specifity,train_f1
 
 
 def random_split(train_keys, split_ratio=0.9, seed=0, shuffle=True):
-    '''split the dataset into train and validation set by random sampling , this function not useful for new target protein prediction
+    '''split the dataset into train and validation set by random sampling, this function not useful for new target protein prediction
     '''
     dataset_size = len(train_keys)
     """random splitter"""
@@ -155,7 +146,6 @@ def evaluator(model,loader,loss_fn,args,test_sampler):
             loss = loss_fn(pred ,Y) 
  
             if args.ngpu >= 1:
-            # dist.barrier() 
                 dist.all_reduce(loss.data,op = torch.distributed.ReduceOp.SUM)
                 loss /= float(dist.get_world_size()) # get all loss value 
             # collect loss, true label and predicted label
@@ -184,7 +174,7 @@ def evaluator(model,loader,loss_fn,args,test_sampler):
 import copy
 def train(model,args,optimizer,loss_fn,train_dataloader,scheduler):
 
-    #collect losses of each iteration
+    # collect losses of each iteration
     train_losses = [] 
     model.train()
 
@@ -217,17 +207,16 @@ def train(model,args,optimizer,loss_fn,train_dataloader,scheduler):
             scheduler.step()
     return model,train_losses,optimizer,scheduler
 def getToyKey(train_keys):
+
     '''get toy dataset for test'''
+
     train_keys_toy_d = []
     train_keys_toy_a = []
     
     max_all = 600
     for key in train_keys:
-        
         if '_active_' in key:
             train_keys_toy_a.append(key)
-            
-       
         if '_active_' not in key:
             train_keys_toy_d.append(key)
 
@@ -348,9 +337,12 @@ def getEF(model,args,test_path,save_path,debug,batch_size,loss_fn,rates = 0.01,f
                         f.write(item + ' : '+str(args_dict[item]) + '\n')
                     f.close()
         if args.ngpu >= 1:
+            # Keeping processes in sync
             dist.barrier()
 def getNumPose(test_keys,nums = 5):
+
     '''get the first nums pose for each ligand to prediction'''
+
     ligands = defaultdict(list)
     for key in test_keys:
         key_split = key.split('_')
@@ -386,7 +378,7 @@ def getEFMultiPose(model,args,test_path,save_path,debug,batch_size,loss_fn,rates
         '''
         save_file = save_path + '/EF_test_multi_pose' + '_{}_'.format(pose_num) + flag
         test_keys = os.listdir(test_path)
-        # for multi pose complex ,get pose_num poses to cal EF
+        # for multi pose complex, get pose_num poses to cal EF
         tested_pros = getTestedPro(save_file)
         if idx_style:
             test_keys = getIdxPose(test_keys,idx = pose_num)
@@ -433,7 +425,6 @@ def getEFMultiPose(model,args,test_path,save_path,debug,batch_size,loss_fn,rates
                     Y_sum = 0
                     # multi pose 
                     # get max logits for every ligand
-
                     key_logits = defaultdict(list)
                     for pred,key in zip(test_pred,test_keys_pro):
                         new_key = '_'.join(key.split('/')[-1].split('_')[:-2] + key.split('/')[-1].split('_')[-2].split('-')[:-1])
@@ -461,12 +452,10 @@ def getEFMultiPose(model,args,test_path,save_path,debug,batch_size,loss_fn,rates
                     hits_list = []
                     for rate in rates:
                         find_limit = int(len(test_keys_pro)*rate)
-                        # print(find_limit)
                         _,indices = torch.sort(torch.tensor(test_pred),descending = True)
                         hits = torch.sum(indices[:find_limit] < actions)
                         EF.append((hits/find_limit)/action_rate)
                         hits_list.append(hits)
-                        # print(hits,actions,action_rate)
                     
                     EF_str = '['
                     hits_str = '['
@@ -544,21 +533,15 @@ def getEF_from_MSE(model,args,test_path,save_path,device,debug,batch_size,A2_lim
                         Y_sum += 1
                 actions = int(Y_sum)
                 action_rate = actions/len(test_keys_pro)
-
-                
                 test_pred = np.concatenate(np.array(test_pred), 0)
-
-    
                 EF = []
                 hits_list = []
                 for rate in rates:
                     find_limit = int(len(test_keys_pro)*rate)
-                    # print(find_limit)
                     _,indices = torch.sort(torch.tensor(test_pred),descending = True)
                     hits = torch.sum(indices[:find_limit] < actions)
                     EF.append((hits/find_limit)/action_rate)
                     hits_list.append(hits)
-                    # print(hits,actions,action_rate)
                 
                 EF_str = '['
                 hits_str = '['
@@ -588,7 +571,6 @@ def getEF_from_MSE(model,args,test_path,save_path,device,debug,batch_size,A2_lim
                 for item in args_dict.keys():
                     f.write(item + ' : '+str(args_dict[item]) + '\n')
                 f.close()
-
 from collections import defaultdict
 import numpy as np
 import pickle
@@ -614,7 +596,7 @@ def get_train_val_keys(keys):
             val_list +=  pro_dict[pro_list[i]]
     return train_list,val_list
 def get_dataloader(args,train_keys,val_keys,val_shuffle=False):
-    train_dataset = ESDataset(train_keys,args, args.data_path,args.debug)#keys,args, data_dir,debug
+    train_dataset = ESDataset(train_keys,args, args.data_path,args.debug)
     val_dataset = ESDataset(val_keys,args, args.data_path,args.debug)
    
     if args.sampler:
@@ -646,7 +628,6 @@ def write_log_head(args,log_path,model,train_keys,val_keys):
         f.close()
 def save_model(model,optimizer,args,epoch,save_path,mode = 'best'):
     '''a function to save model'''
-
     best_name = save_path + '/save_{}_model'.format(mode)+'.pt'
     if args.debug:
         best_name = save_path + '/save_{}_model_debug'.format(mode)+'.pt'
@@ -662,7 +643,6 @@ def shuffle_train_keys(train_keys):
         key = i.split('/')[-1].split('_')[0]
         sample_dict[key].append(i)
     keys = list(sample_dict.keys())
-    # print(len(keys))
     np.random.shuffle(keys)
     new_keys = []
     batch_sizes = []

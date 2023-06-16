@@ -13,7 +13,6 @@ class EquiScore(nn.Module):
         super().__init__()
         self.args = args
         atom_dim = 16*12 if self.args.FP else 10*6
-        # self.in_feat_dropout = nn.Dropout(self.args.dropout)
         self.atom_encoder = nn.Embedding(atom_dim  + 1, self.args.n_out_feature, padding_idx=0)
         self.edge_encoder = nn.Embedding( 36* 5 + 1, self.args.edge_dim, padding_idx=0) if args.edge_bias is True else nn.Identity()
         self.rel_pos_encoder = nn.Embedding(512, self.args.edge_dim, padding_idx=0) if args.rel_pos_bias is True else nn.Identity()#rel_pos
@@ -26,7 +25,7 @@ class EquiScore(nn.Module):
         self.layers = nn.ModuleList([ EquiScoreLayer(self.args) \
                 for _ in range(self.args.n_graph_layer) ]) 
 
-        self.MLP_layer = MLPReadout(self.args)   # 1 out dim since regression problem   
+        self.MLP_layer = MLPReadout(self.args)   # 1 out dim if regression problem   
         self.weight_and_sum = WeightAndSum(self.args.n_out_feature)     
     def getAtt(self,g,full_g):
         h = g.ndata['x']
@@ -44,13 +43,16 @@ class EquiScore(nn.Module):
             h, e = conv(g,full_g,h,e)
             h = F.dropout(h, p=self.args.dropout_rate, training=self.training)
             e = F.dropout(e, p=self.args.dropout_rate, training=self.training)
-        # left 3 lines for ligand atoms 
+        # only ligand atom's features are used to task layer 
         h = h * g.ndata['V']
         hg = self.weight_and_sum(g,h)
         hg = self.MLP_layer(hg)
         
         return h,g,full_g,hg
     def getAttFirstLayer(self,g,full_g):
+        '''
+        A tool function to get the attention of the first layer
+        '''
         h = g.ndata['x']
 
         h = self.atom_encoder(h.long()).mean(-2)
@@ -67,7 +69,7 @@ class EquiScore(nn.Module):
             h, e = conv(g,full_g,h,e)
             h = F.dropout(h, p=self.args.dropout_rate, training=self.training)
             e = F.dropout(e, p=self.args.dropout_rate, training=self.training)
-        # left 3 lines for ligand atoms 
+        # only ligand atom's features are used to task layer
         h = h * g.ndata['V']
         hg = self.weight_and_sum(g,h)
         hg = self.MLP_layer(hg)
@@ -76,7 +78,6 @@ class EquiScore(nn.Module):
     
     def forward(self, g, full_g):
         h = g.ndata['x']
-        # print(torch.max(h),torch.min(h),self.atom_encoder.weight.shape,h.shape)
         h = self.atom_encoder(h.long()).mean(-2)
 
         if self.args.lap_pos_enc:

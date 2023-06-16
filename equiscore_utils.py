@@ -7,12 +7,12 @@ import torch.nn.functional as F
 """
 class MLPReadout(nn.Module):
 
-    def __init__(self, args): #L=nb_hidden_layers
+    def __init__(self, args): 
         super().__init__()
         self.args = args
         self.FC = nn.ModuleList([nn.Linear(self.args.n_out_feature, self.args.d_FC_layer) if i==0 else
                                 nn.Linear(self.args.d_FC_layer, 2) if i==self.args.n_FC_layer-1  else
-                                nn.Linear(self.args.d_FC_layer, self.args.d_FC_layer) for i in range(self.args.n_FC_layer)]) #4层 
+                                nn.Linear(self.args.d_FC_layer, self.args.d_FC_layer) for i in range(self.args.n_FC_layer)])
         
     def forward(self, c_hs):
     
@@ -152,7 +152,6 @@ def out_edge_features(edge_feat):
     return func
 def edge_mul_score(field,score):
     def func(edges):
-        # print(edges.data[field].shape,edges.data[score].shape )
         return {field:edges.data[field]*edges.data[score].sum(1).reshape(-1,1)}
     return func
 def exp(field):
@@ -163,20 +162,18 @@ def square(field,out_field):
     def func(edges):
          return {out_field: torch.square((edges.data[field])).sum(dim = -1,keepdim = True)}
     return func
-# for global decoy func
 def guss_decoy(field,rel_pos):
     '''
-    rel_pos :3d distance pass a linear
+    rel_pos :3d distance pass a linear layer or FFN
     '''
     def func(edges):
         
         return {field: edges.data[field].sum(-1, keepdim=True)*edges.data[rel_pos].unsqueeze(-1)}
     
-       
     return func
 
 def partUpdataScore(out_filed,in_filed,graph_sparse):
-    '''update part of geometric distance based graph edge score'''
+    '''update part of geometric distance based graph edge score '''
     def func(edges):
         return {out_filed:graph_sparse.edata[in_filed]}
     return func

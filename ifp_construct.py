@@ -16,7 +16,6 @@ def get_nonBond_pair(m1,m2):
     # find IFP  atom pairs , match with rdkit id 
     res_to_idx = defaultdict(dict)
     for atom in m2.GetAtoms():
-        # prot.residues
         atom_idx = atom.GetIdx()
         res_name = str(plf.residue.ResidueId.from_atom(atom))
         res_to_idx[res_name][len(res_to_idx[res_name])] = atom_idx

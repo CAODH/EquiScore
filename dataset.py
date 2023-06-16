@@ -2,7 +2,6 @@
 import lmdb
 from torch.utils.data import Dataset
 from torch.utils.data.sampler import Sampler
-# from dataset_utils import get_atom_graphformer_feature
 import utils 
 import numpy as np
 import torch
@@ -23,8 +22,6 @@ class DTISampler(Sampler):
         self.replacement = replacement
     def __iter__(self):
 
-        #return iter(torch.multinomial(self.weights, self.num_samples, self.replacement).tolist())
-
         retval = np.random.choice(len(self.weights), self.num_samples, replace=self.replacement, p=self.weights) 
         return iter(retval.tolist())
     def __len__(self):
@@ -42,7 +39,7 @@ class ESDataset(Dataset):
         if not args.test:
             # load data from LMDB database
             env = lmdb.open(args.lmdb_cache, map_size=int(1e12), max_dbs=2, readonly=True)
-            self.graph_db = env.open_db('data'.encode()) # graph data base
+            self.graph_db = env.open_db('data'.encode()) # graph database
             self.txn = env.begin(buffers=True,write=False)
         else:
             pass
@@ -53,8 +50,9 @@ class ESDataset(Dataset):
         return len(self.keys)
     def collate(self, samples):
 
-        # The input samples is a list of pairs (graph, label).
-        ''' collate function for building graph dataloader'''
+
+        ''' The input samples is a list of pairs (graph, label)
+        collate function for building graph dataloader'''
 
         samples = list(filter(lambda  x : x is not None,samples))
         g,full_g,Y = map(list, zip(*samples))
@@ -155,8 +153,6 @@ class ESDataset(Dataset):
         g.ndata['V'] = valid.float().reshape(-1,1)
         return g,Y
 
-
-    
 if __name__ == "__main__":
     import lmdb
     import argparse
@@ -178,17 +174,17 @@ if __name__ == "__main__":
     # create lmdb database
     dgl_graph_db = env.open_db('data'.encode())
     # read all data file path from pkl file  
-    ''' Attention you should change contain all data path in test_keys when you process data to LMDB database ,also \
+    ''' Attention!
+        you should change contain all data path in test_keys when you process data to LMDB database ,also \
         you can just specity a file path directly rather than passing it via args vatriable!'''
     with open (args.test_keys, 'rb') as fp:
         val_keys = pickle.load(fp)
     keys =  val_keys 
-    ################save processed data into database and then you can index data by the key in training_keys.pkl file##########################
+    ################ save processed data into database and then you can index data by the key in training_keys.pkl file ##########################
     def saveDB(key):
         with env.begin(write=True) as txn:
             try:
                 g,y = ESDataset._GetGraph(key,args)
-                # print(type(g))
                 txn.put(key.encode(), pickle.dumps((g,y)), db = dgl_graph_db)
             except:
                 print('file: {} is not a valid file!'.format(key))

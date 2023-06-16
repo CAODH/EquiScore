@@ -3,14 +3,11 @@ import numpy as np
 from utils import *
 from rdkit import Chem
 import rdkit.Chem.AllChem as AllChem
-# from dataset import *
 import numpy as np
 import rdkit
 from scipy.spatial.distance import cdist
 from scipy.spatial import distance_matrix
 import dgl
-# import pyximport
-# pyximport.install(setup_args={'include_dirs': np.get_include()})
 import os.path as osp
 from rdkit import RDConfig
 from rdkit.Chem import ChemicalFeatures
@@ -157,7 +154,6 @@ def get_atom_graphformer_feature(m,FP = False):
         else:
             H.append(atom_feature_graphformer(m, i, None, None))
     H = np.array(H)        
-    # print('H in get func',H)
 
     return H      
 
@@ -217,11 +213,9 @@ def molEdge(mol,n1,n2,adj_mol = None):
         n = len(mol.GetAtoms())
         adj_mol -= np.eye(len(adj_mol))
         dm = adj_mol[n:n1,:n1]
-        # adj_mol += np.eye(len(adj_mol))
         edge_pos_u,edge_pos_v = np.where(dm == 1)
         
         u,v = list((edge_pos_u + n)) +  list( edge_pos_v),list( edge_pos_v) + list((edge_pos_u + n))
-        # print('mol virtual edge',u,v)
         edges_list.extend([*zip(u,v)])
         edge_features_list.extend([[33,17,3,3,17]]*len(u))
 
@@ -250,10 +244,9 @@ def pocketEdge(mol,n1,n2,adj_pocket = None):
         adj_pocket -= np.eye(all_n)
         dm = adj_pocket[n:,n1:]
         edge_pos_u,edge_pos_v = np.where(dm == 1)
-        # print('pocket virtual edge',edge_pos_u,edge_pos_v)
         
         u,v = list((edge_pos_u + n)) +  list( edge_pos_v + n1),list( edge_pos_v + n1) + list((edge_pos_u + n))
-        # print('pocket virtual edge',u,v)
+
         edges_list.extend([*zip(u,v)])
         edge_features_list.extend([[33,17,3,3,17]]*len(u))
    
@@ -297,9 +290,7 @@ def mol2graph(mol,x,args,n1,n2,adj = None,dm = None):
     :return: graph object
     """
     if args.edge_bias:
-        # time_s = time.time()
         edge_index, edge_attr= getEdge(mol,adj_in = adj,n1 = n1,n2 = n2)
-        # print()
     else:
         edge_index, edge_attr= None,None
 
@@ -318,7 +309,6 @@ def mol2graph(mol,x,args,n1,n2,adj = None,dm = None):
     graph['edge_index'] = edge_index
     graph['edge_feat'] = edge_attr
     graph['node_feat'] = x
-    # graph['num_nodes'] = len(x)
     graph['rel_pos_3d'] = rel_pos_3d
     return graph 
 #=================== data attrs end ========================
@@ -350,7 +340,6 @@ def pandas_bins(dis_matrix,num_bins = None,noise = False):
 def preprocess_item(item, args,adj):
 
     edge_attr, edge_index, x  = item['edge_feat'], item['edge_index'], item['node_feat']
-    # print('get edge from  molgraph: ',time.time()-time_s)
     N = x.size(0)
     if args.model == 'EquiScore':
         offset = 16 if args.FP else 10
@@ -367,7 +356,6 @@ def preprocess_item(item, args,adj):
     adj_in = adj.long().sum(dim=1).view(-1)
     adj_in = torch.where(adj_in < 0,0,adj_in)
     g.ndata['in_degree'] = torch.where(adj_in > 8,9,adj_in) if args.in_degree_bias else None
-    # print('max() min()',max(adj_in),min(adj_in))
     g.edata['edge_attr'] = convert_to_single_emb(edge_attr)   
     return g
 
