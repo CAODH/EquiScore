@@ -67,8 +67,8 @@ def get_aromatic_rings(mol:rdkit.Chem.Mol) -> list:
         if ring_id_set <= aromaticity_atom_id_set:
             rings.append(list(ring))
     return rings
-def add_atom_to_mol(mol:rdkit.Chem.Mol,adj:np.array,H:np.array,d:np.array,n:int) :
-    '''
+def add_atom_to_mol(mol:rdkit.Chem.Mol,adj:np.array,H:np.array,d:np.array,n:int):
+    """
     docstring: 
         add virtual aromatic atom feature/adj/3d_positions to raw data
 
@@ -77,7 +77,7 @@ def add_atom_to_mol(mol:rdkit.Chem.Mol,adj:np.array,H:np.array,d:np.array,n:int)
         H : node feature
         node d : 3d positions
         n: node nums 
-    '''
+    """
     assert len(adj) == len(H),'adj nums not equal to nodes'
     rings = get_aromatic_rings(mol)
     num_aromatic = len(rings)
