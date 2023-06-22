@@ -1,6 +1,6 @@
 # EquiScore: A generic protein-ligand interaction scoring method integrating physical prior knowledge with data augmentation modeling
 
-### [Paper on arXiv]()
+### [Paper on BioRXiv](https://www.biorxiv.org/content/10.1101/2023.06.18.545464v2)
 
 Implementation of EquiScore, by Duanhua Cao 😊.
 
@@ -14,7 +14,7 @@ If you have any question, feel free to open an issue or reach out to us: [caodh@
 
 If you want to train one of our models with the PDBscreen data you should to do:
 
-1. download Preprocessed PDBscreen data from [zenodo]()
+1. download Preprocessed PDBscreen data from [zenodo](https://doi.org/10.5281/zenodo.8049380)
 2. uncompress the directory by tar command and place it into `data` such that you have the path `/EquiScore/data/training_data/PDBscreen`
 3. see retraining EquiScore part for details.
 
@@ -42,7 +42,7 @@ Fortunately! you slao can setup conda environment by command `conda env create -
 
    We provide a toy example under the ./data/sample_data folder for illustration.
 
-### **just some steps need to do**
+### **🚀just some steps need to do**
 
 1. Docking compounds with target protein to get docking pose, EquiScore is robust to pose sources and you can choose any method you are familiar with to generate poses(**Glide,Vina,Surflex,Gold,LeDock**), or you can try a **deep learning method**.
 2. Assume that you have obtained the results of the docking in the previous step. Then, get pocket region and compound pose.
@@ -60,7 +60,7 @@ Fortunately! you slao can setup conda environment by command `conda env create -
 
 ### **just some steps need to set**
 
-1. We provided Preprocessed pockets on zenodo (download pockets from [zenodo]()). IF YOU WANT GET RAW DATASET PLEASE DOWNLOAD RAW DATA FROM REFERENCE PAPERS.
+1. We provided Preprocessed pockets on zenodo (download pockets from [zenodo](https://doi.org/10.5281/zenodo.8047224)). IF YOU WANT GET RAW DATASET PLEASE DOWNLOAD RAW DATA FROM REFERENCE PAPERS.
 2. you need download the Preprocessed dataset and extract data to ./data/external_test_data.
 
    (for example, all pockets in DEKOIS2.0 docking by Glide SP should be extract into one dir like ./data/external_test_data/dekois2_pocket)
@@ -71,7 +71,7 @@ Fortunately! you slao can setup conda environment by command `conda env create -
 
    use **milti_pose** arg if one ligand have multi pose and set pose_num and **idx_style** in args ，see args `--help for more details`
 
-## **Retraining EquiScore**
+## **Retraining EquiScore 🤖 Model**
 
 ### **Retraining EquiScore or fine tune your model is also very simnple!**
 
@@ -90,6 +90,8 @@ Fortunately! you slao can setup conda environment by command `conda env create -
 ## Citation
 
    EquiScore: A generic protein-ligand interaction scoring method integrating physical prior knowledge with data augmentation modeling
+   Duanhua Cao, Geng Chen, Jiaxin Jiang, Jie Yu, Runze Zhang, Minan Chen, Wei Zhang, Lifan Chen, Feisheng Zhong, Yingying Zhang, Chenghao Lu, Xutong Li, Xiaomin Luo, Sulin Zhang, Mingyue Zheng
+   bioRxiv 2023.06.18.545464; doi: https://doi.org/10.1101/2023.06.18.545464
 
 ## License
 
