@@ -6,7 +6,7 @@ Implementation of EquiScore, by Duanhua Cao 😊.
 
 This repository contains all code, instructions and model weights necessary to **screen compounds** by EquiScore, eval EquiScore or to retrain a new model.
 
-If you have any question, feel free to open an issue or reach out to us: [caodh@zju.edu](caodh@zju.edu).
+If you have any question, feel free to open an issue or reach out to us: [caodh@zju.edu.cn](caodh@zju.edu.cn).
 
 ![Alt Text](./figs/model_framework.png)
 
