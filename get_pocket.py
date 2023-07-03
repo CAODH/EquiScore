@@ -120,37 +120,48 @@ if __name__ == '__main__':
     import gzip
     import tqdm
     # get pocket and save to file
+    from joblib import Parallel, delayed
     import argparse
     parser = argparse.ArgumentParser(description='Process data from docking result')
     parser.add_argument("--single_sdf_save_path", help="file path for save compounds from docking result.", type=str, \
         default=None,required=True)
     parser.add_argument("--docking_result", help="docking result filname.maegz,filename.mae or filename.sdf.", type=str,default=None,required=True)
-    parser.add_argument("--recptor_pdb", help="receptor pdb file.", type=str,default=None,required=True)
+    parser.add_argument("--recptor_pdb", help="receptor pdb file.", type=str,default='./data/protein.pdb',required=True)
     parser.add_argument("--pocket_save_dir", help="save pocket file dir.", type=str,default=None,required=True)
     parser.add_argument("--prefix", help="Anything that helps you distinguish between compounds.", type=str,default='Compound')
     parser.add_argument("--process_num", help="process num for multi process ", type=int,default=1)
     args = parser.parse_args()
     os.makedirs(args.single_sdf_save_path,exist_ok=True)
     if args.docking_result.endswith('maegz'):
-        total=Chem.rdmolfiles.MaeMolSupplier(gzip.open(args.docking_result))
+        total=Chem.rdmolfiles.MaeMolSupplier(gzip.open(args.docking_result),removeHs = False)
     elif args.docking_result.endswith('sdf'):
-        total=Chem.SDMolSupplier(args.docking_result)
+        total=Chem.SDMolSupplier(args.docking_result,removeHs = False)
     elif args.docking_result.endswith('mae'):
-        total=Chem.rdmolfiles.MaeMolSupplier(args.docking_result)
+        total=Chem.rdmolfiles.MaeMolSupplier(args.docking_result,removeHs = False)
     else:
         print('docking result file format error! only support maegz,mae or sdf')
         exit()
-   
-    for i,sample in enumerate(total):
-        if i==0 and len(sample.GetAtoms()) > 500:
-            print('atoms nums',len(sample.GetAtoms()),'may you not split protein and compounds ? save protein in a file in this dir')
-            Chem.MolToPDBFile(sample,f'./data/protein.pdb')
-            print('save protein success')
-        else:
-            if sample is  not None:
-                name = '{}_{}_{}.sdf'.format(os.path.basename(args.docking_result).split('.')[0],args.prefix,i)
-                out_sdf(sample,os.path.join(args.single_sdf_save_path,name))
-    
+    def saveMolToSDF(i,sample,args):
+        try:
+            if len(sample.GetAtoms()) > 2000:
+                print('atoms nums',len(sample.GetAtoms()),'may you not split protein and compounds ? save protein in a file in this dir, i recommand user check the protein file or split it by yourself')
+                
+                Chem.MolToPDBFile(sample,'./data/tmp_{}_protein.pdb'.format(os.path.basename(args.docking_result).split('.')[0]))
+                print('save protein success,please check it carefully!')
+            else:
+                if sample is not None:
+                    name = '{}_{}_{}.sdf'.format(os.path.basename(args.docking_result).split('.')[0],args.prefix,i)
+                    if not os.path.exists(os.path.join(args.single_sdf_save_path,name)):
+                        out_sdf(sample,os.path.join(args.single_sdf_save_path,name))
+            return 0
+        except:
+            print('save mol to sdf failed,',i)
+            return -1
+
+    # for i,sample in enumerate(total):
+
+    ligs = Parallel(n_jobs=args.process_num, backend="threading")(delayed(saveMolToSDF)(i,sample,args) for i,sample in enumerate(total))
+
     total_sdfs = [os.path.join(args.single_sdf_save_path,filename)for filename in os.listdir(args.single_sdf_save_path)]
     file_tuple_list = []
     for complex_sample in total_sdfs:
