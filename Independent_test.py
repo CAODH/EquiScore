@@ -1,6 +1,7 @@
 import time
-import utils
-from utils import *
+import utils.utils as utils
+from utils.utils import *
+from utils.loss_utils import *
 import torch.nn as nn
 import torch
 import time
@@ -10,7 +11,7 @@ import argparse
 import time
 from torch.utils.data import DataLoader          
 from prefetch_generator import BackgroundGenerator
-from equiscore import EquiScore
+from model.equiscore import EquiScore
 class DataLoaderX(DataLoader):
     def __iter__(self):
         return BackgroundGenerator(super().__iter__())                            
@@ -58,25 +59,26 @@ def run(local_rank,args,*more_args,**kwargs):
 
     # if you docking result have different pose number, you can use the following functions
 
-    '''
+    """
     1. if one compound has only one pose, you can use the following function
-    '''
+    """
     if args.test_mode=='one_pose':
         getEF(model,args,args.test_path,save_path,args.debug,args.batch_size,loss_fn,args.EF_rates,\
               flag = args.test_flag + '{}_'.format(model_name)+ args.test_name,prot_split_flag = '_')
     if args.test_mode == 'multi_pose':
-        '''
+        """
         2. if one compound has multi pose, you can use the following function
         pose_num to select top pose_num poses for test 
         if idx_style is true, the pose_num is the pose index,only one pose on the index be used to test, else the pose_num is the pose number  
-        '''  
+        
+        """
         getEFMultiPose(model,args,args.test_path,save_path,args.debug,args.batch_size,loss_fn,rates = args.EF_rates,\
                        flag = args.test_flag + '{}_'.format(model_name) +  args.test_name,pose_num = args.pose_num,idx_style=args.idx_style)
 if '__main__' == __name__:
     from torch import distributed as dist
     import torch.multiprocessing as mp
-    from dist_utils import *
-    from parsing import parse_train_args
+    from utils.dist_utils import *
+    from utils.parsing import parse_train_args
     args = parse_train_args()
     if args.ngpu>0:
         cmd = get_available_gpu(num_gpu=args.ngpu, min_memory=28000, sample=3, nitro_restriction=False, verbose=True)

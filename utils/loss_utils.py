@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
+from torch.nn.functional import one_hot
 class AutomaticWeightedLoss(nn.Module):
     """automatically weighted multi-task loss
     Params:
@@ -76,7 +77,6 @@ class auxiliary_loss(nn.Module):
         else: 
             loss = 0
         return loss 
-from torch.nn.functional import one_hot
 class PolyLoss_FL(torch.nn.Module):
     """
     Implementation of poly loss FOR FL.

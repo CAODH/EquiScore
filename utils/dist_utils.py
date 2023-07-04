@@ -6,10 +6,10 @@ import time
 from torch import distributed as dist
 import random
 def seed_torch(seed=42):
-    '''
+    """
     random seed for reproducibility
 
-    '''
+    """
     seed = int(seed)
     random.seed(seed)
     os.environ['PYTHONHASHSEED'] = str(seed)
@@ -38,14 +38,17 @@ def set_cuda_visible_device(ngpus):
         cmd+=str(empty[i])+','
     return cmd
 def get_available_gpu(num_gpu=1, min_memory=1000, sample=3, nitro_restriction=True, verbose=True):
-    '''
+    """
+    docstring:
+        get available GPU for you, if you have 4 GPU, it will return the GPU with lowest memory usage.
+
     :param num_gpu: number of GPU you want to use
     :param min_memory: minimum memory
     :param sample: number of sample
     :param nitro_restriction: if True then will not distribute the last GPU for you.
     :param verbose: verbose mode
     :return: str of best choices, e.x. '1, 2'
-    '''
+    """
     sum = None
     for _ in range(sample):
         info = os.popen('nvidia-smi --query-gpu=utilization.gpu,memory.free --format=csv').read()
@@ -76,31 +79,32 @@ def get_available_gpu(num_gpu=1, min_memory=1000, sample=3, nitro_restriction=Tr
         print('Select id #' + select + ' for you.')
     return select
 def data_to_device(sample,device):
-        
-        '''set graph data to device'''
 
-        data_flag = []
-        data = []
-        for i in sample.get_att():
-            if type(i) is torch.Tensor:
-                data.append(i.to(device))
-                data_flag.append(1)
-            else:
-                data_flag.append(None)
-        return data_flag,data
-def average_gradients(model):
-    '''
-    average gradients for distributed training
+    """
+    set graph data to device
     
-    '''
+    """
+    data_flag = []
+    data = []
+    for i in sample.get_att():
+        if type(i) is torch.Tensor:
+            data.append(i.to(device))
+            data_flag.append(1)
+        else:
+            data_flag.append(None)
+    return data_flag,data
+def average_gradients(model):
+    """
+    average gradients for distributed training
+    """
     size = float(dist.get_world_size())
     for param in model.parameters():
         if param.requires_grad:
             dist.all_reduce(param.grad.data,op = torch.distributed.ReduceOp.SUM)
             param.grad.data /= size
-# from：https://github.com/huggingface/transformers/blob/447808c85f0e6d6b0aeeb07214942bf1e578f9d2/src/transformers/trainer_pt_utils.py
 class SequentialDistributedSampler(torch.utils.data.sampler.Sampler):
     """
+    ref from: https://github.com/huggingface/transformers/blob/447808c85f0e6d6b0aeeb07214942bf1e578f9d2/src/transformers/trainer_pt_utils.py
     Distributed Sampler that subsamples indicies sequentially,
     making it easier to collate all results at the end.
     Even though we only use this sampler for eval and predict (no training),
@@ -135,6 +139,9 @@ class SequentialDistributedSampler(torch.utils.data.sampler.Sampler):
         return self.num_samples
 
 def distributed_concat(tensor, num_total_examples):
+    """
+    Concat multi tensor from different process
+    """
     output_tensors = [tensor.clone() for _ in range(torch.distributed.get_world_size())]
     torch.distributed.all_gather(output_tensors, tensor)
     concat = torch.cat(output_tensors, dim=0)

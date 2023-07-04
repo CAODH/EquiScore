@@ -21,6 +21,11 @@ possible_is_in_ring_list = [False, True]
 possible_bond_dir_list = list(range(16))
 from rdkit.Chem.rdmolops import GetAdjacencyMatrix
 def bond_to_feature_vector(bond):
+    """
+    input: rdkit.Chem.rdchem.Bond
+    output: bond_feature (list)
+    
+    """
     # 0
     bond_type = int(bond.GetBondType())
     assert bond_type in possible_bond_type_list
@@ -49,12 +54,26 @@ def bond_to_feature_vector(bond):
     return bond_feature
 
 def GetNum(x,allowed_set):
+    """
+    input: 
+        x (int)
+        allowed_set (list)
+    output:    
+        [index] (list)
+    
+    """
     try:
         return [allowed_set.index(x)]
     except:
         return [len(allowed_set) -1]
 def get_aromatic_rings(mol:rdkit.Chem.Mol) -> list:
-    ''' return aromaticatoms rings'''
+
+    """
+    input: 
+        rdkit.Chem.Mol
+    output:
+       aromaticatoms rings (list)
+    """
     aromaticity_atom_id_set = set()
     rings = []
     for atom in mol.GetAromaticAtoms():
@@ -68,20 +87,21 @@ def get_aromatic_rings(mol:rdkit.Chem.Mol) -> list:
             rings.append(list(ring))
     return rings
 def add_atom_to_mol(mol:rdkit.Chem.Mol,adj:np.array,H:np.array,d:np.array,n:int) :
-    '''
+    """
     docstring: 
         add virtual aromatic atom feature/adj/3d_positions to raw data
-
-        mol : rdkit mol object
-        adj : adj matrix
-        H : node feature
-        node d : 3d positions
+    input:
+        mol: rdkit.Chem.Mol
+        adj: adj matrix
+        H: node feature
+        node d: 3d positions
         n: node nums 
-    '''
+    output:
+        updated inputs
+    """
     assert len(adj) == len(H),'adj nums not equal to nodes'
     rings = get_aromatic_rings(mol)
     num_aromatic = len(rings)
-    
     h,b = adj.shape
     all_zeros = np.zeros((num_aromatic+h,num_aromatic+b))
     #add all zeros vector to bottom and right
@@ -95,13 +115,31 @@ def add_atom_to_mol(mol:rdkit.Chem.Mol,adj:np.array,H:np.array,d:np.array,n:int)
     assert len(all_zeros) == len(H),'adj nums not equal to nodes'
     return all_zeros,H,d,n+num_aromatic
 def get_mol_info(m1):
+    """
+    input: 
+        rdkit.Chem.Mol
+    output:
+        n1: node nums
+        d1: 3d positions
+        adj1: adj matrix
+    """
     n1 = m1.GetNumAtoms()
     c1 = m1.GetConformers()[0]
     d1 = np.array(c1.GetPositions())
     adj1 = GetAdjacencyMatrix(m1)+np.eye(n1)
     return n1,d1,adj1
 def atom_feature_graphformer(m, atom_i, i_donor, i_acceptor):
-
+    """
+    docstring:
+        atom feature as same as graphformer
+    input:
+        m: rdkit.Chem.Mol
+        atom_i: atom index
+        i_donor: H donor or not 
+        i_acceptor: H acceptor or not 
+    output:
+        atom feature (list)
+    """
     atom = m.GetAtomWithIdx(atom_i)
     return np.array(GetNum(atom.GetSymbol(),
                                       ['C', 'N', 'O', 'S', 'F', 'P', 'Cl', 'Br', 'B', 'H']) +
@@ -114,6 +152,17 @@ def atom_feature_attentive_FP(atom,
                   bool_id_feat=False,
                   explicit_H=False,
                   use_chirality=True):
+    """
+    docstring:
+        atom feature as same as attentiveFP
+    input:
+        m: rdkit.Chem.Mol
+        atom_i: atom index
+        i_donor: H donor or not 
+        i_acceptor: H acceptor or not 
+    output:
+        atom feature (array)
+    """
                   
     if bool_id_feat:
         return np.array([atom_to_id(atom)])
@@ -159,6 +208,11 @@ def get_atom_graphformer_feature(m,FP = False):
 
 # ===================== BOND END =====================
 def convert_to_single_emb(x, offset=35):
+    """
+    docstring:
+        merge multiple embeddings into one embedding
+
+    """
     feature_num = x.size(1) if len(x.size()) > 1 else 1
     feature_offset = 1 + torch.arange(0, feature_num * offset, offset, dtype=torch.long)
     x = x + feature_offset
@@ -194,6 +248,18 @@ def get_rel_pos(mol):
 #===================data attributes start ========================
 # from dataset import *
 def molEdge(mol,n1,n2,adj_mol = None):
+    """
+    docstring:
+        get edges and edge features of mol
+    input:
+        mol: rdkit.Chem.Mol
+        n1: number of atoms in mol
+        # n2: number of atoms in adj_mol
+        adj_mol: adjacent matrix of mol
+    output:
+        edges_list: list of edges
+        edge_features_list: list of edge features
+    """
     edges_list = []
     edge_features_list = []
     if len(mol.GetBonds()) > 0: # mol has bonds
@@ -221,6 +287,18 @@ def molEdge(mol,n1,n2,adj_mol = None):
 
     return edges_list ,edge_features_list
 def pocketEdge(mol,n1,n2,adj_pocket = None):
+    """"
+    docstring:
+        get edges and edge features of pocket
+    input:
+        mol: rdkit.Chem.Mol
+        n1: number of atoms in mol
+        # n2: number of atoms in adj_pocket
+        adj_pocket: adjacent matrix of pocket
+    output:
+        edges_list: list of edges
+        edge_features_list: list of edge features 
+    """
     edges_list = []
     edge_features_list = []
     if len(mol.GetBonds()) > 0: # mol has bonds
@@ -252,6 +330,18 @@ def pocketEdge(mol,n1,n2,adj_pocket = None):
    
     return edges_list ,edge_features_list
 def getEdge(mols,n1,n2,adj_in = None):
+    """
+    Docstring:
+        merge molEdge and pocketEdge
+    input:
+        mols: list of rdkit.Chem.Mol
+        n1: number of atoms in mol
+        n2: number of atoms in pocket
+        adj_in: adjacent matrix of mol and pocket
+    output:
+        edges_list: list of edges
+        edge_features_list: list of edge features
+    """
     num_bond_features = 5
     mol,pocket = mols
     mol1_edge_idxs,mol1_edge_attr = molEdge(mol,n1,n2,adj_mol = adj_in)
@@ -262,7 +352,6 @@ def getEdge(mols,n1,n2,adj_in = None):
     u,v = np.where(np.eye(n1+n2) == 1)
     edges_list.extend([*zip(u,v)])
     edge_features_list.extend([[34,17,4,4,18]]*len(u))
-
     if adj_in is  None:
         pass
     else:
@@ -285,9 +374,18 @@ def getEdge(mols,n1,n2,adj_in = None):
 
 def mol2graph(mol,x,args,n1,n2,adj = None,dm = None):
     """
-    Converts SMILES string to graph Data object
-    :input: SMILES string (str)
-    :return: graph object
+    dcostring:
+        Converts mol to graph Data object
+    input: 
+        mol: rdkit.Chem.Mol
+        x: node features
+        args: args
+        n1: number of atoms in mol
+        n2: number of atoms in pocket
+        adj: adjacent matrix of mol and pocket
+        dm: distance matrix of mol and pocket
+    output: 
+        graph object
     """
     if args.edge_bias:
         edge_index, edge_attr= getEdge(mol,adj_in = adj,n1 = n1,n2 = n2)
@@ -320,7 +418,6 @@ def get_pos_lp_encoding(adj,pos_enc_dim = 8):
     A = sp.coo_matrix(adj)
     N = sp.diags(adj.sum(axis = 1).clip(1) ** -0.5, dtype=float)
     L = sp.eye(len(adj)) - N * A * N
-
     # Eigenvectors with numpy
     EigVal, EigVec = np.linalg.eig(L.toarray())
     idx = EigVal.argsort() # increasing order

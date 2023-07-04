@@ -1,12 +1,12 @@
 import pickle
 import time
 import numpy as np
-import utils
-from utils import *
-from loss_utils import *
+import utils.utils as utils
+from utils.utils import *
+from utils.loss_utils import *
 # from dataset_utils import *
-from dist_utils import *
-from dataset import *
+from utils.dist_utils import *
+from dataset.dataset import *
 import torch.nn as nn
 import torch
 import time
@@ -16,7 +16,7 @@ import argparse
 import time
 from torch.utils.data import DataLoader          
 from prefetch_generator import BackgroundGenerator
-from equiscore import EquiScore
+from model.equiscore import EquiScore
 class DataLoaderX(DataLoader):
     def __iter__(self):
         return BackgroundGenerator(super().__iter__())    
@@ -185,8 +185,8 @@ def run(local_rank,args):
 if '__main__' == __name__:
     from torch import distributed as dist
     import torch.multiprocessing as mp
-    from dist_utils import *
-    from parsing import parse_train_args
+    from utils.dist_utils import *
+    from utils.parsing import parse_train_args
     # get args from parsering function
     args = parse_train_args()
     # set gpu to use

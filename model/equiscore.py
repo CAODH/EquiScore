@@ -5,8 +5,8 @@ from dgl.nn import WeightAndSum
 """
 with edge features
 """
-from equiscore_layer import EquiScoreLayer
-from equiscore_utils import MLPReadout
+from model.equiscore_layer import EquiScoreLayer
+from utils.equiscore_utils import MLPReadout
 
 class EquiScore(nn.Module):
     def __init__(self, args):
@@ -50,9 +50,9 @@ class EquiScore(nn.Module):
         
         return h,g,full_g,hg
     def getAttFirstLayer(self,g,full_g):
-        '''
+        """
         A tool function to get the attention of the first layer
-        '''
+        """
         h = g.ndata['x']
 
         h = self.atom_encoder(h.long()).mean(-2)

@@ -1,6 +1,6 @@
 # EquiScore: A generic protein-ligand interaction scoring method integrating physical prior knowledge with data augmentation modeling
 
-### [Paper on arXiv]()
+### [Paper on BioRxiv]()
 
 Implementation of EquiScore, by Duanhua Cao.
 

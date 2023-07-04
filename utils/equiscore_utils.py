@@ -26,6 +26,10 @@ class MLPReadout(nn.Module):
                 c_hs = self.FC[k](c_hs)
         return c_hs
 class CoorsNorm(nn.Module):
+    """
+    Norm the coors
+
+    """
     def __init__(self, eps = 1e-8, scale_init = 1.):
         super().__init__()
         self.eps = eps
@@ -79,7 +83,7 @@ class GraphNorm(nn.Module):
 
 class GraphNorm_no_mean_scale(nn.Module):
     """
-        Param: []
+    GraphNorm without mean scale
     """
     def __init__(self, num_features, eps=1e-5, affine=True, is_node=True):
         super().__init__()
@@ -87,7 +91,6 @@ class GraphNorm_no_mean_scale(nn.Module):
         self.num_features = num_features
         self.affine = affine
         self.is_node = is_node
-
         if self.affine:
             self.gamma = nn.Parameter(torch.ones(self.num_features))
             self.beta = nn.Parameter(torch.zeros(self.num_features))
@@ -163,9 +166,9 @@ def square(field,out_field):
          return {out_field: torch.square((edges.data[field])).sum(dim = -1,keepdim = True)}
     return func
 def guss_decoy(field,rel_pos):
-    '''
+    """
     rel_pos :3d distance pass a linear layer or FFN
-    '''
+    """
     def func(edges):
         
         return {field: edges.data[field].sum(-1, keepdim=True)*edges.data[rel_pos].unsqueeze(-1)}
@@ -173,7 +176,7 @@ def guss_decoy(field,rel_pos):
     return func
 
 def partUpdataScore(out_filed,in_filed,graph_sparse):
-    '''update part of geometric distance based graph edge score '''
+    """update part of geometric distance based graph edge score"""
     def func(edges):
         return {out_filed:graph_sparse.edata[in_filed]}
     return func
