@@ -15,15 +15,15 @@ from torch.utils.data import DataLoader
 class DataLoaderX(DataLoader):
     def __iter__(self):
         return BackgroundGenerator(super().__iter__())                            
-from dataset import ESDataset
-from dist_utils import *
+from dataset.dataset import ESDataset,DTISampler
+from utils.dist_utils import *
 N_atom_features = 28
 from scipy.spatial import distance_matrix
 def get_args_from_json(json_file_path, args_dict):
-    '''
+    """
     use this function to update the args_dict from a json file if you want to use a json file save parameters 
     
-    '''
+    """
     import json
     summary_filename = json_file_path
     with open(summary_filename) as f:
@@ -33,7 +33,7 @@ def get_args_from_json(json_file_path, args_dict):
     return args_dict
 
 def initialize_model(model, device, args,load_save_file = False,init_classifer = True):
-    ''' initialize the model parameters or load the model from a saved file'''
+    """ initialize the model parameters or load the model from a saved file"""
     for param in model.parameters():
         if param.dim() == 1:
             continue
@@ -91,10 +91,10 @@ def get_logauc(fp, tp, min_fp=0.001, adjusted=False):
     return logauc
 
 def get_metrics(train_true,train_pred):
-    '''
+    """
     calculate the metrics for the dataset
     
-    '''
+    """
     try:
         train_pred = np.concatenate(np.array(train_pred,dtype=object), 0).astype(np.float)
         train_true = np.concatenate(np.array(train_true,dtype=object), 0).astype(np.long)
@@ -121,8 +121,12 @@ def get_metrics(train_true,train_pred):
 
 
 def random_split(train_keys, split_ratio=0.9, seed=0, shuffle=True):
-    '''split the dataset into train and validation set by random sampling, this function not useful for new target protein prediction
-    '''
+    """
+    docstring:
+        split the dataset into train and validation set by random sampling, this function not useful for new target protein prediction
+    """
+    
+    
     dataset_size = len(train_keys)
     """random splitter"""
     np.random.seed(seed)
@@ -236,9 +240,7 @@ def getTestedPro(file_name):
     else:
         return []
 def getEF(model,args,test_path,save_path,debug,batch_size,loss_fn,rates = 0.01,flag = '',prot_split_flag = '_'):
-        '''
-        calculate EF of test dataset ,since dataset have 102/81 proteins ,so we need to calculate EF of each protein one by one!
-        '''
+        """calculate EF of test dataset ,since dataset have 102/81 proteins ,so we need to calculate EF of each protein one by one!"""
         save_file = save_path + '/EF_test' + flag
         tested_pros = getTestedPro(save_file)
         test_keys = [key for key in os.listdir(test_path) if '.' not in key]
@@ -341,7 +343,7 @@ def getEF(model,args,test_path,save_path,debug,batch_size,loss_fn,rates = 0.01,f
             dist.barrier()
 def getNumPose(test_keys,nums = 5):
 
-    '''get the first nums pose for each ligand to prediction'''
+    """get the first nums pose for each ligand to prediction"""
 
     ligands = defaultdict(list)
     for key in test_keys:
@@ -354,7 +356,7 @@ def getNumPose(test_keys,nums = 5):
         result += ligands[ligand_name][:nums]
     return result
 def getIdxPose(test_keys,idx = 0):
-    '''get the idx pose for each ligand to prediction'''
+    """"get the idx pose for each ligand to prediction"""
     ligands = defaultdict(list)
 
 
@@ -372,10 +374,7 @@ def getIdxPose(test_keys,idx = 0):
             result.append(ligands[ligand_name][-1]) 
     return result
 def getEFMultiPose(model,args,test_path,save_path,debug,batch_size,loss_fn,rates = 0.01,flag = '',pose_num = 5,idx_style = False):
-        '''
-        calulate EF for multi pose complex
-        
-        '''
+        """calulate EF for multi pose complex"""
         save_file = save_path + '/EF_test_multi_pose' + '_{}_'.format(pose_num) + flag
         test_keys = os.listdir(test_path)
         # for multi pose complex, get pose_num poses to cal EF
@@ -493,8 +492,7 @@ def getEFMultiPose(model,args,test_path,save_path,debug,batch_size,loss_fn,rates
         if args.ngpu >= 1:
             dist.barrier()
 def getEF_from_MSE(model,args,test_path,save_path,device,debug,batch_size,A2_limit,loss_fn,rates = 0.01):
-        
-        '''cal EF for regression model if you want to training a regression model, you can use this function to cal EF'''
+        """cal EF for regression model if you want to training a regression model, you can use this function to cal EF"""
         
         save_file = save_path + '/EF_test'
         test_keys = [key for key in os.listdir(test_path) if '.' not in key]
@@ -616,7 +614,7 @@ def get_dataloader(args,train_keys,val_keys,val_shuffle=False):
     return train_dataloader,val_dataloader
 
 def write_log_head(args,log_path,model,train_keys,val_keys):
-    '''a function to write the head of log file at the beginning of training'''
+    """a function to write the head of log file at the beginning of training"""
     args_dict = vars(args)
     with open(log_path,'w')as f:
         f.write(f'Number of train data: {len(train_keys)}' +'\n'+ f'Number of val data: {len(val_keys)}' + '\n')
@@ -627,7 +625,7 @@ def write_log_head(args,log_path,model,train_keys,val_keys):
         + '\t' + 'test_auroc'+ '\t' + 'BEDROC' + '\t'+'test_adjust_logauroc'+ '\t'+'test_auprc'+ '\t'+'test_balanced_acc'+ '\t'+'test_acc'+ '\t'+'test_precision'+ '\t'+'test_sensitity'+ '\t'+'test_specifity'+ '\t'+'test_f1' +'\t' +'time'+ '\n')
         f.close()
 def save_model(model,optimizer,args,epoch,save_path,mode = 'best'):
-    '''a function to save model'''
+    """a function to save model"""
     best_name = save_path + '/save_{}_model'.format(mode)+'.pt'
     if args.debug:
         best_name = save_path + '/save_{}_model_debug'.format(mode)+'.pt'
@@ -637,7 +635,7 @@ def save_model(model,optimizer,args,epoch,save_path,mode = 'best'):
             'epoch':epoch}, best_name)
 
 def shuffle_train_keys(train_keys):
-    '''shuffle train keys by protein'''
+    """shuffle train keys by protein"""
     sample_dict = defaultdict(list)
     for i in train_keys:
         key = i.split('/')[-1].split('_')[0]

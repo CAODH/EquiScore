@@ -2,9 +2,9 @@ import dgl
 import dgl.function as fn
 from dgl.nn.functional import edge_softmax
 import numpy as np
-from equiscore_utils import *
-
-
+import os
+# os.path.append('../utils')
+from utils.equiscore_utils import *
 """
     Multi Attention Head
 """

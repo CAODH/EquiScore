@@ -2,7 +2,7 @@
 import lmdb
 from torch.utils.data import Dataset
 from torch.utils.data.sampler import Sampler
-import utils 
+import utils.utils as utils 
 import numpy as np
 import torch
 import random
@@ -10,12 +10,16 @@ from scipy.spatial import distance_matrix
 import pickle
 import dgl
 import dgl.data
-from ifp_construct import get_nonBond_pair
-from dataset_utils import *
+from utils.ifp_construct import get_nonBond_pair
+from utils.dataset_utils import *
 random.seed(42)
 
 class DTISampler(Sampler):
+    """"
+    weight based sampler for DTI dataset
+    """
     def __init__(self, weights, num_samples, replacement=True):
+
         weights = np.array(weights)/np.sum(weights)
         self.weights = weights
         self.num_samples = num_samples
@@ -88,9 +92,9 @@ class ESDataset(Dataset):
 
     @staticmethod
     def _GetGraph(key,args):
-        ''' 
+        """
         construct structual graph based on covalent bond and non-bond interaction and save to LMDB database for speed up data loading
-  '''
+        """
         try:
             try:
                 with open(key, 'rb') as f:
@@ -167,7 +171,7 @@ if __name__ == "__main__":
     import os
     RDLogger.DisableLog('rdApp.*')
 
-    from parsing import parse_train_args
+    from utils.parsing import parse_train_args
     args = parse_train_args()
 
     # create lmdb database for map data and key,this step can help speed up training! Also ,can can skip this step too.
@@ -176,9 +180,12 @@ if __name__ == "__main__":
     # create lmdb database
     dgl_graph_db = env.open_db('data'.encode())
     # read all data file path from pkl file  
-    ''' Attention!
-        you should change contain all data path in test_keys when you process data to LMDB database ,also \
-        you can just specity a file path directly rather than passing it via args vatriable!'''
+    """ 
+    Attention:
+        you should change contain all data path in test_keys when you process data to LMDB database,
+        also you can just specity a file path directly rather than passing it via args vatriable!
+        
+    """
     with open (args.test_keys, 'rb') as fp:
         val_keys = pickle.load(fp)
     keys =  val_keys 

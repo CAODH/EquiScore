@@ -11,6 +11,13 @@ import warnings
 warnings.filterwarnings('ignore')
 
 def extract(ligand, pdb,key):
+    """
+    input: 
+        ligand: 3D ligand structure, eg:rdkit.MOl 
+        pdb: pdb file
+    output: 3D pocket structure (rdkit.Mol)
+
+    """
     parser = PDBParser()
     structure = parser.get_structure("protein", pdb)
     ligand_positions = ligand.GetConformer().GetPositions()
@@ -55,11 +62,12 @@ def extract(ligand, pdb,key):
             os.system("rm -f " + fn)
     except:
         print("Read PDB fail for other unknow reason",fn)
+    
     return m2
 
 def preprocessor(docking_result_sdf_fn,origin_recptor_pdb,data_dir):
     """
-    get pocket from docking result and save to file:(m1,m2)
+    get pocket from docking result and save to a pkl file: (m1,m2)
 
     input:
         docking_result_sdf_fn: docking result sdf file, one ligand in sdf file will speed up this process in multi-process
@@ -105,11 +113,59 @@ def preprocessor(docking_result_sdf_fn,origin_recptor_pdb,data_dir):
         print("docking result file size is 0!")
         return -1
 def out_sdf(lig,filename):
+    """
+    input:
+        lig: rdkit mol object
+        filename: output filename
+    output:
+        None    
+    """
     writer = Chem.SDWriter(filename)
     writer.write(lig)
     writer.close()
     return
-def get_pocket_with_water(complex_sample,receptor_fn):
+def saveMolToSDF(i,sample,args):
+    """
+    input:
+        i: index of sample
+        sample: rdkit mol object
+        args: args
+
+    output:
+        0: success
+        -1: fail
+    """
+    if sample is None:
+        print(f'sample is None {i}')
+        return -1
+    name = '{}_{}_{}.sdf'.format(os.path.basename(args.docking_result).split('.')[0],args.prefix,i)
+    if not os.path.exists(os.path.join(args.single_sdf_save_path,name)):
+        try:
+            if len(sample.GetAtoms()) > 2000:
+                print('atoms nums',len(sample.GetAtoms()),\
+                        'may you not split protein and compounds ? save protein in a file in this dir,\
+                        i recommand user check the protein file or split it by yourself')
+                Chem.MolToPDBFile(sample,'./data/tmp_{}_protein.pdb'.format(os.path.basename(args.docking_result).split('.')[0]))
+                print('save protein success,please check it carefully!')
+            else:
+                out_sdf(sample,os.path.join(args.single_sdf_save_path,name))
+            return 0
+        except Exception as e:
+            try:
+                if 'File error' in str(e):
+                # print('save mol to sdf failed,',i,e)
+                    single_sdf_save_path_addition = args.single_sdf_save_path + '_addition'
+                    os.makedirs(single_sdf_save_path_addition,exist_ok=True)
+                    out_sdf(sample,os.path.join(single_sdf_save_path_addition,name))
+                    return 0
+            except:
+                print('save mol to sdf failed,',i,e)
+                # return 0
+                return -1
+    else:
+        print(f'file done before so skip it {i}')
+        return 0
+def get_pocket_with_water(complex_sample,receptor_fn,out_data_dir):
     status=preprocessor(complex_sample,receptor_fn,out_data_dir)
     # print(status)
 if __name__ == '__main__':
@@ -120,6 +176,7 @@ if __name__ == '__main__':
     import gzip
     import tqdm
     # get pocket and save to file
+    from joblib import Parallel, delayed
     import argparse
     parser = argparse.ArgumentParser(description='Process data from docking result')
     parser.add_argument("--single_sdf_save_path", help="file path for save compounds from docking result.", type=str, \
@@ -129,42 +186,40 @@ if __name__ == '__main__':
     parser.add_argument("--pocket_save_dir", help="save pocket file dir.", type=str,default=None,required=True)
     parser.add_argument("--prefix", help="Anything that helps you distinguish between compounds.", type=str,default='Compound')
     parser.add_argument("--process_num", help="process num for multi process ", type=int,default=1)
+    parser.add_argument("--save_single_sdf",action='store_false', help="save docking result to dir ",default=True)
+    parser.add_argument("--extract_pocket",action='store_false', help="save docking result to dir ",default=True)
     args = parser.parse_args()
-    os.makedirs(args.single_sdf_save_path,exist_ok=True)
-    if args.docking_result.endswith('maegz'):
-        total=Chem.rdmolfiles.MaeMolSupplier(gzip.open(args.docking_result))
-    elif args.docking_result.endswith('sdf'):
-        total=Chem.SDMolSupplier(args.docking_result)
-    elif args.docking_result.endswith('mae'):
-        total=Chem.rdmolfiles.MaeMolSupplier(args.docking_result)
-    else:
-        print('docking result file format error! only support maegz,mae or sdf')
-        exit()
-   
-    for i,sample in enumerate(total):
-        if i==0 and len(sample.GetAtoms()) > 500:
-            print('atoms nums',len(sample.GetAtoms()),'may you not split protein and compounds ? save protein in a file in this dir')
-            Chem.MolToPDBFile(sample,f'./data/protein.pdb')
-            print('save protein success')
+    """parallel save mol to sdf"""
+    if args.save_single_sdf:
+        os.makedirs(args.single_sdf_save_path,exist_ok=True)
+        if args.docking_result.endswith('maegz'):
+            total=Chem.rdmolfiles.MaeMolSupplier(gzip.open(args.docking_result),removeHs = False)
+        elif args.docking_result.endswith('sdf'):
+            total=Chem.SDMolSupplier(args.docking_result,removeHs = False)
+        elif args.docking_result.endswith('mae'):
+            total=Chem.rdmolfiles.MaeMolSupplier(args.docking_result,removeHs = False)
         else:
-            if sample is  not None:
-                name = '{}_{}_{}.sdf'.format(os.path.basename(args.docking_result).split('.')[0],args.prefix,i)
-                out_sdf(sample,os.path.join(args.single_sdf_save_path,name))
-    
-    total_sdfs = [os.path.join(args.single_sdf_save_path,filename)for filename in os.listdir(args.single_sdf_save_path)]
-    file_tuple_list = []
-    for complex_sample in total_sdfs:
-        receptor_fn=args.recptor_pdb
-        file_tuple_list.append((complex_sample,receptor_fn))
-    print('num compounds to get pocket',len(file_tuple_list))
-    out_data_dir = args.pocket_save_dir
-    p = Pool(args.process_num)
-    pbar = tqdm.tqdm(total=len(file_tuple_list))
-    pbar.set_description('get_pocket:')
-    update = lambda *args: pbar.update() # set callback function to update pbar state when process end
-    for file_tuple in file_tuple_list:
-        p.apply_async(get_pocket_with_water,args = (file_tuple[0],file_tuple[1]),callback=update)
-    print('waiting for processing!')
-    p.close()
-    p.join()
-    print("all pocket done! check the outdir plz!")
+            print('docking result file format error! only support maegz,mae or sdf')
+            exit()
+
+        ligs = Parallel(n_jobs=args.process_num, backend="threading")(delayed(saveMolToSDF)(i,sample,args) for i,sample in enumerate(total))
+
+    """get pocket by multi process""" 
+    if args.extract_pocket:
+        total_sdfs = [os.path.join(args.single_sdf_save_path,filename) for filename in os.listdir(args.single_sdf_save_path)]
+        file_tuple_list = []
+        for complex_sample in total_sdfs:
+            receptor_fn=args.recptor_pdb
+            file_tuple_list.append((complex_sample,receptor_fn))
+        print('num compounds to get pocket',len(file_tuple_list))
+        out_data_dir = args.pocket_save_dir
+        p = Pool(args.process_num)
+        pbar = tqdm.tqdm(total=len(file_tuple_list))
+        pbar.set_description('get_pocket:')
+        update = lambda *args: pbar.update() # set callback function to update pbar state when process end
+        for file_tuple in file_tuple_list:
+            p.apply_async(get_pocket_with_water,args = (file_tuple[0],file_tuple[1],args.pocket_save_dir),callback=update)
+        print('waiting for processing!')
+        p.close()
+        p.join()
+        print("all pocket done! check the outdir plz!")
