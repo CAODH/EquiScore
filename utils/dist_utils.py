@@ -7,7 +7,7 @@ from torch import distributed as dist
 import random
 def seed_torch(seed=42):
     """
-    random seed for reproducibility
+    Random seed for reproducibility
 
     """
     seed = int(seed)
