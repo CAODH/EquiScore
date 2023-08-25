@@ -7,7 +7,7 @@ source ~/anaconda3/bin/activate EquiScore
 export CUDA_VISIBLE_DEVICES="0,1,2,3"
 # for multi screening task ,you can do cycle for this command
 cd ~/EquiScore
-command=`python  ./get_pocket/get_pocket.py \
+command=`python ./get_pocket/get_pocket.py \
 --single_sdf_save_path ./data/sample_data/tmp_sdfs \
 --recptor_pdb ./data/sample_data/sample_protein.pdb \
 --docking_result ./data/sample_data/sample_compounds.sdf \

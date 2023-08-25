@@ -6,8 +6,9 @@ source ~/anaconda3/bin/activate EquiScore
 
 export CUDA_VISIBLE_DEVICES="0,1,2,3,4,5,6,7"
 # for multi screening task ,you can do cycle for this command
+# if you want to use lmdb_cache, you should set --test to replace --lmdb_cache lmdb_cache_dir
 cd ~/EquiScore
-command=`python  Train.py \
+command=`python Train.py \
 --ngpu 1 \
 --MASTER_PORT 29501 \
 --train_keys ./data/data_splits/screen_model/train_keys.pkl \

@@ -5,13 +5,15 @@
 Implementation of EquiScore, by Duanhua Cao 😊.
 
 ### 🔔 News
-   Some bugs(:bug: :bug:) have been fixed, and bash commands are further provided to help users unfamiliar with python quickly use EquiScore to improve the screening ability of target proteins :smiley:
+
+   Some bugs(🐛 🐛) have been fixed, and bash commands are further provided to help users unfamiliar with python quickly use EquiScore to improve the screening ability of target proteins 😃
 
 **This repository contains all code, instructions and model weights necessary to **screen compounds** by EquiScore, eval EquiScore or to retrain a new model.**
 
-If you have any question, feel free to open an issue or reach out to us: [caodh@zju.edu.cn :email:](caodh@zju.edu.cn).
+If you have any question, feel free to open an issue or reach out to us: [caodh@zju.edu.cn ✉️](caodh@zju.edu.cn).
 
 ## Framework
+
 ![Alt Text](./figs/model_framework.png)
 
 ## Dataset
@@ -55,19 +57,17 @@ Fortunately! you slao can setup conda environment by command `conda env create -
    `python get_pocket.py --docking_result ./data/sample_data/sample_compounds.sdf --recptor_pdb ./data/sample_data/sample_protein.pdb --single_sdf_save_path ./data/sample_data/tmp_sdfs --pocket_save_dir ./data/sample_data/tmp_pockets`
 
    or use bash command script in bash_scripts dir: You just need to replace the corresponding parameter
-   
+
    `cd ~/EquiScore/bash_scripts`
    `bash Getpocket.sh`
-
 3. Then, you have all data to predict protein-ligand interaction by EquiScore! Be patient. This is the last step!
 
    `python Screening.py --ngpu 1 --test --test_path ./data/sample_data/ --test_name tmp_pockets --pred_save_path  ./data/test_results/EquiScore_pred_for_tmp_pockets.pkl`
 
    or use bash command script in bash_scripts dir: You just need to replace the corresponding parameter
-   
+
    `cd ~/EquiScore/bash_scripts`
    `bash Screening.sh`
-
 4. Util now, you get all prediction result in pred_save_path, and you can read it for select compound by yourself!
 
 ## **Using the provided model weights for evaluation and Reproduces the benchmark result**
@@ -84,10 +84,10 @@ Fortunately! you slao can setup conda environment by command `conda env create -
    `python independent_test_dist.py --test --test_path './data/external_test_data' --test_name dekois2_pocket --test_mode milti_pose`
 
    or use bash command script in bash_scripts dir: You just need to replace the corresponding parameter
-   
+
    `cd ~/EquiScore/bash_scripts`
    `bash Benchmark_test.sh`
-   
+
    use **milti_pose** arg if one ligand have multi pose and set pose_num and **idx_style** in args ，see args `--help for more details`
 
 ## **Retraining EquiScore 🤖 Model**
@@ -100,14 +100,14 @@ Fortunately! you slao can setup conda environment by command `conda env create -
    in this script, will help deduplicated dataset by uniport id and split train/val data and save data path into a pkl file (like "train_keys.pkl, val_keys.pkl, test_keys.pkl").
 3. run train.py script:
 
-   `python train.py --ngpu 1 --train_keys your_keys_path --val_keys your_keys_path --test_keys your_keys_path`
+   `python train.py --ngpu 1 --train_keys your_keys_path --val_keys your_keys_path --test_keys your_keys_path --test`
 
    or use bash command script in bash_scripts dir: You just need to replace the corresponding parameter
-   
+
    `cd ~/EquiScore/bash_scripts`
    `bash Training.sh`
 
-   (**or if you want speed up training, please save data to LMDB database in dataset.py and add --lmdb_cache lmdb_cache_path** )
+   (**or if you want speed up training, please save data to LMDB database in dataset.py and add --lmdb_cache lmdb_cache_path to replace --test like we did in bash command** )
 
 ## Citation
 

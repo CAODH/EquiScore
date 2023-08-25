@@ -8,7 +8,7 @@ export CUDA_VISIBLE_DEVICES="0,1,2,3,4,5,6,7"
 # for multi screening task ,you can do cycle for this command
 cd ~/EquiScore
 
-command=`python  Independent_test.py \
+command=`python Independent_test.py \
 --ngpu 1 \
 --MASTER_PORT 29501 \
 --test \
