@@ -44,9 +44,9 @@ class MultiHeadAttentionLayer(nn.Module):
         
     def propagate_attention(self, g,full_g):
 
-        ############### geometric distance based graph attention module ###############################
+        ############### geometric distance based graph attention module ################################
         full_g.apply_edges(src_dot_dst('K_h', 'Q_h', 'score'))
-        ################################## transform coors as rel distance to decay attention score #########################################
+        ################################## transform coors as rel distance to decay attention score ####
         full_g.apply_edges(fn.u_sub_v('coors', 'coors', 'detla_coors')) 
         full_g.apply_edges(square('detla_coors', 'rel_pos_3d'))
 

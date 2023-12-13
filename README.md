@@ -35,12 +35,19 @@ We recommend people to set up the environment using [Anaconda](https://docs.anac
 This is an example for how to set up a working conda environment to run the code (but make sure to use the correct pytorch, DGL, cuda versions or cpu only versions):
 
    `conda create --name EquiScore python=3.8`
-
    `conda activate EquiScore`
 
-   and then install all pkgs in environment.yml file.
+   **Through our testing, the relevant environment can be successfully installed by executing the following commands in sequence:**
 
-Fortunately! you slao can setup conda environment by command `conda env create -f environment.yml` and done!
+   `conda install pytorch==1.11.0 cudatoolkit=11.3 -c pytorch`
+   `conda install -c dglteam dgl-cuda11.1`
+   `conda install -c conda-forge rdkit`
+   `conda install -c conda-forge biopython`
+   `conda install -c conda-forge scikit-learn`
+   `conda install -c conda-forge prolif`
+   `pip install prefetch-generator`
+   `pip install lmdb`
+   `pip install numpy==1.22.3`
 
 ## **Using the provided model weights to screen a compound for your target protein**
 
@@ -54,7 +61,7 @@ Fortunately! you slao can setup conda environment by command `conda env create -
 2. Assume that you have obtained the results of the docking in the previous step. Then, get pocket region and compound pose.
    run script:
 
-   `python get_pocket.py --docking_result ./data/sample_data/sample_compounds.sdf --recptor_pdb ./data/sample_data/sample_protein.pdb --single_sdf_save_path ./data/sample_data/tmp_sdfs --pocket_save_dir ./data/sample_data/tmp_pockets`
+   `python ./get_pocket/get_pocket.py --docking_result ./data/sample_data/sample_compounds.sdf --recptor_pdb ./data/sample_data/sample_protein.pdb --single_sdf_save_path ./data/sample_data/tmp_sdfs --pocket_save_dir ./data/sample_data/tmp_pockets`
 
    or use bash command script in bash_scripts dir: You just need to replace the corresponding parameter
 
@@ -81,14 +88,16 @@ Fortunately! you slao can setup conda environment by command `conda env create -
 3. if you want to preprocessed data to get pocket , all pocket file name should contain '_active' for active ligand,'_decoy' for decoys and  all pocket in a dir for one benchmark dataset
 4. run script (You can use the nohup command and output redirects as you normally like):
 
-   `python independent_test_dist.py --test --test_path './data/external_test_data' --test_name dekois2_pocket --test_mode milti_pose`
+   `python Independent_test_dist.py --test --test_path './data/external_test_data' --test_name dekois2_pocket --test_mode multi_pose`
+
+   the result will be saved in ~/EquiScore/workdir/official_weight/
 
    or use bash command script in bash_scripts dir: You just need to replace the corresponding parameter
 
    `cd ~/EquiScore/bash_scripts`
    `bash Benchmark_test.sh`
 
-   use **milti_pose** arg if one ligand have multi pose and set pose_num and **idx_style** in args ，see args `--help for more details`
+   use **multi_pose** arg if one ligand have multi pose and set pose_num and **idx_style** in args ，see args `--help for more details`
 
 ## **Retraining EquiScore 🤖 Model**
 
@@ -100,14 +109,14 @@ Fortunately! you slao can setup conda environment by command `conda env create -
    in this script, will help deduplicated dataset by uniport id and split train/val data and save data path into a pkl file (like "train_keys.pkl, val_keys.pkl, test_keys.pkl").
 3. run train.py script:
 
-   `python train.py --ngpu 1 --train_keys your_keys_path --val_keys your_keys_path --test_keys your_keys_path --test`
+   `python Train.py --ngpu 1 --train_keys your_keys_path --val_keys your_keys_path --test_keys your_keys_path --test`
 
    or use bash command script in bash_scripts dir: You just need to replace the corresponding parameter
 
    `cd ~/EquiScore/bash_scripts`
    `bash Training.sh`
 
-   (**or if you want speed up training, please save data to LMDB database in dataset.py and add --lmdb_cache lmdb_cache_path to replace --test like we did in bash command** )
+   (**or If you wish to expedite the training process, please refer to the preprocessing workflow in dataset.py, save the data to the LMDB database, and then specify the LMDB path in the training script by adding --lmdb_cache lmdb_cache_path to replace --test like we did in bash command** )
 
 ## Citation
 

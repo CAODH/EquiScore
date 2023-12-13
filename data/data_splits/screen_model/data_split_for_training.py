@@ -123,7 +123,7 @@ print('pose pros: ',len(set([i.split('/')[-1].split('_')[0] for i in valid_keys_
 valid_keys += valid_keys_poses
 print('all valid keys in HQ ',len(valid_keys))
 ############################## add generated decoys ##############################
-valid_keys_decoys = glob.glob('../../trainging_data/PDBscreen/PDBscreen_HQ_generated_decoy_pocket5/*')
+valid_keys_decoys = glob.glob('../../trainging_data/PDBscreen/PDBscreen_HQ_generated_decoy_pocket/*')
 print('all Generated decoys : ',len(valid_keys_decoys))
 valid_keys_decoys  = [i for i in valid_keys_decoys if i.split('/')[-1].split('_')[0] in active_pros]
 print('last Generated decoys : ',len(valid_keys_decoys))
@@ -157,8 +157,8 @@ valid_keys_screen += get_part_data_screen(cross_decoys_dir_screen,cross_decoys_s
 
 print(' LQ len of decoys: ',len(cross_decoys_screen))
 #-------------------------------------------------------------------------------
-cross_decoys_dir_screen_pose = '../../trainging_data/PDBscreen/PDBscreen_LQ_active_augment_2a_pose_pocket'
-screen_poses = os.listdir('../../trainging_data/PDBscreen/PDBscreen_LQ_active_augment_2a_pose_pocket')
+cross_decoys_dir_screen_pose = '../../trainging_data/PDBscreen/PDBscreen_LQ_active_augment_2a_pose_pocket/'
+screen_poses = os.listdir('../../trainging_data/PDBscreen/PDBscreen_LQ_active_augment_2a_pose_pocket/')
 active_pros_screen = [i.split('_')[0] + '_' +  i.split('_')[2] for i in active_pros_screen]
 valid_screen_poses = get_part_data_screen_pose(cross_decoys_dir_screen_pose,screen_poses,fast_num=100,active_names =active_pros_screen)
 
@@ -169,10 +169,10 @@ print('all valid keys in pdbbind ',len(valid_keys_screen))
 ########################################################### generated decoys ##################
 valid_keys_screen_shape = glob.glob('../../trainging_data/PDBscreen/PDBscreen_LQ_generated_decoy_pocket/*')
 print('LQ len of shape decoys : ',len(valid_keys_screen_shape))
-# remove sp score > -5
+# remove sp score > -5 kcal/mol
 data_names = [i.split('_')[0] + '_' +  i.split('_')[2] for i in data_names]
 valid_keys_screen_shape = [i for i in valid_keys_screen_shape if i.split('/')[-1].split('_align')[0] in data_names]
-print('LQ len of shape decoys  remove sp score>-5: ',len(valid_keys_screen_shape))
+print('LQ len of shape decoys  remove sp score > -5 kcal/mol: ',len(valid_keys_screen_shape))
 valid_keys_screen_shape = [i for i in valid_keys_screen_shape if i.split('/')[-1].split('_align')[0] in active_pros_screen]
 
 print(' LQ len of shape decoys : ',len(valid_keys_screen_shape))
