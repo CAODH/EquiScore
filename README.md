@@ -39,7 +39,7 @@ This is an example for how to set up a working conda environment to run the code
 
    **Through our testing, the relevant environment can be successfully installed by executing the following commands in sequence:**
 
-   `conda install pytorch==1.11.0 cudatoolkit=11.3 -c pytorch`
+   `conda install pytorch==1.11.0 cudatoolkit=11.3 -c pytorch` 
    `conda install -c dglteam dgl-cuda11.1`
    `conda install -c conda-forge rdkit`
    `conda install -c conda-forge biopython`
