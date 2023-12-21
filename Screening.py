@@ -13,6 +13,7 @@ from torch.utils.data import DataLoader
 from prefetch_generator import BackgroundGenerator
 from dataset.dataset import ESDataset
 import pickle
+import pandas as pd
 from model.equiscore import EquiScore
 class DataLoaderX(DataLoader):
     def __iter__(self):
@@ -26,7 +27,8 @@ os.chdir(os.path.abspath(os.path.dirname(__file__)))
 from torch.multiprocessing import Process
 def run(local_rank,args,*more_args,**kwargs):
     args.local_rank = local_rank
-    torch.distributed.init_process_group(backend="nccl",init_method='env://',rank = args.local_rank,world_size = args.ngpu) #initial distribution training，'nccl'mode
+    #initial distribution training，'nccl'mode
+    torch.distributed.init_process_group(backend="nccl",init_method='env://',rank = args.local_rank,world_size = args.ngpu) 
     torch.cuda.set_device(args.local_rank) 
     seed_torch(seed = args.seed + args.local_rank)
     args_dict = vars(args)
@@ -66,10 +68,11 @@ def run(local_rank,args,*more_args,**kwargs):
                                             len(test_sampler.dataset)).cpu().numpy()
         else:
             test_pred = torch.concat(test_pred, dim=0).cpu().numpy()
-    if args.ngpu >= 1:
+    if args.local_rank==0:
         os.makedirs(os.path.dirname(args.pred_save_path),exist_ok=True)
-        with open(args.pred_save_path,'wb') as f:
-            pickle.dump((test_keys_pro,test_pred),f)
+        pd.DataFrame({"test_sample_path":test_keys_pro,
+                      "test_pred":test_pred}).sort_values("test_pred",ascending=False).to_csv(args.pred_save_path,index=False)
+
 if '__main__' == __name__:
 
     '''distribution training'''
@@ -80,7 +83,7 @@ if '__main__' == __name__:
     from utils.parsing import parse_train_args
     args = parse_train_args()
     if args.ngpu>0:
-        cmd = get_available_gpu(num_gpu=args.ngpu, min_memory=8000, sample=3, nitro_restriction=False, verbose=True)
+        cmd = get_available_gpu(num_gpu=args.ngpu, min_memory=6000, sample=3, nitro_restriction=False, verbose=True)
         if cmd[-1] == ',':
             os.environ['CUDA_VISIBLE_DEVICES']=cmd[:-1]
         else:
