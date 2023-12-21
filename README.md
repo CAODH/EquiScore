@@ -60,12 +60,18 @@ This is an example for how to set up a working conda environment to run the code
 **or you can download the conda-packed file [zenodo](https://zenodo.org/records/10417452), and then unzip it in ${anaconda install dir}/anaconda3/envs/EuiqScore. ${anaconda install dir} represents the dir where the anaconda is installed. For me, ${anaconda install dir}=/root.**
 
    `mkdir ${anaconda install dir}/anaconda3/envs/EuiqScore `
+
+
    `tar -xzvf karmadock.tar.gz -C ${anaconda install dir}/anaconda3/envs/EuiqScore`
+
+
    `conda activate EuiqScore`
+
+
    **after enter the EuiqScore env:**
+
+
    `run conda-unpack`
-
-
 
 ## **Using the provided model weights to screen a compound for your target protein**
 
