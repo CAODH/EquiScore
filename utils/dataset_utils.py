@@ -413,6 +413,15 @@ import pandas as pd
 import numpy as np
 import scipy.sparse as sp
 def get_pos_lp_encoding(adj,pos_enc_dim = 8):
+    """
+    dcostring:
+        get position laplace embedding
+    input: 
+        adj: adjacent
+        pos_enc_dim: position embedding dim
+    output: 
+        position embedding (torch.tensor)
+    """
     A = sp.coo_matrix(adj)
     N = sp.diags(adj.sum(axis = 1).clip(1) ** -0.5, dtype=float)
     L = sp.eye(len(adj)) - N * A * N
@@ -423,6 +432,15 @@ def get_pos_lp_encoding(adj,pos_enc_dim = 8):
     lap_pos_enc = torch.from_numpy(EigVec[:,1:pos_enc_dim+1]).float() 
     return lap_pos_enc
 def pandas_bins(dis_matrix,num_bins = None,noise = False):
+    """
+    dcostring:
+        Coarse-grained processing distance matrix
+    input: 
+        dis_matrix: distance matrix
+        num_bins: number of bins
+    output: 
+        bins_index: bins index
+    """
     if num_bins is None:
         num_bins = int((5-2.0)/0.05 + 1)
     if noise:
@@ -433,7 +451,15 @@ def pandas_bins(dis_matrix,num_bins = None,noise = False):
     bins_index = np.array(pd.cut(dis_matrix.flatten(),bins = bins,labels = [i for i in range(len(bins) -1)])).reshape(shape)
     return bins_index
 def preprocess_item(item, args,adj):
-
+    """
+    dcostring:
+        compute the edge attributions and node degree
+    input: 
+        item: graph will be processed
+        adj: adjacent
+    output: 
+        g: processed graph
+    """
     edge_attr, edge_index, x  = item['edge_feat'], item['edge_index'], item['node_feat']
     N = x.size(0)
     if args.model == 'EquiScore':

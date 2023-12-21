@@ -183,6 +183,7 @@ def run(local_rank,args):
     print('training done!')
     
 if '__main__' == __name__:
+    '''distribution training'''
     from torch import distributed as dist
     import torch.multiprocessing as mp
     from utils.dist_utils import *
@@ -202,7 +203,6 @@ if '__main__' == __name__:
     world_size = args.ngpu
 
     # use multiprocess to train
-
     processes = []
     for rank in range(world_size):
         p = Process(target=run, args=(rank, args))

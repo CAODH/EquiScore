@@ -91,9 +91,9 @@ def get_logauc(fp, tp, min_fp=0.001, adjusted=False):
     return logauc
 
 def get_metrics(train_true,train_pred):
+    # lr_decay
     """
     calculate the metrics for the dataset
-    
     """
     try:
         train_pred = np.concatenate(np.array(train_pred,dtype=object), 0).astype(np.float)
@@ -177,7 +177,6 @@ def evaluator(model,loader,loss_fn,args,test_sampler):
     return test_losses,test_true,test_pred
 import copy
 def train(model,args,optimizer,loss_fn,train_dataloader,scheduler):
-
     # collect losses of each iteration
     train_losses = [] 
     model.train()
@@ -212,7 +211,7 @@ def train(model,args,optimizer,loss_fn,train_dataloader,scheduler):
     return model,train_losses,optimizer,scheduler
 def getToyKey(train_keys):
 
-    '''get toy dataset for test'''
+    """get toy dataset for test"""
 
     train_keys_toy_d = []
     train_keys_toy_a = []

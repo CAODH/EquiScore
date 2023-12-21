@@ -33,7 +33,7 @@ def parse_train_args():
     parser.add_argument('--scheduler', type=str, default=None, help='LR scheduler')
     parser.add_argument('--patience', type=int, default=50, help='Patience of early stopping')
     parser.add_argument('--lr', type=float, default=0.0001, help='Initial learning rate')
-    parser.add_argument('--lr_decay', action='store_true', default=True, help='dynamic sampler or not')
+    parser.add_argument('--lr_decay', action='store_true', default=True, help='lr_decay or not')
     parser.add_argument('--max_lr', type=float, default=0.001, help='max learning rate') 
     parser.add_argument('--pct_start', type=float, default=0.3, help='OneCycleLR parameter')
     parser.add_argument('--num_workers', type=int, default=8, help='Number of workers for preprocessing')

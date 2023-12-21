@@ -43,6 +43,20 @@ class MultiHeadAttentionLayer(nn.Module):
             nn.Linear(edge_dim, num_heads))
         
     def propagate_attention(self, g,full_g):
+        """
+        attention propagation with proir informations
+        Parameters
+        ----------
+        g : dgl.DGLGraph 
+            convalent and IFP based graph 
+
+        full_g :dgl.DGLGraph
+            geometric based graph
+	
+		Returns
+		-------
+        
+        """
 
         ############### geometric distance based graph attention module ################################
         full_g.apply_edges(src_dot_dst('K_h', 'Q_h', 'score'))
@@ -133,6 +147,29 @@ class EquiScoreLayer(nn.Module):
         self.layer_norm2_e = nn.LayerNorm(self.args.edge_dim)
             
     def forward(self, g, full_g,x, e):
+        """
+        update the node embedding and edge embedding
+        Parameters
+        ----------
+        g : dgl.DGLGraph 
+            convalent and IFP based graph 
+
+        full_g :dgl.DGLGraph
+            geometric based graph
+        x : torch.Tensor
+            nodes embeddings
+        e : torch.Tensor
+            edges embeddings
+	
+		Returns
+		-------
+        x : torch.Tensor
+            updated nodes embeddings
+        e : torch.Tensor
+            updated edges embeddings
+        
+        """
+
         y = self.layer_norm1_h(g,x)
         e_norm = self.layer_norm1_e(e)
         y, e_norm = self.attention(g,full_g, y, e_norm)

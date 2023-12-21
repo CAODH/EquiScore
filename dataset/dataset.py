@@ -54,7 +54,6 @@ class ESDataset(Dataset):
         return len(self.keys)
     def collate(self, samples):
 
-
         """ 
         The input samples is a list of pairs (graph, label)
         collate function for building graph dataloader
@@ -94,6 +93,18 @@ class ESDataset(Dataset):
     def _GetGraph(key,args):
         """
         construct structual graph based on covalent bond and non-bond interaction and save to LMDB database for speed up data loading
+        Parameters
+        ----------
+        key : string 
+            file path
+        args : dictionary
+            parameters 
+	
+		Returns
+		-------
+		(dgl.DGLGraph, Tensor)
+
+        
         """
         try:
             try:

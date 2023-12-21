@@ -77,6 +77,20 @@ class EquiScore(nn.Module):
         return h,g,full_g,hg
     
     def forward(self, g, full_g):
+        """
+        Parameters
+        ----------
+        g : dgl.DGLGraph 
+            convalent and IFP based graph 
+
+        full_g :dgl.DGLGraph
+            geometric based graph
+
+		Returns
+		-------
+            probability of binding
+
+        """
         h = g.ndata['x']
         h = self.atom_encoder(h.long()).mean(-2)
 
