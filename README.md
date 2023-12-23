@@ -57,18 +57,18 @@ This is an example for how to set up a working conda environment to run the code
 
    `pip install numpy==1.22.3`
 
-**or you can download the conda-packed file [zenodo](https://zenodo.org/records/10417452), and then unzip it in ${anaconda install dir}/anaconda3/envs/EuiqScore. ${anaconda install dir} represents the dir where the anaconda is installed. For me, ${anaconda install dir}=/root.**
+**or you can download the conda-packed file [zenodo](https://zenodo.org/records/10417452), and then unzip it in ${anaconda install dir}/anaconda3/envs/EquiScore. ${anaconda install dir} represents the dir where the anaconda is installed. For me, ${anaconda install dir}=/root.**
 
-   `mkdir ${anaconda install dir}/anaconda3/envs/EuiqScore `
-
-
-   `tar -xzvf EquiScore.tar.gz -C ${anaconda install dir}/anaconda3/envs/EuiqScore`
+   `mkdir ${anaconda install dir}/anaconda3/envs/EquiScore `
 
 
-   `conda activate EuiqScore`
+   `tar -xzvf EquiScore.tar.gz -C ${anaconda install dir}/anaconda3/envs/EquiScore`
 
 
-   **after enter the EuiqScore env:**
+   `conda activate EquiScore`
+
+
+   **after enter the EquiScore env:**
 
 
    `run conda-unpack`
