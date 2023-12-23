@@ -20,10 +20,19 @@ from utils.dist_utils import *
 N_atom_features = 28
 from scipy.spatial import distance_matrix
 def get_args_from_json(json_file_path, args_dict):
+    """"
+    docstring:
+        use this function to update the args_dict from a json file if you want to use a json file save parameters 
+    input:
+        json_file_path: string
+            json file path
+        args_dict: args dict
+            dict
+
+    output:
+        args dict
     """
-    use this function to update the args_dict from a json file if you want to use a json file save parameters 
-    
-    """
+
     import json
     summary_filename = json_file_path
     with open(summary_filename) as f:
@@ -71,6 +80,18 @@ def initialize_model(model, device, args,load_save_file = False,init_classifer =
     return model
 
 def get_logauc(fp, tp, min_fp=0.001, adjusted=False):
+    """"
+    docstring:
+        use this function to calculate logauc 
+    input:
+        fp: list
+            false positive
+        tp: list
+            true positive
+
+    output: float
+        logauc
+    """
     
     lam_index = np.searchsorted(fp, min_fp)
     y = np.asarray(tp[lam_index:], dtype=np.double)
@@ -92,8 +113,17 @@ def get_logauc(fp, tp, min_fp=0.001, adjusted=False):
 
 def get_metrics(train_true,train_pred):
     # lr_decay
-    """
-    calculate the metrics for the dataset
+    """"
+    docstring:
+        calculate the metrics for the dataset
+    input:
+        train_true: list
+            label
+        train_pred: list
+            predicted label
+
+    output: list
+        metrics
     """
     try:
         train_pred = np.concatenate(np.array(train_pred,dtype=object), 0).astype(np.float)
@@ -239,7 +269,7 @@ def getTestedPro(file_name):
     else:
         return []
 def getEF(model,args,test_path,save_path,debug,batch_size,loss_fn,rates = 0.01,flag = '',prot_split_flag = '_'):
-        """calculate EF of test dataset ,since dataset have 102/81 proteins ,so we need to calculate EF of each protein one by one!"""
+        """calculate EF of test dataset, since dataset have 102/81 proteins ,so we need to calculate EF of each protein one by one!"""
         save_file = save_path + '/EF_test' + flag
         tested_pros = getTestedPro(save_file)
         test_keys = [key for key in os.listdir(test_path) if '.' not in key]
@@ -593,6 +623,18 @@ def get_train_val_keys(keys):
             val_list +=  pro_dict[pro_list[i]]
     return train_list,val_list
 def get_dataloader(args,train_keys,val_keys,val_shuffle=False):
+    """"
+    docstring:
+        get dataloader for train and validation
+    input:
+        train_keys: list of train keys
+            train file paths
+        val_keys: list of validation keys
+            validation file paths
+
+    output: dataloader for train and validation
+        (train_dataloader,val_dataloader)
+    """
     train_dataset = ESDataset(train_keys,args, args.data_path,args.debug)
     val_dataset = ESDataset(val_keys,args, args.data_path,args.debug)
    

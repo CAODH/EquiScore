@@ -12,5 +12,5 @@ command=`python Screening.py \
 --test \
 --test_path data/sample_data/ \
 --test_name tmp_pockets \
---pred_save_path  data/test_results/EquiScore_tmp_pockets.pkl`
+--pred_save_path  data/test_results/EquiScore_tmp_pockets.csv`
 state=$command

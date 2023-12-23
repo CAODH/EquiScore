@@ -1,7 +1,8 @@
 
 """
 ----------------------------------------------------Attention-------------------------------------------------------
-                please repalce the relative path (../../training_data/PDBscreen) to the absolute path first 
+                please repalce the relative path (../../training_data/PDBscreen) to the absolute path first,
+                such as : /home/user-name/Equiscore/data/training_data/PDBscreen 
                 this is the most important setup for this script!
 ----------------------------------------------------Attention-------------------------------------------------------
 """
@@ -43,7 +44,6 @@ def filter_targets(file_paths,targets):
             filtered_keys.append(name)
     return filtered_keys
 def get_part_data(data_dir,names,fast_num = 5,active_names = None):
-    # data_name = []
     pro_decoy_pro = defaultdict(list)
     for i in names:
         pro = i.split('_')[0]
@@ -55,7 +55,6 @@ def get_part_data(data_dir,names,fast_num = 5,active_names = None):
     pro_decoy_pro_5 = defaultdict(list)
     for key in pro_decoy_pro.keys():
         if len(pro_decoy_pro[key]) <= fast_num:
-            # print(key)
             pro_decoy_pro_5[key] = pro_decoy_pro[key]
         else:
             pro_decoy_pro_5[key] =pro_decoy_pro[key][:fast_num]
@@ -63,29 +62,26 @@ def get_part_data(data_dir,names,fast_num = 5,active_names = None):
     print('mean of actives : decoys in cross_decoys',np.mean(list(dict(Counter([i.split('_')[2] for i in pro_decoy_pro_5])).values())))
     return [data_dir + name for name in pro_decoy_pro_5]
 def get_part_data_screen_pose(data_dir,names,fast_num = 5,active_names = None):
-    # data_name = []
     pro_decoy_pro = defaultdict(list)
     for i in names:
         pro = i.split('_active')[0]
         if active_names is None:
             pro_decoy_pro[pro].append(i)
         else:
-            # flag = pro.split('_')[0] + '_' + pro.split('_')[1]
+
             if pro in active_names:
                 pro_decoy_pro[pro].append(i)
 
     pro_decoy_pro_5 = defaultdict(list)
-    # print(' pro_decoy_pro_5',len( pro_decoy_pro_5))
+
     for key in pro_decoy_pro.keys():
         if len(pro_decoy_pro[key]) <= fast_num:
-            # print(key)
-
             pro_decoy_pro_5[key] = pro_decoy_pro[key]
         else:
             pro_decoy_pro_5[key] =pro_decoy_pro[key][:fast_num]
     pro_decoy_pro_5 = sum(pro_decoy_pro_5.values(),[])
     print('mean of actives : decoys in cross_decoys',np.mean(list(dict(Counter([i.split('_')[2] for i in pro_decoy_pro_5])).values())))
-    # print('all decoy ',len(pro_decoy_pro_5)/len(active_names))
+
     return [data_dir + name for name in pro_decoy_pro_5]
 def get_part_data_screen(data_dir,names,fast_num = 5,active_names = None):
     # data_name = []
@@ -99,23 +95,21 @@ def get_part_data_screen(data_dir,names,fast_num = 5,active_names = None):
                 pro_decoy_pro[pro].append(i)
 
     pro_decoy_pro_5 = defaultdict(list)
-    # print(' pro_decoy_pro_5',len( pro_decoy_pro_5))
+
     for key in pro_decoy_pro.keys():
         if len(pro_decoy_pro[key]) <= fast_num:
-            # print(key)
 
             pro_decoy_pro_5[key] = pro_decoy_pro[key]
         else:
             pro_decoy_pro_5[key] =pro_decoy_pro[key][:fast_num]
     pro_decoy_pro_5 = sum(pro_decoy_pro_5.values(),[])
     print('mean of actives : decoys in cross_decoys',np.mean(list(dict(Counter([i.split('_')[2].split('-')[1] for i in pro_decoy_pro_5])).values())))
-    # print('all decoy ',len(pro_decoy_pro_5)/len(active_names))
+
     return [data_dir + name for name in pro_decoy_pro_5]
 #------------------------------------------------------
 # get HQ part from PDBscreen 
 #------------------------------------------------------
 valid_keys =glob.glob('../../training_data/PDBscreen/PDBscreen_HQ_active_pocket/*')
-# valid_keys +=glob.glob('/home/caoduanhua/score_function/data/general_refineset/generalset_active_pocket_without_h/*')
 active_pros = set([v.split('/')[-1].split('_')[0] for v in valid_keys])
 
 print('HQ actives pros :',len(active_pros))

@@ -59,7 +59,7 @@ def parse_train_args():
     parser.add_argument('--rel_3d_pos_bias', action='store_true', default=True, help='3d distance informations')
     parser.add_argument('--in_degree_bias', action='store_true', default=True, help='in degree infomations')
     parser.add_argument('--virtual_aromatic_atom', action='store_true', default=True, help='add virtual aromatic atom')
-    parser.add_argument('--fingerprintEdge', action='store_true', default=True, help='construct edge based fingerprint information by proLIF ')
+    parser.add_argument('--fingerprintEdge', action='store_true', default=True, help='construct edge based fingerprint information by ProLIF ')
     parser.add_argument('--FP', action='store_true', default=True, help='use AttentiveFP feature or graphformer feature')
     parser.add_argument('--rel_pos_bias', action='store_true', default=False, help=' shortest path distance informations')
     parser.add_argument('--lap_pos_enc', action='store_true', default=False, help='laplace position infomations')
@@ -78,7 +78,7 @@ def parse_train_args():
                         help='test dataset directory which contains the test pockets')
     parser.add_argument('--EF_rates', type=list, default=[0.001,0.002,0.005,0.01,0.02,0.05,0.1,0.2,0.5], \
                         help='EF rates for banchmark test')
-    parser.add_argument('--pred_save_path', type=str, default="./data/test_results/EquiScore_pred_for_tmp_pockets.pkl", \
+    parser.add_argument('--pred_save_path', type=str, default="./data/test_results/EquiScore_pred_for_tmp_pockets.csv", \
                         help='path for prediction results in Screening script')
     args = parser.parse_args()
     return args

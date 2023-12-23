@@ -7,7 +7,16 @@ def mol_with_atom_index(mol):
         atom.SetAtomMapNum(atom.GetIdx())
     return mol
 def get_nonBond_pair(m1,m2):
-    # cal IFP(interaction fingerprint )
+    """
+    docstring: 
+        calculate IFP(interaction fingerprint)
+    input:
+        m1: rdkit.Chem.Mol(ligand)
+        m2: rdkit.Chem.Mol(protein)
+    output:
+        nonbond_pairs: list of tuple (ligand_atom_idx,protein_atom_idx)
+        inter_types: list of interaction type
+    """
     fp = plf.Fingerprint()
     prot = plf.Molecule(m2)
     ligand = plf.Molecule.from_rdkit(m1)

@@ -62,7 +62,7 @@ This is an example for how to set up a working conda environment to run the code
    `mkdir ${anaconda install dir}/anaconda3/envs/EuiqScore `
 
 
-   `tar -xzvf karmadock.tar.gz -C ${anaconda install dir}/anaconda3/envs/EuiqScore`
+   `tar -xzvf EquiScore.tar.gz -C ${anaconda install dir}/anaconda3/envs/EuiqScore`
 
 
    `conda activate EuiqScore`
@@ -129,8 +129,8 @@ This is an example for how to set up a working conda environment to run the code
 
 1. you need to download the traing dataset , and extract pocket data to ./data/training_data/PDBscreen
    (You can also use your own private data, As long as it can fit to EquiScore after processing)
-2. use uniport id to deduplicated data and split data in `./data/data_splits/screen_model/data_split_for_training.py`
-   in this script, will help deduplicated dataset by uniport id and split train/val data and save data path into a pkl file (like "train_keys.pkl, val_keys.pkl, test_keys.pkl").
+2. use uniprot id to deduplicated data and split data in `./data/data_splits/screen_model/data_split_for_training.py`
+   in this script, will help deduplicated dataset by uniprot id and split train/val data and save data path into a pkl file (like "train_keys.pkl, val_keys.pkl, test_keys.pkl").
 3. run train.py script:
 
    `python Train.py --ngpu 1 --train_keys your_keys_path --val_keys your_keys_path --test_keys your_keys_path --test`

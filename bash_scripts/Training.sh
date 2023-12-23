@@ -13,5 +13,5 @@ command=`python Train.py \
 --train_keys ./data/data_splits/screen_model/train_keys.pkl \
 --val_keys ./data/data_splits/screen_model/val_keys.pkl \
 --test_keys ./data/data_splits/screen_model/test_keys.pkl \
---lmdb_cache lmdb_cache_dir`
+--test`
 state=$command
