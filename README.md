@@ -6,7 +6,7 @@ Implementation of EquiScore, by Duanhua Cao 😊.
 
 ### 🔔 News
 
-   Some bugs(🐛 🐛) have been fixed, and bash commands are further provided to help users unfamiliar with python quickly use EquiScore for for virtual screening 😃
+   Some bugs(🐛 🐛) have been fixed, and bash commands are further provided to help users unfamiliar with python quickly use EquiScore for virtual screening 😃
 
 **This repository contains all code, instructions and model weights necessary to **screen compounds** by EquiScore, eval EquiScore or to retrain a new model.**
 
