@@ -112,7 +112,7 @@ This is an example for how to set up a working conda environment to run the code
 3. if you want to preprocessed data to get pocket , all pocket file names should contain '_active' for active ligand,'_decoy' for decoys and  all pockets in a dir for one benchmark dataset
 4. run script (You can use the nohup command and output redirects as you normally like):
 
-   `python Independent_test_dist.py --test --test_path './data/external_test_data' --test_name dekois2_pocket --test_mode multi_pose`
+   `python Independent_test.py --test --test_path ./data/external_test_data --test_name dekois2_pocket --test_mode multi_pose`
 
    the result will be saved in ~/EquiScore/workdir/official_weight/
 
@@ -140,7 +140,7 @@ This is an example for how to set up a working conda environment to run the code
    `cd ~/EquiScore/bash_scripts`
    `bash Training.sh`
 
-   (**or If you wish to expedite the training process, please refer to the preprocessing workflow in dataset.py, save the data to the LMDB database, and then specify the LMDB path in the training script by adding --lmdb_cache lmdb_cache_path to replace --test like we did in bash command** )
+   (**In the first round of training, data is processed and saved, so it may be slower, depending on hardware conditions OR If you wish to expedite the training process, please refer to the preprocessing workflow in dataset.py, save the data to the LMDB database, and then specify the LMDB path in the training script by adding --lmdb_cache lmdb_cache_path to replace --test like we did in bash command** )
 
 ## Citation
 

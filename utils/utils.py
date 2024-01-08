@@ -206,12 +206,13 @@ def evaluator(model,loader,loss_fn,args,test_sampler):
             test_pred = torch.concat(test_pred, dim=0).cpu().numpy()
     return test_losses,test_true,test_pred
 import copy
+import tqdm
 def train(model,args,optimizer,loss_fn,train_dataloader,scheduler):
     # collect losses of each iteration
     train_losses = [] 
     model.train()
 
-    for i_batch, (g,full_g,Y) in enumerate(train_dataloader):
+    for i_batch, (g,full_g,Y) in tqdm.tqdm(enumerate(train_dataloader),total = len(train_dataloader)):
         g = g.to(args.device,non_blocking=True)
         full_g = full_g.to(args.device,non_blocking=True)
 

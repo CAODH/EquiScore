@@ -28,7 +28,7 @@ def parse_train_args():
     parser.add_argument('--grad_sum', type=int, default=1, help='Number of grad accumulation steps')
     parser.add_argument('--label_smothing', type=float, default=0.0, help='label smothing coefficient')
     parser.add_argument('--eps', type=float, default=4.0, help='focal loss eps')
-    parser.add_argument('--batch_size', type=int, default=64, help='Batch size on each gpu')
+    parser.add_argument('--batch_size', type=int, default=32, help='Batch size on each gpu')
     parser.add_argument('--sampler', action='store_true', default=False, help='dynamic sampler or not')
     parser.add_argument('--scheduler', type=str, default=None, help='LR scheduler')
     parser.add_argument('--patience', type=int, default=50, help='Patience of early stopping')
