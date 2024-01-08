@@ -68,10 +68,10 @@ This is an example for how to set up a working conda environment to run the code
    `conda activate EquiScore`
 
 
-   **after enter the EquiScore env:**
+   **after enter the EquiScore env: run**
 
 
-   `run conda-unpack`
+   `conda-unpack`
 
 ## **Using the provided model weights to screen a compound for your target protein**
 

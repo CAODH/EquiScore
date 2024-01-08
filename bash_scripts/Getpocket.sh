@@ -15,4 +15,4 @@ command=`python ./get_pocket/get_pocket.py \
 --process_num 10`
 state=$command
 # rm tmp files
-rm -rf ./*.pdb
+# rm -rf ./*.pdb
