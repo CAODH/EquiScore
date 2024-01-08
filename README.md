@@ -61,15 +61,11 @@ This is an example for how to set up a working conda environment to run the code
 
    `mkdir ${anaconda install dir}/anaconda3/envs/EquiScore `
 
-
    `tar -xzvf EquiScore.tar.gz -C ${anaconda install dir}/anaconda3/envs/EquiScore`
-
 
    `conda activate EquiScore`
 
-
    **after enter the EquiScore env: run**
-
 
    `conda-unpack`
 
