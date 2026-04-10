@@ -1,5 +1,1 @@
-# ignore subfolders inside PDBscreen
-PDBscreen/*/
-
-# but keep files directly inside PDBscreen
-!PDBscreen/*
+PDBscreen/

@@ -1,0 +1,151 @@
+{
+  "version": "1",
+  "metadata": {
+    "marimo_version": "0.17.6"
+  },
+  "cells": [
+    {
+      "id": "MJUe",
+      "code_hash": "e7381027a4f320bf94a0829110611072",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h1 id=\"pdbscreen-descriptor-eda-leakage-safe\">PDBscreen Descriptor EDA (Leakage-Safe)</h1>\n<span class=\"paragraph\">This notebook computes ligand descriptors from pocket pickle files:</span>\n<ul>\n<li>TPSA</li>\n<li>Molecular weight</li>\n<li>Lipinski compliance</li>\n<li>Verber compliance</li>\n<li>Rotatable bonds</li>\n<li>Scaffold (Bemis-Murcko)</li>\n<li>Ring count and aromaticity</li>\n</ul>\n<span class=\"paragraph\">Leakage-safe defaults:</span>\n<ol>\n<li>Analyze only train split by default.</li>\n<li>Use val/test only for post-hoc reporting (not for feature decisions).</li>\n<li>Quantify scaffold overlap between train and holdout splits.</li>\n</ol></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Kclp",
+      "code_hash": "e308c4846a7c2632d415aae8116bd05e",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"leakage-safe-workflow\">Leakage-Safe Workflow</h2>\n<ol>\n<li>Use this notebook on train split for all feature selection and threshold decisions.</li>\n<li>Keep val/test for locked, post-hoc reporting only.</li>\n<li>Do not tune descriptor filters after viewing test statistics.</li>\n<li>If scaffold overlap is high, prefer scaffold-aware splitting before model development.</li>\n</ol></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Hbol",
+      "code_hash": "1d0db38904205bec4d6f6f6a1f6cec3e",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "vblA",
+      "code_hash": "18e2fe2e67f0ee4b90fdeda61be0cf92",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "bkHC",
+      "code_hash": "77ca56c6ff976b04194e66ae9191d746",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "lEQa",
+      "code_hash": "c9bbac7d6cc4c7f6b46fc8b62375b959",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<marimo-ui-element object-id='lEQa-0' random-id='34ccbbf0-9447-f090-ca47-526db3011d63'><marimo-multiselect data-initial-value='[&quot;train&quot;]' data-label='&quot;&lt;span class=&#92;&quot;markdown prose dark:prose-invert contents&#92;&quot;&gt;&lt;span class=&#92;&quot;paragraph&#92;&quot;&gt;Splits to analyze (keep train-only for leakage-safe EDA)&lt;/span&gt;&lt;/span&gt;&quot;' data-options='[&quot;test&quot;,&quot;train&quot;,&quot;val&quot;]' data-full-width='false'></marimo-multiselect></marimo-ui-element>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "PKri",
+      "code_hash": "f4dff224bf0caedb590ca5e91865c225",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Xref",
+      "code_hash": "4bc23cbd473fd00bd201e9a684d65cb5",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "SFPL",
+      "code_hash": "5ccb26b66378a3ff94ee2bec13c311db",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "BYtC",
+      "code_hash": "9bb2979d88c874a68c9bc11d6d6c519a",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<marimo-ui-element object-id='BYtC-0' random-id='ca59e2e0-7e0c-6f09-2695-f00666247bd0'><marimo-table data-initial-value='[]' data-label='null' data-data='&quot;[{&#92;&quot;split&#92;&quot;:&#92;&quot;train&#92;&quot;,&#92;&quot;n&#92;&quot;:310551,&#92;&quot;tpsa_mean&#92;&quot;:96.97679617840548,&#92;&quot;mw_mean&#92;&quot;:324.95075599820973,&#92;&quot;rot_bonds_mean&#92;&quot;:4.904991450679598,&#92;&quot;ring_count_mean&#92;&quot;:2.402320391819701,&#92;&quot;aromatic_ring_mean&#92;&quot;:1.6387646473526087,&#92;&quot;lipinski_rate&#92;&quot;:0.7904112368016848,&#92;&quot;verber_rate&#92;&quot;:0.7926685149943166,&#92;&quot;n_unique_scaffolds&#92;&quot;:50065}]&quot;' data-total-rows='1' data-total-columns='10' data-max-columns='50' data-banner-text='&quot;&quot;' data-pagination='true' data-page-size='10' data-field-types='[[&quot;split&quot;,[&quot;string&quot;,&quot;str&quot;]],[&quot;n&quot;,[&quot;integer&quot;,&quot;u32&quot;]],[&quot;tpsa_mean&quot;,[&quot;number&quot;,&quot;f64&quot;]],[&quot;mw_mean&quot;,[&quot;number&quot;,&quot;f64&quot;]],[&quot;rot_bonds_mean&quot;,[&quot;number&quot;,&quot;f64&quot;]],[&quot;ring_count_mean&quot;,[&quot;number&quot;,&quot;f64&quot;]],[&quot;aromatic_ring_mean&quot;,[&quot;number&quot;,&quot;f64&quot;]],[&quot;lipinski_rate&quot;,[&quot;number&quot;,&quot;f64&quot;]],[&quot;verber_rate&quot;,[&quot;number&quot;,&quot;f64&quot;]],[&quot;n_unique_scaffolds&quot;,[&quot;integer&quot;,&quot;u32&quot;]]]' data-show-filters='true' data-show-download='true' data-show-column-summaries='false' data-show-data-types='true' data-show-page-size-selector='false' data-show-column-explorer='true' data-show-chart-builder='true' data-row-headers='[]' data-has-stable-row-id='false' data-lazy='false' data-preload='false'></marimo-table></marimo-ui-element>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "RGSE",
+      "code_hash": "ce24e95e3ab24849a3a0607459db6d9b",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<marimo-ui-element object-id='RGSE-0' random-id='987e63df-85d4-cdf7-8c00-7cdfb78efcbb'><marimo-table data-initial-value='[]' data-label='null' data-data='&quot;[]&quot;' data-total-rows='0' data-total-columns='2' data-max-columns='50' data-banner-text='&quot;&quot;' data-pagination='true' data-page-size='10' data-field-types='[[&quot;holdout_split&quot;,[&quot;string&quot;,&quot;str&quot;]],[&quot;overlap_rate_vs_train&quot;,[&quot;number&quot;,&quot;f64&quot;]]]' data-show-filters='true' data-show-download='true' data-show-column-summaries='false' data-show-data-types='true' data-show-page-size-selector='false' data-show-column-explorer='true' data-show-chart-builder='true' data-row-headers='[]' data-has-stable-row-id='false' data-lazy='false' data-preload='false'></marimo-table></marimo-ui-element>"
+          }
+        }
+      ],
+      "console": []
+    }
+  ]
+}
