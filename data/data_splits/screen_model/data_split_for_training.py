@@ -7,12 +7,14 @@
 ----------------------------------------------------Attention-------------------------------------------------------
 """
 
+import argparse
 import pickle
 from collections import OrderedDict
 import random
 import glob
 import numpy as np
 import os
+from pathlib import Path
 random.seed(0)
 from collections import defaultdict,Counter
 # print(glob.glob(os.path.('../../training_data/*')))
@@ -30,12 +32,30 @@ PDBscreen_HQ_active_pocket                  PDBscreen_LQ_active_augment_2a_pose_
 PDBscreen_HQ_cross_decoy_pocket             PDBscreen_LQ_active_pocket
 ##############################################################################################################################
 '''
-"""
-Attention :
-please repalce the relative path (../../training_data/PDBscreen) to the absolute path first , this is the most important setup for this script!
+def parse_args():
+    repo_root = Path(__file__).resolve().parents[3]
+    script_dir = Path(__file__).resolve().parent
+    parser = argparse.ArgumentParser(description="Create train/val/test split keys for PDBscreen.")
+    parser.add_argument(
+        "--dataset-root",
+        type=str,
+        default=str(repo_root / "PDBscreen"),
+        help="Path to PDBscreen dataset root (default: <repo-root>/PDBscreen)",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=str(script_dir),
+        help="Directory where train/val/test pickle files are written (default: this script directory).",
+    )
+    return parser.parse_args()
 
-"""
-base_path = 'please set up the absolute path of the data folder'
+
+args = parse_args()
+DATASET_ROOT = str(Path(args.dataset_root).resolve()).rstrip("/")
+OTHER_INFO_DIR = Path(__file__).resolve().parents[1] / "other_info"
+OUTPUT_DIR = Path(args.output_dir).resolve()
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 def filter_targets(file_paths,targets):
     filtered_keys = []
@@ -109,30 +129,30 @@ def get_part_data_screen(data_dir,names,fast_num = 5,active_names = None):
 #------------------------------------------------------
 # get HQ part from PDBscreen 
 #------------------------------------------------------
-valid_keys =glob.glob('../../training_data/PDBscreen/PDBscreen_HQ_active_pocket/*')
+valid_keys =glob.glob(f'{DATASET_ROOT}/PDBscreen_HQ_active_pocket/*')
 active_pros = set([v.split('/')[-1].split('_')[0] for v in valid_keys])
 
 print('HQ actives pros :',len(active_pros))
-cross_decoys= os.listdir('../../training_data/PDBscreen/PDBscreen_HQ_cross_decoy_pocket/')
+cross_decoys= os.listdir(f'{DATASET_ROOT}/PDBscreen_HQ_cross_decoy_pocket/')
 
 cross_decoys_pros = set([v.split('/')[-1].split('_')[0] for v in cross_decoys])
 print('cross_decoys pros :',len(cross_decoys_pros))
-cross_decoys_dir = '../../training_data/PDBscreen/PDBscreen_HQ_cross_decoy_pocket/'
+cross_decoys_dir = f'{DATASET_ROOT}/PDBscreen_HQ_cross_decoy_pocket/'
 
 valid_keys += get_part_data(cross_decoys_dir,cross_decoys,fast_num=10,active_names = active_pros)
 
 print('HQ len of decoys: ',len(cross_decoys))
 #----------------------------------------------------------------
 ############# add pose enhanced samples ###############
-cross_decoys_dir_pose = '../../training_data/PDBscreen/PDBscreen_HQ_active_augment_2a_pose_pocket/'
-poses = os.listdir('../../training_data/PDBscreen/PDBscreen_HQ_active_augment_2a_pose_pocket/')
+cross_decoys_dir_pose = f'{DATASET_ROOT}/PDBscreen_HQ_active_augment_2a_pose_pocket/'
+poses = os.listdir(f'{DATASET_ROOT}/PDBscreen_HQ_active_augment_2a_pose_pocket/')
 valid_keys_poses = get_part_data(cross_decoys_dir_pose,poses,fast_num=100,active_names = active_pros)
 print('pose enhanced samples: ',len(valid_keys_poses))
 print('pose pros: ',len(set([i.split('/')[-1].split('_')[0] for i in valid_keys_poses])))
 valid_keys += valid_keys_poses
 print('all valid keys in HQ ',len(valid_keys))
 ############################## add generated decoys ##############################
-valid_keys_decoys = glob.glob('../../training_data/PDBscreen/PDBscreen_HQ_generated_decoy_pocket/*')
+valid_keys_decoys = glob.glob(f'{DATASET_ROOT}/PDBscreen_HQ_generated_decoy_pocket/*')
 print('all Generated decoys : ',len(valid_keys_decoys))
 valid_keys_decoys  = [i for i in valid_keys_decoys if i.split('/')[-1].split('_')[0] in active_pros]
 print('last Generated decoys : ',len(valid_keys_decoys))
@@ -146,28 +166,28 @@ print('HQ len of generated decoys + active + crossdecoy  + pose enhanced : ',len
 #######################################################################################
 import pickle
 
-with open('../other_info/pdbscreen_active_5_2.pkl','rb') as f:
+with open(OTHER_INFO_DIR / 'pdbscreen_active_5_2.pkl','rb') as f:
     data_names = pickle.load(f)
 data_names = [i.split('.')[0].replace('_active','') for i in data_names]
-valid_keys_screen = glob.glob('../../training_data/PDBscreen/PDBscreen_LQ_active_pocket/*')
+valid_keys_screen = glob.glob(f'{DATASET_ROOT}/PDBscreen_LQ_active_pocket/*')
 # filtering
 valid_keys_screen = [ i for i in valid_keys_screen if i.split('/')[-1].replace('_active_0','') in data_names]
 active_pros_screen = set([v.split('/')[-1].replace('_active_0','') for v in valid_keys_screen])
 
 print('LQ actives pros :',len(active_pros_screen))
-cross_decoys_screen= os.listdir('../../training_data/PDBscreen/PDBscreen_LQ_cross_decoy_pocket/')
+cross_decoys_screen= os.listdir(f'{DATASET_ROOT}/PDBscreen_LQ_cross_decoy_pocket/')
 
 cross_decoys_pros_screen = set([v.split('-')[0] for v in cross_decoys_screen])
 
 print('LQ cross_decoys_pros :',len(cross_decoys_pros_screen))
-cross_decoys_dir_screen = '../../training_data/PDBscreen/PDBscreen_LQ_cross_decoy_pocket/'
+cross_decoys_dir_screen = f'{DATASET_ROOT}/PDBscreen_LQ_cross_decoy_pocket/'
 
 valid_keys_screen += get_part_data_screen(cross_decoys_dir_screen,cross_decoys_screen,fast_num=10,active_names = active_pros_screen)
 
 print(' LQ len of decoys: ',len(cross_decoys_screen))
 #-------------------------------------------------------------------------------
-cross_decoys_dir_screen_pose = '../../training_data/PDBscreen/PDBscreen_LQ_active_augment_2a_pose_pocket/'
-screen_poses = os.listdir('../../training_data/PDBscreen/PDBscreen_LQ_active_augment_2a_pose_pocket/')
+cross_decoys_dir_screen_pose = f'{DATASET_ROOT}/PDBscreen_LQ_active_augment_2a_pose_pocket/'
+screen_poses = os.listdir(f'{DATASET_ROOT}/PDBscreen_LQ_active_augment_2a_pose_pocket/')
 active_pros_screen = [i.split('_')[0] + '_' +  i.split('_')[2] for i in active_pros_screen]
 valid_screen_poses = get_part_data_screen_pose(cross_decoys_dir_screen_pose,screen_poses,fast_num=100,active_names =active_pros_screen)
 
@@ -176,7 +196,7 @@ print('LQ pose pros: ',len(set([i.split('/')[-1].split('_')[0] for i in valid_sc
 valid_keys_screen += valid_screen_poses
 print('all valid keys in pdbbind ',len(valid_keys_screen))
 ########################################################### generated decoys ##################
-valid_keys_screen_shape = glob.glob('../../training_data/PDBscreen/PDBscreen_LQ_generated_decoy_pocket/*')
+valid_keys_screen_shape = glob.glob(f'{DATASET_ROOT}/PDBscreen_LQ_generated_decoy_pocket/*')
 print('LQ len of shape decoys : ',len(valid_keys_screen_shape))
 # remove sp score > -5 kcal/mol
 data_names = [i.split('_')[0] + '_' +  i.split('_')[2] for i in data_names]
@@ -193,7 +213,7 @@ print('removeing duplicated target from training data ..........')
 valid_keys = valid_keys_screen + valid_keys
 print('valid_keys_screen + valid_keys',len(valid_keys))
 
-with open('../other_info/all_dulicatedpdb_ids.pkl','rb') as f:
+with open(OTHER_INFO_DIR / 'all_dulicatedpdb_ids.pkl','rb') as f:
     duplicated_targets = pickle.load(f)
     print('duplicated tragets: ',len(duplicated_targets))
 dude_gene =  set(OrderedDict.fromkeys([v.split('/')[-1].split('_')[0] for v in valid_keys]))
@@ -207,9 +227,9 @@ test_keys = [k for k in valid_keys if k.split('/')[-1].split('_')[0] in duplicat
 print ('Num train keys: ', len(train_keys))
 print ('Num test keys: ', len(test_keys))
 ################## uniport hierarchy sample pipeline test ##############################
-with open('../other_info/eight_class_remove_duplicated.pkl','rb') as f:
+with open(OTHER_INFO_DIR / 'eight_class_remove_duplicated.pkl','rb') as f:
     eight_class_remove_duplicated = pickle.load(f)
-with open('../other_info/uniport_to_pdb_dict.pkl','rb') as f:
+with open(OTHER_INFO_DIR / 'uniport_to_pdb_dict.pkl','rb') as f:
     uniport_to_pdb_dict = pickle.load(f)
 def select_uniport_for_val(eight_class_remove_duplicated,uniport_to_pdb_dict,rate = 0.12,seed = 42):
     np.random.seed(seed)
@@ -233,9 +253,9 @@ print ('Num val keys: ', len(val_keys))
 print ('Num test keys: ', len(test_keys))
 print('train/val = ',len(train_keys)/len(val_keys))
 print('NUm uniport ids',len(val_uniport_ids))
-with open('train_keys.pkl', 'wb') as f:
+with open(OUTPUT_DIR / 'train_keys.pkl', 'wb') as f:
     pickle.dump(train_keys, f)
-with open('test_keys.pkl', 'wb') as f:
+with open(OUTPUT_DIR / 'test_keys.pkl', 'wb') as f:
     pickle.dump(test_keys, f)
-with open('val_keys.pkl', 'wb') as f:
+with open(OUTPUT_DIR / 'val_keys.pkl', 'wb') as f:
     pickle.dump(val_keys, f)
