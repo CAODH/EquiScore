@@ -1,6 +1,9 @@
 # PDBscreen Manifest Tools
 
-This folder documents the Polars-based manifest script at utils/generate_manifest.py.
+This folder documents the manifest and feature materialization scripts:
+
+- utils/generate_manifest.py
+- utils/materialize_features.py
 
 ## Install dependencies
 
@@ -12,11 +15,16 @@ pip install -r requirements-manifest.txt
 
 python utils/generate_manifest.py \
   --dataset-root ./PDBscreen \
-  --out-parquet ./PDBscreen/pdbscreen_manifest.parquet
+  --out-parquet ./dataset/pdbscreen_manifest.parquet
 
 ## Run in one command
 
 bash bash_scripts/Manifest.sh
+
+The shell script now runs both steps back to back:
+
+1. manifest generation
+2. chemistry feature materialization
 
 ## Output columns
 
@@ -31,3 +39,14 @@ The generated manifest includes:
 - pose_id
 - label
 - split
+- ecfp_morgan_r2_2048_bits
+- hbd
+- hba
+- tpsa
+- molecular_weight
+- rotatable_bonds
+- ring_count
+- aromatic_ring_count
+- lipinski_compliant
+- verber_compliant
+- scaffold

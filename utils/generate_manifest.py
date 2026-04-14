@@ -25,7 +25,11 @@ EXPECTED_FOLDERS = [
 def parse_args(repo_root: Path) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate a PDBscreen manifest parquet.")
     parser.add_argument("--dataset-root", default=str(repo_root / "PDBscreen"), help="Path to PDBscreen directory")
-    parser.add_argument("--out-parquet", default=None, help="Output parquet path (default: <dataset-root>/pdbscreen_manifest.parquet)")
+    parser.add_argument(
+        "--out-parquet",
+        default=str(repo_root / "dataset" / "pdbscreen_manifest.parquet"),
+        help="Output parquet path (default: <repo-root>/dataset/pdbscreen_manifest.parquet)",
+    )
     parser.add_argument(
         "--split-dir",
         default=str(repo_root / "data" / "data_splits" / "screen_model"),
@@ -173,7 +177,7 @@ def main() -> None:
     if not dataset_root.exists() or not dataset_root.is_dir():
         raise FileNotFoundError(f"Dataset root does not exist: {dataset_root}")
 
-    out_path = Path(args.out_parquet).resolve() if args.out_parquet else dataset_root / "pdbscreen_manifest.parquet"
+    out_path = Path(args.out_parquet).resolve()
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     manifest_df = build_manifest(collect_paths(dataset_root, repo_root))
