@@ -3,7 +3,7 @@
 This folder documents the manifest and feature materialization scripts:
 
 - utils/generate_manifest.py
-- utils/materialize_features.py
+- utils/features.py
 
 ## Install dependencies
 

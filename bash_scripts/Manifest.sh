@@ -14,7 +14,7 @@ FEATURE_CHUNKSIZE="${FEATURE_CHUNKSIZE:-200}"
   --dataset-root "${DATASET_ROOT}" \
   --out-parquet "${OUT_PARQUET}"
 
-"${PYTHON_BIN}" "${ROOT_DIR}/utils/materialize_features.py" \
+"${PYTHON_BIN}" "${ROOT_DIR}/utils/features.py" \
   --manifest "${OUT_PARQUET}" \
   --workers "${FEATURE_WORKERS}" \
   --chunksize "${FEATURE_CHUNKSIZE}"

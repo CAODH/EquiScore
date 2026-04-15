@@ -1,0 +1,8 @@
+seed: 42
+manifest: dataset/pdbscreen_manifest.parquet
+train_split: train
+val_split: val
+output_dir: results/ranking_baselines
+methods:
+  - lambdamart_ligand
+  - tanimoto_random_ref
