@@ -169,6 +169,38 @@ def add_split_column(manifest_df: pl.DataFrame, split_dir: Path, repo_root: Path
     return manifest_df.join(splits, on="path", how="left")
 
 
+def ensure_rankable_eval_splits(manifest_df: pl.DataFrame) -> pl.DataFrame:
+    eval_stats = (
+        manifest_df.filter(pl.col("split").is_in(["val", "test"]))
+        .group_by(["split", "protein_id"])
+        .agg(
+            [
+                pl.len().alias("n_rows"),
+                pl.col("label").sum().alias("n_pos"),
+            ]
+        )
+        .with_columns((pl.col("n_rows") - pl.col("n_pos")).alias("n_neg"))
+    )
+
+    invalid_eval = (
+        eval_stats
+        .filter((pl.col("n_rows") < 2) | (pl.col("n_pos") == 0) | (pl.col("n_neg") == 0))
+        .select(["split", "protein_id"])
+        .with_columns(pl.lit(True).alias("invalid_eval_query"))
+    )
+
+    return (
+        manifest_df.join(invalid_eval, on=["split", "protein_id"], how="left")
+        .with_columns(
+            pl.when(pl.col("invalid_eval_query") == True)
+            .then(None)
+            .otherwise(pl.col("split"))
+            .alias("split")
+        )
+        .drop("invalid_eval_query")
+    )
+
+
 def main() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     args = parse_args(repo_root)
@@ -182,6 +214,7 @@ def main() -> None:
 
     manifest_df = build_manifest(collect_paths(dataset_root, repo_root))
     manifest_df = add_split_column(manifest_df, Path(args.split_dir).resolve(), repo_root)
+    manifest_df = ensure_rankable_eval_splits(manifest_df)
     manifest_df.write_parquet(out_path, compression="zstd", statistics=True)
 
 
