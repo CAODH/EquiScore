@@ -39,6 +39,36 @@ def _feature_cols(df: pl.DataFrame) -> List[str]:
     return [c for c in preferred if c in df.columns]
 
 
+def _build_ligand_id_expr() -> pl.Expr:
+    label_token = pl.concat_str([pl.lit("y"), pl.col("label").cast(pl.Utf8)])
+    return (
+        pl.when(pl.col("ligand_smiles").is_not_null())
+        .then(
+            pl.concat_str(
+                [
+                    pl.col("protein_id"),
+                    pl.lit("::"),
+                    label_token,
+                    pl.lit("::"),
+                    pl.col("ligand_smiles"),
+                ]
+            )
+        )
+        .otherwise(
+            pl.concat_str(
+                [
+                    pl.col("protein_id"),
+                    pl.lit("::"),
+                    label_token,
+                    pl.lit("::path::"),
+                    pl.col("path"),
+                ]
+            )
+        )
+        .alias("ligand_id")
+    )
+
+
 def _group_sizes(df: pl.DataFrame, group_col: str) -> List[int]:
     return (
         df.group_by(group_col)
@@ -117,6 +147,56 @@ def _lambda_mart_scores(train_df: pl.DataFrame, val_df: pl.DataFrame, seed: int)
     return score_col.to_numpy()
 
 
+def _logistic_regression_scores(train_df: pl.DataFrame, val_df: pl.DataFrame, seed: int) -> np.ndarray:
+    try:
+        from sklearn.linear_model import LogisticRegression
+    except Exception as exc:
+        raise RuntimeError(
+            "scikit-learn is required for method 'logistic_regression_ligand'. Install with: pip install scikit-learn"
+        ) from exc
+
+    feature_cols = _feature_cols(train_df)
+    if not feature_cols:
+        raise ValueError("No ligand descriptor feature columns found in manifest.")
+
+    cast_expr = []
+    for c in feature_cols:
+        if train_df.schema[c] == pl.Boolean:
+            cast_expr.append(pl.col(c).cast(pl.Int8).alias(c))
+    if cast_expr:
+        train_df = train_df.with_columns(cast_expr)
+        val_df = val_df.with_columns(cast_expr)
+
+    train_cls = train_df.drop_nulls(feature_cols + ["label"])
+    val_cls = val_df.drop_nulls(feature_cols + ["label"])
+
+    if train_cls.height == 0:
+        raise ValueError("No training rows with non-null descriptor features for logistic regression.")
+    if val_cls.height == 0:
+        raise ValueError("No validation rows with non-null descriptor features for logistic regression.")
+
+    X_train = train_cls.select(feature_cols).to_numpy()
+    y_train = train_cls.get_column("label").to_numpy()
+    X_val = val_cls.select(feature_cols).to_numpy()
+
+    if len(np.unique(y_train)) < 2:
+        raise ValueError("Logistic regression requires at least two classes in training labels.")
+
+    model = LogisticRegression(max_iter=1000, random_state=seed, class_weight="balanced")
+    model.fit(X_train, y_train)
+
+    val_scores = model.predict_proba(X_val)[:, 1]
+    score_df = val_cls.select(["path", "protein_id", "label"]).with_columns(
+        pl.Series("score", val_scores)
+    )
+
+    merged = val_df.join(score_df, on=["path", "protein_id", "label"], how="left")
+    score_col = merged.get_column("score")
+    if score_col.null_count() > 0:
+        raise ValueError("Logistic regression produced null scores after merge; check manifest row uniqueness.")
+    return score_col.to_numpy()
+
+
 def _tanimoto_random_ref_scores(train_df: pl.DataFrame, val_df: pl.DataFrame, seed: int) -> np.ndarray:
     rng = random.Random(seed)
 
@@ -151,6 +231,9 @@ def main() -> None:
     if missing:
         raise ValueError(f"Manifest missing required columns: {missing}")
 
+    if "pose_id" not in df.columns:
+        df = df.with_columns(pl.lit(None, dtype=pl.Int32).alias("pose_id"))
+
     df = df.with_columns(
         [
             pl.col("label").cast(pl.Int8),
@@ -158,8 +241,9 @@ def main() -> None:
             .then(None)
             .otherwise(pl.col("ligand_smiles"))
             .alias("ligand_smiles"),
+            pl.col("pose_id").cast(pl.Int32, strict=False),
         ]
-    )
+    ).with_columns(_build_ligand_id_expr())
 
     train_df = df.filter(pl.col("split") == args.train_split)
     val_df = df.filter(pl.col("split") == args.val_split)
@@ -173,7 +257,9 @@ def main() -> None:
     if "lambdamart_ligand" in methods:
         lm_scores = _lambda_mart_scores(train_df, val_df, seed=args.seed)
         preds.append(
-            val_df.select(["path", "protein_id", "label"]).rename({"label": "true_label"}).with_columns(
+            val_df.select(["path", "protein_id", "ligand_id", "ligand_smiles", "pose_id", "label"])
+            .rename({"label": "true_label"})
+            .with_columns(
                 pl.lit("lambdamart_ligand").alias("method"),
                 pl.Series("score", lm_scores),
             )
@@ -182,9 +268,22 @@ def main() -> None:
     if "tanimoto_random_ref" in methods:
         t_scores = _tanimoto_random_ref_scores(train_df, val_df, seed=args.seed)
         preds.append(
-            val_df.select(["path", "protein_id", "label"]).rename({"label": "true_label"}).with_columns(
+            val_df.select(["path", "protein_id", "ligand_id", "ligand_smiles", "pose_id", "label"])
+            .rename({"label": "true_label"})
+            .with_columns(
                 pl.lit("tanimoto_random_ref").alias("method"),
                 pl.Series("score", t_scores),
+            )
+        )
+
+    if "logistic_regression_ligand" in methods:
+        lr_scores = _logistic_regression_scores(train_df, val_df, seed=args.seed)
+        preds.append(
+            val_df.select(["path", "protein_id", "ligand_id", "ligand_smiles", "pose_id", "label"])
+            .rename({"label": "true_label"})
+            .with_columns(
+                pl.lit("logistic_regression_ligand").alias("method"),
+                pl.Series("score", lr_scores),
             )
         )
 
@@ -199,8 +298,55 @@ def main() -> None:
                 pl.col("true_label").cast(pl.Int8),
             ]
         )
-        .select(["path", "protein_id", "true_label", "method", "score", "split"])
+        .select(
+            [
+                "path",
+                "protein_id",
+                "ligand_id",
+                "ligand_smiles",
+                "pose_id",
+                "true_label",
+                "method",
+                "score",
+            ]
+        )
     )
+
+    rank_df = (
+        out_df.select(["method", "protein_id", "path", "score"])
+        .sort(
+            ["method", "protein_id", "score", "path"],
+            descending=[False, False, True, False],
+        )
+        .with_columns(
+            pl.int_range(1, pl.len() + 1).over(["method", "protein_id"]).alias("rank")
+        )
+        .select(["method", "protein_id", "path", "rank"])
+    )
+
+    out_df = (
+        out_df.join(rank_df, on=["method", "protein_id", "path"], how="left")
+        .with_columns(pl.lit(args.val_split).alias("split"))
+        .select(
+            [
+                "path",
+                "protein_id",
+                "ligand_id",
+                "ligand_smiles",
+                "pose_id",
+                "true_label",
+                "method",
+                "score",
+                "rank",
+                "split",
+            ]
+        )
+    )
+
+    dup = out_df.group_by(["method", "path"]).len().filter(pl.col("len") > 1)
+    if dup.height > 0:
+        raise ValueError("Duplicate method/path rows found in predictions output.")
+
     out_df.write_parquet(args.out, compression="zstd", statistics=True)
 
 

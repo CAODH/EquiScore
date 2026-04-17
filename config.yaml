@@ -6,3 +6,4 @@ output_dir: results/ranking_baselines
 methods:
   - lambdamart_ligand
   - tanimoto_random_ref
+  - logistic_regression_ligand
