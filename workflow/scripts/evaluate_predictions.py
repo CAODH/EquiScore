@@ -24,6 +24,7 @@ METRIC_COLS = [
     "ndcg@5%",
     "ndcg@10%",
     "map",
+    "err",
     "roc_auc",
     "bedroc_a20",
 ]
@@ -43,6 +44,21 @@ def _top_k(n: int, frac: float) -> int:
 
 def _sorted_indices_by_rank(y_rank: np.ndarray) -> np.ndarray:
     return np.argsort(y_rank, kind="mergesort")
+
+
+def _expected_reciprocal_rank(y_true_sorted: np.ndarray) -> float:
+    rel = np.clip(y_true_sorted.astype(np.float64), 0.0, 1.0)
+
+    err = 0.0
+    continue_prob = 1.0
+    for rank_idx, gain in enumerate(rel, start=1):
+        stop_prob = continue_prob * gain
+        err += stop_prob / rank_idx
+        continue_prob *= 1.0 - gain
+        if continue_prob <= 0.0:
+            break
+
+    return float(err)
 
 
 def evaluate_group(y_true: np.ndarray, y_score: np.ndarray, y_rank: np.ndarray) -> dict[str, float] | None:
@@ -75,6 +91,7 @@ def evaluate_group(y_true: np.ndarray, y_score: np.ndarray, y_rank: np.ndarray) 
         out[f"ndcg@{int(frac * 100)}%"] = float(ndcg_score([y_true], [rank_score], k=k))
 
     out["map"] = float(average_precision_score(y_true, y_score))
+    out["err"] = _expected_reciprocal_rank(y_true_sorted)
     out["roc_auc"] = float(roc_auc_score(y_true, y_score))
     out["bedroc_a20"] = float(CalcBEDROC(rdkit_rows, 0, ALPHA))
 
