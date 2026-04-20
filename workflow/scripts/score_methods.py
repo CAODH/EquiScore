@@ -20,6 +20,12 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--train-split", default="train")
     p.add_argument("--val-split", default="val")
+    p.add_argument(
+        "--sna",
+        default="all",
+        choices=["all", "true", "false"],
+        help="Filter rows by sna value (true/false). Use 'all' for no filtering.",
+    )
     p.add_argument("--methods", default="lambdamart_ligand,tanimoto_random_ref")
     return p.parse_args()
 
@@ -116,7 +122,25 @@ def _lambda_mart_scores(train_df: pl.DataFrame, val_df: pl.DataFrame, seed: int)
         val_df = val_df.with_columns(cast_expr)
 
     train_rank = train_df.drop_nulls(feature_cols + ["label", "protein_id"]).sort("protein_id")
-    val_rank = val_df.drop_nulls(feature_cols + ["label", "protein_id"]).sort("protein_id")
+    val_with_idx = val_df.with_row_index("__row_idx")
+    val_rank = val_with_idx.drop_nulls(feature_cols + ["label", "protein_id"]).sort("protein_id")
+
+    # LightGBM ranking enforces an upper bound of 10,000 rows per query.
+    oversized = (
+        train_rank.group_by("protein_id")
+        .len()
+        .filter(pl.col("len") > 10_000)
+        .get_column("protein_id")
+        .to_list()
+    )
+    if oversized:
+        print(
+            f"[lambdamart_ligand] Dropping {len(oversized)} training queries with >10000 ligands "
+            "(LightGBM limitation)."
+        )
+        train_rank = train_rank.filter(~pl.col("protein_id").is_in(oversized))
+        if train_rank.height == 0:
+            raise ValueError("No train rows remain for LambdaMART after removing oversized queries.")
 
     X_train = train_rank.select(feature_cols).to_numpy()
     y_train = train_rank.get_column("label").to_numpy()
@@ -135,15 +159,20 @@ def _lambda_mart_scores(train_df: pl.DataFrame, val_df: pl.DataFrame, seed: int)
     model.fit(X_train, y_train, group=g_train)
 
     val_scores = model.predict(X_val)
-    score_df = val_rank.select(["path", "protein_id", "label"]).with_columns(
-        pl.Series("score", val_scores)
-    )
+    score_df = val_rank.select(["__row_idx"]).with_columns(pl.Series("score", val_scores))
 
     # Merge back so output order exactly follows val_df rows.
-    merged = val_df.join(score_df, on=["path", "protein_id", "label"], how="left")
+    merged = (
+        val_with_idx.join(score_df, on=["__row_idx"], how="left")
+        .sort("__row_idx")
+        .drop("__row_idx")
+    )
     score_col = merged.get_column("score")
     if score_col.null_count() > 0:
-        raise ValueError("LambdaMART produced null scores after merge; check manifest row uniqueness.")
+        n_null = score_col.null_count()
+        print(f"[lambdamart_ligand] Assigning score=0.0 to {n_null} validation rows with missing descriptors.")
+        merged = merged.with_columns(pl.col("score").fill_null(0.0))
+        score_col = merged.get_column("score")
     return score_col.to_numpy()
 
 
@@ -168,7 +197,8 @@ def _logistic_regression_scores(train_df: pl.DataFrame, val_df: pl.DataFrame, se
         val_df = val_df.with_columns(cast_expr)
 
     train_cls = train_df.drop_nulls(feature_cols + ["label"])
-    val_cls = val_df.drop_nulls(feature_cols + ["label"])
+    val_with_idx = val_df.with_row_index("__row_idx")
+    val_cls = val_with_idx.drop_nulls(feature_cols + ["label"])
 
     if train_cls.height == 0:
         raise ValueError("No training rows with non-null descriptor features for logistic regression.")
@@ -186,14 +216,21 @@ def _logistic_regression_scores(train_df: pl.DataFrame, val_df: pl.DataFrame, se
     model.fit(X_train, y_train)
 
     val_scores = model.predict_proba(X_val)[:, 1]
-    score_df = val_cls.select(["path", "protein_id", "label"]).with_columns(
-        pl.Series("score", val_scores)
-    )
+    score_df = val_cls.select(["__row_idx"]).with_columns(pl.Series("score", val_scores))
 
-    merged = val_df.join(score_df, on=["path", "protein_id", "label"], how="left")
+    merged = (
+        val_with_idx.join(score_df, on=["__row_idx"], how="left")
+        .sort("__row_idx")
+        .drop("__row_idx")
+    )
     score_col = merged.get_column("score")
     if score_col.null_count() > 0:
-        raise ValueError("Logistic regression produced null scores after merge; check manifest row uniqueness.")
+        n_null = score_col.null_count()
+        print(
+            f"[logistic_regression_ligand] Assigning score=0.0 to {n_null} validation rows with missing descriptors."
+        )
+        merged = merged.with_columns(pl.col("score").fill_null(0.0))
+        score_col = merged.get_column("score")
     return score_col.to_numpy()
 
 
@@ -234,6 +271,23 @@ def main() -> None:
     if "pose_id" not in df.columns:
         df = df.with_columns(pl.lit(None, dtype=pl.Int32).alias("pose_id"))
 
+    if "sna" not in df.columns:
+        raise ValueError(
+            "Manifest missing required boolean column 'sna'. Regenerate manifest with utils/generate_big_bind.py"
+        )
+    if df.schema["sna"] != pl.Boolean:
+        raise ValueError(
+            f"Manifest column 'sna' must be Boolean, got {df.schema['sna']}. Regenerate manifest with utils/generate_big_bind.py"
+        )
+
+    if args.sna != "all":
+        wanted_sna = args.sna == "true"
+        df = df.filter(pl.col("sna") == wanted_sna)
+        if df.height == 0:
+            raise ValueError(
+                f"No rows found for sna='{args.sna}' in manifest '{args.manifest}'."
+            )
+
     df = df.with_columns(
         [
             pl.col("label").cast(pl.Int8),
@@ -257,7 +311,7 @@ def main() -> None:
     if "lambdamart_ligand" in methods:
         lm_scores = _lambda_mart_scores(train_df, val_df, seed=args.seed)
         preds.append(
-            val_df.select(["path", "protein_id", "ligand_id", "ligand_smiles", "pose_id", "label"])
+            val_df.select(["path", "protein_id", "ligand_id", "ligand_smiles", "pose_id", "label", "sna"])
             .rename({"label": "true_label"})
             .with_columns(
                 pl.lit("lambdamart_ligand").alias("method"),
@@ -268,7 +322,7 @@ def main() -> None:
     if "tanimoto_random_ref" in methods:
         t_scores = _tanimoto_random_ref_scores(train_df, val_df, seed=args.seed)
         preds.append(
-            val_df.select(["path", "protein_id", "ligand_id", "ligand_smiles", "pose_id", "label"])
+            val_df.select(["path", "protein_id", "ligand_id", "ligand_smiles", "pose_id", "label", "sna"])
             .rename({"label": "true_label"})
             .with_columns(
                 pl.lit("tanimoto_random_ref").alias("method"),
@@ -279,7 +333,7 @@ def main() -> None:
     if "logistic_regression_ligand" in methods:
         lr_scores = _logistic_regression_scores(train_df, val_df, seed=args.seed)
         preds.append(
-            val_df.select(["path", "protein_id", "ligand_id", "ligand_smiles", "pose_id", "label"])
+            val_df.select(["path", "protein_id", "ligand_id", "ligand_smiles", "pose_id", "label", "sna"])
             .rename({"label": "true_label"})
             .with_columns(
                 pl.lit("logistic_regression_ligand").alias("method"),
@@ -308,6 +362,7 @@ def main() -> None:
                 "true_label",
                 "method",
                 "score",
+                "sna",
             ]
         )
     )
@@ -339,13 +394,10 @@ def main() -> None:
                 "score",
                 "rank",
                 "split",
+                "sna",
             ]
         )
     )
-
-    dup = out_df.group_by(["method", "path"]).len().filter(pl.col("len") > 1)
-    if dup.height > 0:
-        raise ValueError("Duplicate method/path rows found in predictions output.")
 
     out_df.write_parquet(args.out, compression="zstd", statistics=True)
 

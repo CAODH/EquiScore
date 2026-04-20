@@ -1,7 +1,14 @@
 seed: 42
-manifest: dataset/pdbscreen_manifest.parquet
+manifest: dataset/bigbind_manifest.parquet
+manifest_summary: dataset/bigbind_manifest_summary.parquet
+manifest_feature_stamp: dataset/bigbind_manifest.features.done
 train_split: train
 val_split: val
+feature_workers: 8
+feature_chunksize: 200
+sna_values:
+  - false
+  - true
 output_dir: results/ranking_baselines
 methods:
   - lambdamart_ligand

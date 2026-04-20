@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import pickle
 from pathlib import Path
 from typing import Iterable
 
@@ -64,7 +63,7 @@ def ensure_feature_columns(manifest_df: pl.DataFrame) -> pl.DataFrame:
 
 def rows_to_compute(manifest_df: pl.DataFrame, force_recompute: bool) -> pl.DataFrame:
     if force_recompute:
-        return manifest_df.select(["path"])
+        return manifest_df.select(["path", "ligand_smiles"]).unique(subset=["path"], keep="first")
 
     checks = [pl.col(name).is_null() for name in FEATURE_DTYPES]
     checks.append(pl.col("scaffold") == "")
@@ -72,13 +71,45 @@ def rows_to_compute(manifest_df: pl.DataFrame, force_recompute: bool) -> pl.Data
     cond = checks[0]
     for check in checks[1:]:
         cond = cond | check
-    return manifest_df.filter(cond).select(["path"])
+    return (
+        manifest_df.filter(cond)
+        .select(["path", "ligand_smiles"])
+        .unique(subset=["path"], keep="first")
+    )
 
 
-def _compute_one(work_item: tuple[str, str]) -> dict:
-    repo_root_str, rel_path = work_item
-    repo_root = Path(repo_root_str)
-    abs_path = repo_root / rel_path
+def _fill_features_from_mol(result: dict, mol) -> dict:
+    if mol is None:
+        return result
+
+    hbd = int(Lipinski.NumHDonors(mol))
+    hba = int(Lipinski.NumHAcceptors(mol))
+    tpsa = float(rdMolDescriptors.CalcTPSA(mol))
+    mw = float(Descriptors.MolWt(mol))
+    rot = int(Lipinski.NumRotatableBonds(mol))
+    ring_count = int(rdMolDescriptors.CalcNumRings(mol))
+    aromatic_ring_count = int(rdMolDescriptors.CalcNumAromaticRings(mol))
+    logp = float(Crippen.MolLogP(mol))
+    ligand_smiles = Chem.MolToSmiles(mol, isomericSmiles=True)
+    scaffold = MurckoScaffold.MurckoScaffoldSmiles(mol=mol, includeChirality=False)
+
+    result[ECFP_COL] = MORGAN_GENERATOR.GetFingerprint(mol).ToBinary()
+    result["ligand_smiles"] = ligand_smiles if ligand_smiles else None
+    result["hbd"] = hbd
+    result["hba"] = hba
+    result["tpsa"] = tpsa
+    result["molecular_weight"] = mw
+    result["rotatable_bonds"] = rot
+    result["ring_count"] = ring_count
+    result["aromatic_ring_count"] = aromatic_ring_count
+    result["lipinski_compliant"] = bool((mw <= 500) and (logp <= 5) and (hbd <= 5) and (hba <= 10))
+    result["verber_compliant"] = bool((rot <= 10) and (tpsa <= 140))
+    result["scaffold"] = scaffold if scaffold else None
+    return result
+
+
+def _compute_one(work_item: tuple[str, str | None]) -> dict:
+    rel_path, ligand_smiles_in = work_item
 
     result = {
         "path": rel_path,
@@ -96,37 +127,15 @@ def _compute_one(work_item: tuple[str, str]) -> dict:
         "scaffold": None,
     }
 
-    try:
-        with open(abs_path, "rb") as f:
-            payload = pickle.load(f)
-        mol = payload[0] if isinstance(payload, tuple) and len(payload) >= 2 else None
-        if mol is None:
-            return result
-
-        hbd = int(Lipinski.NumHDonors(mol))
-        hba = int(Lipinski.NumHAcceptors(mol))
-        tpsa = float(rdMolDescriptors.CalcTPSA(mol))
-        mw = float(Descriptors.MolWt(mol))
-        rot = int(Lipinski.NumRotatableBonds(mol))
-        ring_count = int(rdMolDescriptors.CalcNumRings(mol))
-        aromatic_ring_count = int(rdMolDescriptors.CalcNumAromaticRings(mol))
-        logp = float(Crippen.MolLogP(mol))
-        ligand_smiles = Chem.MolToSmiles(mol, isomericSmiles=True)
-        scaffold = MurckoScaffold.MurckoScaffoldSmiles(mol=mol, includeChirality=False)
-
-        result[ECFP_COL] = MORGAN_GENERATOR.GetFingerprint(mol).ToBinary()
-        result["ligand_smiles"] = ligand_smiles if ligand_smiles else None
-        result["hbd"] = hbd
-        result["hba"] = hba
-        result["tpsa"] = tpsa
-        result["molecular_weight"] = mw
-        result["rotatable_bonds"] = rot
-        result["ring_count"] = ring_count
-        result["aromatic_ring_count"] = aromatic_ring_count
-        result["lipinski_compliant"] = bool((mw <= 500) and (logp <= 5) and (hbd <= 5) and (hba <= 10))
-        result["verber_compliant"] = bool((rot <= 10) and (tpsa <= 140))
-        result["scaffold"] = scaffold if scaffold else None
+    if not ligand_smiles_in:
         return result
+
+    mol = Chem.MolFromSmiles(ligand_smiles_in)
+    if mol is None:
+        return result
+
+    try:
+        return _fill_features_from_mol(result, mol)
     except Exception:
         return result
 
@@ -144,14 +153,12 @@ def merge_updates(manifest_df: pl.DataFrame, updates_df: pl.DataFrame) -> pl.Dat
     return merged.drop(drop_cols)
 
 
-def to_work_items(repo_root: Path, paths: Iterable[str]) -> list[tuple[str, str]]:
-    root = str(repo_root.resolve())
-    return [(root, p) for p in paths]
+def to_work_items(rows: Iterable[dict]) -> list[tuple[str, str | None]]:
+    return [(r["path"], r.get("ligand_smiles")) for r in rows]
 
 
 def main() -> None:
     args = parse_args()
-    repo_root = Path(__file__).resolve().parents[1]
     manifest_path = Path(args.manifest).resolve()
 
     manifest_df = ensure_feature_columns(pl.read_parquet(manifest_path))
@@ -161,7 +168,7 @@ def main() -> None:
         print("No rows require feature computation.")
         return
 
-    work_items = to_work_items(repo_root, todo_df["path"].to_list())
+    work_items = to_work_items(todo_df.to_dicts())
     updates = process_map(
         _compute_one,
         work_items,
