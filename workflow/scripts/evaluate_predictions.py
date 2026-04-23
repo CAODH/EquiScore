@@ -17,6 +17,8 @@ METRIC_COLS = [
     "ef@1%",
     "ef@5%",
     "ef@10%",
+    "efb@1%",
+    "efb_max",
     "nef@1%",
     "nef@5%",
     "nef@10%",
@@ -61,6 +63,58 @@ def _expected_reciprocal_rank(y_true_sorted: np.ndarray) -> float:
     return float(err)
 
 
+def _calc_efb(act_preds: np.ndarray, rand_preds: np.ndarray, select_frac: float, is_sorted: bool = False) -> float:
+    """Compute Bayes enrichment factor for a target select fraction."""
+    if act_preds.size == 0 or rand_preds.size == 0:
+        return 0.0
+
+    n_rand = len(rand_preds)
+    select_num = round((1 - select_frac) * n_rand)
+    select_num = max(1, min(select_num, n_rand))
+
+    if is_sorted:
+        select = rand_preds[select_num - 1]
+    else:
+        select = np.sort(rand_preds)[select_num - 1]
+
+    p_rand = float((rand_preds >= select).sum() / n_rand)
+    if p_rand == 0:
+        return 0.0
+
+    p_act = float((act_preds >= select).sum() / len(act_preds))
+    if p_act == 0:
+        return 0.0
+
+    return float(p_act / p_rand)
+
+
+def _calc_best_efb(act_preds: np.ndarray, rand_preds: np.ndarray) -> float:
+    """Compute best achievable Bayes enrichment factor (EFB_max)."""
+    if act_preds.size == 0 or rand_preds.size == 0:
+        return 0.0
+
+    rand_sorted = np.sort(rand_preds)
+    cutoffs = np.unique(act_preds.astype(np.float16))
+
+    cur_best = None
+    seen_fracs = set()
+
+    for act in cutoffs:
+        cur_frac = float((rand_sorted >= act).sum() / len(rand_sorted))
+        if cur_frac in seen_fracs:
+            continue
+        if cur_frac == 0:
+            cur_frac = 1 / len(rand_sorted)
+
+        seen_fracs.add(cur_frac)
+        efb = _calc_efb(act_preds, rand_sorted, cur_frac, is_sorted=True)
+
+        if cur_best is None or efb > cur_best:
+            cur_best = efb
+
+    return float(cur_best) if cur_best is not None else 0.0
+
+
 def evaluate_group(y_true: np.ndarray, y_score: np.ndarray, y_rank: np.ndarray) -> dict[str, float] | None:
     n = len(y_true)
     n_pos = int(y_true.sum())
@@ -95,6 +149,11 @@ def evaluate_group(y_true: np.ndarray, y_score: np.ndarray, y_rank: np.ndarray) 
     out["roc_auc"] = float(roc_auc_score(y_true, y_score))
     out["bedroc_a20"] = float(CalcBEDROC(rdkit_rows, 0, ALPHA))
 
+    act_preds = y_score[y_true == 1]
+    rand_preds = y_score[y_true == 0]
+    out["efb@1%"] = _calc_efb(act_preds, rand_preds, 0.01)
+    out["efb_max"] = _calc_best_efb(act_preds, rand_preds)
+
     return out
 
 
@@ -120,7 +179,6 @@ def _metrics_for_group(g: pl.DataFrame) -> pl.DataFrame:
 def summarize_by_method(by_query: pl.DataFrame) -> pl.DataFrame:
     agg_exprs = []
     for col in METRIC_COLS:
-        agg_exprs.append(pl.col(col).mean().alias(f"{col}_mean"))
         agg_exprs.append(pl.col(col).median().alias(f"{col}_median"))
     agg_exprs.extend(
         [

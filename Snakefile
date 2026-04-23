@@ -1,80 +1,107 @@
 configfile: "config.yaml"
 
-OUTPUT_DIR = config.get("output_dir", "results/ranking_baselines").rstrip("/")
-SNA_VALUES = [str(v).lower() for v in config.get("sna_values", ["false", "true"])]
-MANIFEST = config["manifest"]
-MANIFEST_SUMMARY = config.get("manifest_summary", "dataset/bigbind_manifest_summary.parquet")
-MANIFEST_FEATURE_STAMP = config.get("manifest_feature_stamp", "dataset/bigbind_manifest.features.done")
+from datetime import datetime, timezone
 
 
-def predictions_path(sna):
-    return f"{OUTPUT_DIR}/val_predictions_sna_{sna}.parquet"
+def _now_run_id() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d_%H%M")
 
 
-def summary_path(sna):
-    return f"{OUTPUT_DIR}/val_metrics_summary_sna_{sna}.parquet"
+def _as_sna_list(values):
+    return [str(v).lower() for v in values]
 
 
-def by_query_path(sna):
-    return f"{OUTPUT_DIR}/val_metrics_by_query_sna_{sna}.parquet"
+RUN_ID = config.get("run_id") or _now_run_id()
+OUTPUT_ROOT = config.get("output_root", "results/runs").rstrip("/")
+RUN_DIR = f"{OUTPUT_ROOT}/{RUN_ID}"
 
 
-COMPARISON = f"{OUTPUT_DIR}/val_metrics_sna_comparison.parquet"
+def _dataset_configs() -> dict:
+    datasets = config.get("datasets")
+    if datasets:
+        normalized = {}
+        for name, cfg in datasets.items():
+            normalized[name] = {
+                "manifest": cfg["manifest"],
+                "train_split": cfg.get("train_split", config.get("train_split", "train")),
+                "val_split": cfg.get("val_split", config.get("val_split", "val")),
+                "sna_values": _as_sna_list(cfg.get("sna_values", config.get("sna_values", ["false", "true"]))),
+            }
+        return normalized
+
+    dataset_name = config.get("dataset_name", "bigbind")
+    return {
+        dataset_name: {
+            "manifest": config["manifest"],
+            "train_split": config.get("train_split", "train"),
+            "val_split": config.get("val_split", "val"),
+            "sna_values": _as_sna_list(config.get("sna_values", ["false", "true"])),
+        }
+    }
+
+
+DATASETS = _dataset_configs()
+DATASET_NAMES = list(DATASETS.keys())
+ALL_SNA_VALUES = sorted({s for d in DATASET_NAMES for s in DATASETS[d]["sna_values"]})
+SNA_REGEX = "|".join(ALL_SNA_VALUES)
+
+
+def dcfg(dataset_name):
+    return DATASETS[dataset_name]
+
+
+def dataset_sna_values(dataset_name):
+    return dcfg(dataset_name)["sna_values"]
+
+
+def predictions_path(dataset_name, sna):
+    return f"{RUN_DIR}/_{dataset_name}_val_predictions_sna_{sna}.parquet"
+
+
+def summary_path(dataset_name, sna):
+    return f"{RUN_DIR}/_{dataset_name}_val_metrics_summary_sna_{sna}.parquet"
+
+
+def by_query_path(dataset_name, sna):
+    return f"{RUN_DIR}/_{dataset_name}_val_metrics_by_query_sna_{sna}.parquet"
+
+
+def intermediate_output_path(dataset_name):
+    return f"{RUN_DIR}/{dataset_name}_intermediate.parquet"
+
+
+def dataset_output_path(dataset_name):
+    return f"{RUN_DIR}/{dataset_name}.parquet"
+
+
+def summary_output_path():
+    return f"{RUN_DIR}/summary.parquet"
+
+
+def run_yaml_path():
+    return f"{RUN_DIR}/run.yaml"
 
 
 rule all:
     input:
-        [predictions_path(s) for s in SNA_VALUES],
-        [summary_path(s) for s in SNA_VALUES],
-        [by_query_path(s) for s in SNA_VALUES],
-        COMPARISON
-
-
-rule build_manifest:
-    output:
-        manifest=MANIFEST,
-        summary=MANIFEST_SUMMARY
-    shell:
-        """
-        PYTHON_BIN=venv/bin/python
-
-        "$PYTHON_BIN" utils/generate_big_bind.py \
-          --out-parquet {output.manifest} \
-          --summary-parquet {output.summary}
-        """
-
-
-rule add_features:
-    input:
-        manifest=MANIFEST
-    output:
-        MANIFEST_FEATURE_STAMP
-    params:
-        feature_workers=config.get("feature_workers", 8),
-        feature_chunksize=config.get("feature_chunksize", 200)
-    shell:
-        """
-        PYTHON_BIN=venv/bin/python
-
-        "$PYTHON_BIN" utils/features.py \
-          --manifest {input.manifest} \
-          --workers {params.feature_workers} \
-          --chunksize {params.feature_chunksize}
-
-        touch {output}
-        """
+        [intermediate_output_path(d) for d in DATASET_NAMES],
+        [dataset_output_path(d) for d in DATASET_NAMES],
+        summary_output_path(),
+        run_yaml_path()
 
 
 rule score_methods:
+    wildcard_constraints:
+        dataset="|".join(DATASET_NAMES),
+        sna=SNA_REGEX
     input:
-        manifest=MANIFEST,
-        features=MANIFEST_FEATURE_STAMP
+        manifest=lambda wildcards: dcfg(wildcards.dataset)["manifest"]
     output:
-        f"{OUTPUT_DIR}/val_predictions_sna_{{sna}}.parquet"
+        temp(f"{RUN_DIR}/_{{dataset}}_val_predictions_sna_{{sna}}.parquet")
     params:
         seed=config["seed"],
-        train_split=config["train_split"],
-        val_split=config["val_split"],
+        train_split=lambda wildcards: dcfg(wildcards.dataset)["train_split"],
+        val_split=lambda wildcards: dcfg(wildcards.dataset)["val_split"],
         methods=",".join(config["methods"]),
         sna=lambda wildcards: wildcards.sna
     shell:
@@ -92,12 +119,35 @@ rule score_methods:
         """
 
 
-rule evaluate:
+rule combine_intermediate:
+    wildcard_constraints:
+        dataset="|".join(DATASET_NAMES)
     input:
-        f"{OUTPUT_DIR}/val_predictions_sna_{{sna}}.parquet"
+        lambda wildcards: [predictions_path(wildcards.dataset, s) for s in dataset_sna_values(wildcards.dataset)]
     output:
-        summary=f"{OUTPUT_DIR}/val_metrics_summary_sna_{{sna}}.parquet",
-        by_query=f"{OUTPUT_DIR}/val_metrics_by_query_sna_{{sna}}.parquet"
+        f"{RUN_DIR}/{{dataset}}_intermediate.parquet"
+    params:
+        dataset=lambda wildcards: wildcards.dataset
+    shell:
+        """
+        PYTHON_BIN=venv/bin/python
+
+        "$PYTHON_BIN" workflow/scripts/combine_dataset_intermediates.py \
+          --inputs {input} \
+          --out {output} \
+          --dataset {params.dataset}
+        """
+
+
+rule evaluate:
+    wildcard_constraints:
+        dataset="|".join(DATASET_NAMES),
+        sna=SNA_REGEX
+    input:
+        f"{RUN_DIR}/_{{dataset}}_val_predictions_sna_{{sna}}.parquet"
+    output:
+        summary=temp(f"{RUN_DIR}/_{{dataset}}_val_metrics_summary_sna_{{sna}}.parquet"),
+        by_query=temp(f"{RUN_DIR}/_{{dataset}}_val_metrics_by_query_sna_{{sna}}.parquet")
     shell:
         """
         PYTHON_BIN=venv/bin/python
@@ -110,15 +160,72 @@ rule evaluate:
 
 
 rule compare_sna:
+    wildcard_constraints:
+        dataset="|".join(DATASET_NAMES)
     input:
-        summaries=[summary_path(s) for s in SNA_VALUES]
+        summaries=lambda wildcards: [summary_path(wildcards.dataset, s) for s in dataset_sna_values(wildcards.dataset)]
     output:
-        COMPARISON
+        f"{RUN_DIR}/{{dataset}}.parquet"
+    params:
+        labels=lambda wildcards: " ".join(dataset_sna_values(wildcards.dataset))
     shell:
         """
         PYTHON_BIN=venv/bin/python
 
         "$PYTHON_BIN" workflow/scripts/compare_sna_summaries.py \
           --summaries {input.summaries} \
+          --labels {params.labels} \
           --out {output}
+        """
+
+
+rule combine_dataset_summaries:
+    input:
+        [dataset_output_path(d) for d in DATASET_NAMES]
+    output:
+        summary=summary_output_path()
+    shell:
+        """
+        PYTHON_BIN=venv/bin/python
+
+        "$PYTHON_BIN" workflow/scripts/combine_dataset_summaries.py \
+          --inputs {input} \
+          --out {output.summary}
+        """
+
+
+rule write_run_yaml:
+    output:
+        run_yaml=run_yaml_path()
+    params:
+        run_id=RUN_ID,
+        created_at=datetime.now(timezone.utc).isoformat(),
+        output_root=OUTPUT_ROOT,
+        datasets_yaml="\n".join([f"  - {name}" for name in DATASET_NAMES]),
+        methods_yaml="\n".join([f"  - {method}" for method in config["methods"]]),
+        per_dataset_yaml="\n".join(
+            [
+                f"  {name}:\n"
+                f"    manifest: {dcfg(name)['manifest']}\n"
+                f"    train_split: {dcfg(name)['train_split']}\n"
+                f"    val_split: {dcfg(name)['val_split']}\n"
+                + "    sna_values:\n"
+                + "\n".join([f"      - {s}" for s in dcfg(name)["sna_values"]])
+                for name in DATASET_NAMES
+            ]
+        )
+    shell:
+        """
+        mkdir -p "$(dirname {output.run_yaml})"
+        cat > {output.run_yaml} <<EOF
+run_id: {params.run_id}
+    created_at_utc: {params.created_at}
+output_root: {params.output_root}
+datasets:
+{params.datasets_yaml}
+methods:
+{params.methods_yaml}
+per_dataset:
+{params.per_dataset_yaml}
+EOF
         """

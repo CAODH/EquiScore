@@ -138,6 +138,140 @@ This is an example for how to set up a working conda environment to run the code
 
    (**In the first round of training, data is processed and saved, so it may be slower, depending on hardware conditions OR If you wish to expedite the training process, please refer to the preprocessing workflow in dataset.py, save the data to the LMDB database, and then specify the LMDB path in the training script by adding --lmdb_cache lmdb_cache_path to replace --test like we did in bash command** )
 
+## 📂 Codebase Structure
+
+### Core Models & Inference
+- `model/equiscore.py` – Main EquiScore architecture (graph neural network backbone)
+- `model/equiscore_layer.py` – Custom equivariant GNN layers
+- `Train.py` – Model training pipeline
+- `Screening.py` – Single and batch screening inference
+- `Independent_test.py` – Benchmark evaluation
+
+### Development Workflow (Scoring Pipeline)
+- `workflow/scripts/score_methods.py` – Multi-method scoring system (7 methods):
+  - **Ligand-only** (3): `lambdamart_ligand`, `logistic_regression_ligand`, `tanimoto_random_ref`
+  - **Assay-augmented** (2): `lambdamart_ligand_assay`, `logistic_regression_ligand_assay` (standard_value_filled only, no metadata one-hots)
+  - **Fingerprint-based** (2): `lambdamart_fingerprint`, `logistic_regression_fingerprint`
+- `workflow/scripts/evaluate_predictions.py` – Metric computation (median-only aggregation: EF@%, NEF@%, NDCG@%, MAP, ERR, ROC-AUC, BEDROC_a20, EFB@1%, EFB_max)
+- `workflow/scripts/compare_sna_summaries.py` – SNA-stratified result comparison (tidy format)
+- `workflow/scripts/combine_dataset_intermediates.py` – Multi-dataset consolidation
+- `workflow/scripts/combine_dataset_summaries.py` – Cross-dataset summary merging
+- `Snakefile` – Workflow orchestration
+
+### Data & Features
+- `dataset/dataset.py` – Data loading and preprocessing
+- `data/`:
+  - `sample_data/` – Example molecules and proteins for testing
+  - `data_splits/` – Train/val/test split definitions
+  - `manifests/` – Precomputed parquet manifests (features, descriptors, assay data)
+- `utils/dataset_utils.py` – Dataset sampling and filtering
+- `utils/features.py` – Molecular descriptors (TPSA, MW, rotatable bonds, HBA/HBD, ring counts, compliance)
+- `utils/equiscore_utils.py`, `utils/ifp_construct.py`, `utils/loss_utils.py` – EquiScore utilities
+
+### Analysis & Visualization
+- `visualization/eda_bigbind.py` – Marimo EDA: BigBind exploration (train+val, full SNA)
+  - Dataset overview, descriptor distributions, feature completeness, assay metadata, SNA breakdown
+  - Interactive protein filter
+- `visualization/eda_pdbscreen.py` – Marimo EDA: PDBScreen exploration (train+val)
+  - Parallel structure to BigBind; no assay metadata
+- `visualization/eda_comparison.py` – Marimo EDA: BigBind vs PDBScreen comparison
+  - Size/composition, ligand property overlays, target overlap, class balance analysis
+- `visualization/` – Additional exploratory notebooks
+
+### Configuration & Documentation
+- `config.yaml` – Method list, hyperparameters, data paths, evaluation config
+- `requirements-manifest.txt` – Python dependencies
+- `AGENTS.md` – AI agent collaboration guidelines (see below)
+
+### Results & Artifacts
+- `PDBscreen/` – 7 PDBScreen variants (HQ/LQ, active/decoy poses)
+- `results/` – Model weights and baseline rankings
+- `workdir/` – Intermediate outputs and model artifacts
+
+---
+
+## 📊 Output Schemas
+
+### Prediction Output (Long Format)
+```
+protein_id | ligand_smiles | label | method | score | rank_within_protein | sna
+```
+One row per (protein, ligand, method) triplet; `rank_within_protein` = ligand's rank by descending score within protein.
+
+### Summary Metrics (Method-Level Aggregation)
+Median-only columns (no means):
+- `method`, `ef@1%_median`, `ef@5%_median`, `ef@10%_median`
+- `efb@1%_median`, `efb_max_median`
+- `nef@1%_median`, `nef@5%_median`, `nef@10%_median`
+- `ndcg@1%_median`, `ndcg@5%_median`, `ndcg@10%_median`
+- `map_median`, `err_median`, `roc_auc_median`, `bedroc_a20_median`
+- `n_queries`, `total_ligands`, `total_actives`, `total_inactives`
+
+### SNA Comparison (Tidy Format)
+Leading columns: `method`, `dataset_name`, `sna` (one row per method × dataset × SNA combination)
+
+---
+
+## 🎯 Key Design Decisions
+
+1. **Multi-method baselines** – Ligand-only → +assay → fingerprint-only for systematic ablation
+2. **Assay leakage mitigation** – Only `standard_value_filled` used (no standard_type one-hots or missingness flags)
+3. **Median-only metrics** – Robust aggregation; eliminates noisy mean metrics
+4. **Tidy output schema** – Explicit `sna` column; method/dataset/sna leading columns
+5. **Train+val focus in EDA** – Test sets held out for final validation
+6. **Fingerprint baselines** – ECFP (radius=2, 2048 bits) for transparent ML comparison
+
+---
+
+## 🚀 Quick Start
+
+### Score with Multi-Method Pipeline
+```bash
+python workflow/scripts/score_methods.py \
+  --manifest dataset/bigbind_manifest.parquet \
+  --methods all \
+  --sna all \
+  --out results/predictions.parquet
+```
+
+### Evaluate Predictions
+```bash
+python workflow/scripts/evaluate_predictions.py \
+  --predictions results/predictions.parquet \
+  --summary-out results/summary.parquet \
+  --by-query-out results/by_query.parquet
+```
+
+### Explore Data
+```bash
+marimo run visualization/eda_bigbind.py
+marimo run visualization/eda_pdbscreen.py
+marimo run visualization/eda_comparison.py
+```
+
+---
+
+## 📚 Feature Reference
+
+### Ligand Descriptors (All Methods)
+Computed in `utils/features.py`:
+- `tpsa`, `molecular_weight`, `rotatable_bonds`, `ring_count`, `aromatic_ring_count`, `hbd`, `hba`
+- `lipinski_compliant`, `verber_compliant`
+
+### Fingerprints
+- `ecfp_morgan_r2_2048_bits` – 2048-bit Morgan fingerprint (radius=2) from ligand_smiles
+
+### Assay Data (BigBind)
+- `standard_type` – Assay type (IC50, Ki, Kd, etc.)
+- `standard_value` – Binding affinity value
+- `standard_value_filled` – Median-imputed from training set (used by assay methods)
+
+### Data Variants (BigBind)
+- `sna` – Stochastic Negative Addition flag (true/false)
+- Full dataset analyzed in EDA; assay methods show high performance (⚠️ likely leakage)
+
+---
+
 ## Citation
 
    Cao D, Chen G, Jiang J, et al. EquiScore: A generic protein-ligand interaction scoring method integrating physical prior knowledge with data augmentation modeling[J]. bioRxiv, 2023: 2023.06. 18.545464.

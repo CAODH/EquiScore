@@ -1,16 +1,24 @@
 seed: 42
-manifest: dataset/bigbind_manifest.parquet
-manifest_summary: dataset/bigbind_manifest_summary.parquet
-manifest_feature_stamp: dataset/bigbind_manifest.features.done
-train_split: train
-val_split: val
-feature_workers: 8
-feature_chunksize: 200
-sna_values:
-  - false
-  - true
-output_dir: results/ranking_baselines
+output_root: results/runs
+datasets:
+  bigbind:
+    manifest: dataset/bigbind_manifest.parquet
+    train_split: train
+    val_split: val
+    sna_values:
+      - false
+      - true
+  pdbscreen:
+    manifest: dataset/pdbscreen_manifest.parquet
+    train_split: train
+    val_split: val
+    sna_values:
+      - false
 methods:
   - lambdamart_ligand
+  - lambdamart_fingerprint
+  - lambdamart_ligand_assay
   - tanimoto_random_ref
   - logistic_regression_ligand
+  - logistic_regression_fingerprint
+  - logistic_regression_ligand_assay
