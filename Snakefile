@@ -152,7 +152,7 @@ rule evaluate:
         """
         PYTHON_BIN=venv/bin/python
 
-        "$PYTHON_BIN" workflow/scripts/evaluate_predictions.py \
+        "$PYTHON_BIN" workflow/scripts/evaluate.py per-query \
           --predictions {input} \
           --summary-out {output.summary} \
           --by-query-out {output.by_query}
@@ -172,7 +172,7 @@ rule compare_sna:
         """
         PYTHON_BIN=venv/bin/python
 
-        "$PYTHON_BIN" workflow/scripts/compare_sna_summaries.py \
+        "$PYTHON_BIN" workflow/scripts/evaluate.py compare-sna \
           --summaries {input.summaries} \
           --labels {params.labels} \
           --out {output}
@@ -188,7 +188,7 @@ rule combine_dataset_summaries:
         """
         PYTHON_BIN=venv/bin/python
 
-        "$PYTHON_BIN" workflow/scripts/combine_dataset_summaries.py \
+        "$PYTHON_BIN" workflow/scripts/evaluate.py combine-datasets \
           --inputs {input} \
           --out {output.summary}
         """

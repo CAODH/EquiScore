@@ -259,7 +259,7 @@ Computed in `utils/features.py`:
 - `lipinski_compliant`, `verber_compliant`
 
 ### Fingerprints
-- `ecfp_morgan_r2_2048_bits` – 2048-bit Morgan fingerprint (radius=2) from ligand_smiles
+- `ligand_fingerprint` – 2048-bit Morgan fingerprint (radius=2) from ligand_smiles
 
 ### Assay Data (BigBind)
 - `standard_type` – Assay type (IC50, Ki, Kd, etc.)

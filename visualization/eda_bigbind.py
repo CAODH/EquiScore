@@ -168,7 +168,7 @@ def _(df, pl):
     """Feature missingness."""
     feat_cols = ["tpsa", "molecular_weight", "rotatable_bonds", "ring_count", 
                  "aromatic_ring_count", "hbd", "hba", "lipinski_compliant", 
-                 "verber_compliant", "ecfp_morgan_r2_2048_bits", "scaffold"]
+                 "verber_compliant", "ligand_fingerprint", "scaffold"]
 
     missingness = {}
     for col in feat_cols:

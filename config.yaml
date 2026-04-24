@@ -16,9 +16,7 @@ datasets:
       - false
 methods:
   - lambdamart_ligand
-  - lambdamart_fingerprint
-  - lambdamart_ligand_assay
+  - lambdamart_proteo
   - tanimoto_random_ref
-  - logistic_regression_ligand
-  - logistic_regression_fingerprint
-  - logistic_regression_ligand_assay
+  - logistic_ligand
+  - logistic_proteo

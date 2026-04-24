@@ -157,7 +157,7 @@ Located in `dataset/`:
 - Ligand: protein_id, ligand_smiles, label, split, sna (BigBind only)
 - Descriptors: tpsa, molecular_weight, rotatable_bonds, ring_count, aromatic_ring_count, hbd, hba
 - Compliance: lipinski_compliant, verber_compliant
-- Fingerprints: ecfp_morgan_r2_2048_bits
+- Fingerprints: ligand_fingerprint
 - Assay (BigBind): standard_type, standard_value, standard_value_filled
 
 **Usage**: Pre-computed; all scoring scripts load from these. Avoid recomputing features.

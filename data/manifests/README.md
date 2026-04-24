@@ -39,7 +39,7 @@ The generated manifest includes:
 - pose_id
 - label
 - split
-- ecfp_morgan_r2_2048_bits
+- ligand_fingerprint
 - hbd
 - hba
 - tpsa

@@ -147,7 +147,7 @@ def _(bb_df, pdb_df, marimo):
 def _(bb_df, pdb_df, marimo, pl):
     """Feature completeness comparison."""
     feat_cols = ["tpsa", "molecular_weight", "rotatable_bonds", "ring_count", 
-                 "aromatic_ring_count", "hbd", "hba", "ecfp_morgan_r2_2048_bits"]
+                 "aromatic_ring_count", "hbd", "hba", "ligand_fingerprint"]
     
     bb_missing = {col: 100 * bb_df.select(col).null_count()[0, 0] / bb_df.height for col in feat_cols if col in bb_df.columns}
     pdb_missing = {col: 100 * pdb_df.select(col).null_count()[0, 0] / pdb_df.height for col in feat_cols if col in pdb_df.columns}
