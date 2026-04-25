@@ -170,6 +170,33 @@ class LigandFeatures(FeatureComputer):
         return result
 
 
+class LigandSmilesFromFile(FeatureComputer):
+    """Extract ligand SMILES from pickled (mol, protein, ...) tuple files (PDBscreen format)."""
+    name = "ligand_smiles_from_file"
+    key_col = "path"
+    output_dtypes = {"ligand_smiles": pl.Utf8}
+
+    @staticmethod
+    def compute_one(path: str) -> dict:
+        import pickle
+        from rdkit import Chem
+
+        result: dict = {"path": path, "ligand_smiles": None}
+        if not path:
+            return result
+        try:
+            with open(path, "rb") as f:
+                obj = pickle.load(f)
+            mol = obj[0] if isinstance(obj, (tuple, list)) else obj
+            if mol is None:
+                return result
+            smiles = Chem.MolToSmiles(mol, isomericSmiles=True)
+            result["ligand_smiles"] = smiles if smiles else None
+        except Exception:
+            pass
+        return result
+
+
 class ProteinFingerprint(FeatureComputer):
     name = "protein"
     key_col = "ex_rec_file"
@@ -177,6 +204,7 @@ class ProteinFingerprint(FeatureComputer):
 
     @staticmethod
     def compute_one(ex_rec_file: str) -> dict:
+        import pickle
         from rdkit import Chem
         from rdkit.Chem import rdFingerprintGenerator
 
@@ -186,12 +214,21 @@ class ProteinFingerprint(FeatureComputer):
             return result
 
         try:
-            mol = Chem.MolFromPDBFile(ex_rec_file, removeHs=True, sanitize=True)
-            if mol is None:
-                return result
             gen = rdFingerprintGenerator.GetMorganGenerator(
                 radius=2, fpSize=2048, includeChirality=False
             )
+            if ex_rec_file.endswith(".pdb"):
+                mol = Chem.MolFromPDBFile(ex_rec_file, removeHs=True, sanitize=True)
+                if mol is None:
+                    mol = Chem.MolFromPDBFile(ex_rec_file, removeHs=True, sanitize=False)
+                    if mol is not None:
+                        Chem.FastFindRings(mol)
+            else:
+                with open(ex_rec_file, "rb") as f:
+                    obj = pickle.load(f)
+                mol = obj[1] if isinstance(obj, (tuple, list)) and len(obj) > 1 else None
+            if mol is None:
+                return result
             result["protein_fingerprint"] = gen.GetFingerprint(mol).ToBinary()
         except Exception:
             pass
@@ -202,6 +239,7 @@ class ProteinFingerprint(FeatureComputer):
 # --- Registry & CLI ---
 
 COMPUTERS: dict[str, type[FeatureComputer]] = {
+    "ligand_smiles_from_file": LigandSmilesFromFile,
     "ligand": LigandFeatures,
     "protein": ProteinFingerprint,
 }

@@ -16,7 +16,7 @@ from features import COMPUTERS
 
 SPLITS = ["train", "val", "test"]
 
-REQUIRED_COLS = ["split", "protein_id", "label", "path"]
+REQUIRED_COLS = ["protein_id", "label", "path"]
 
 PDBSCREEN_EXPECTED_FOLDERS = [
     "PDBscreen_HQ_active_augment_2a_pose_pocket",
@@ -47,6 +47,10 @@ class ManifestBuilder(ABC):
         null_totals = df.select([pl.col(c).is_null().sum().alias(c) for c in REQUIRED_COLS]).row(0)
         if any(v > 0 for v in null_totals):
             raise ValueError(f"Required columns contain null values: {dict(zip(REQUIRED_COLS, null_totals))}")
+
+        split_nulls = df["split"].null_count() if "split" in df.columns else 0
+        if split_nulls > 0:
+            print(f"  [warn] {split_nulls} rows have no split assignment and will be excluded from train/val/test")
 
         label_values = set(df.select(pl.col("label").unique()).to_series().to_list())
         if not label_values.issubset({0, 1}):
@@ -316,7 +320,7 @@ class PDBscreenManifestBuilder(ManifestBuilder):
 
     def _add_ex_rec_file(self, df: pl.DataFrame) -> pl.DataFrame:
         ex_rec = (
-            df.filter(pl.col("source_folder") == "PDBscreen_HQ_active_pocket")
+            df.filter(pl.col("source_folder").str.ends_with("_active_pocket"))
             .group_by("protein_id")
             .agg(pl.col("path").first().alias("ex_rec_file"))
         )
@@ -335,13 +339,20 @@ class PDBscreenManifestBuilder(ManifestBuilder):
                 schema={"path": pl.Utf8, "split": pl.Utf8},
             )
 
-        splits = pl.concat([
+        path_splits = pl.concat([
             _load_pkl("train_keys.pkl", "train"),
             _load_pkl("val_keys.pkl", "val"),
             _load_pkl("test_keys.pkl", "test"),
         ]).unique(subset=["path"], keep="first")
 
-        return df.join(splits, on="path", how="left")
+        # Split files only cover LQ active pocket paths; propagate split to all rows
+        # for the same protein_id so decoys and HQ actives are included.
+        protein_splits = (
+            df.join(path_splits, on="path", how="inner")
+            .select(["protein_id", "split"])
+            .unique(subset=["protein_id"], keep="first")
+        )
+        return df.join(protein_splits, on="protein_id", how="left")
 
 
 # --- Registry & CLI ---
@@ -441,7 +452,11 @@ def _run_pdbscreen(args: argparse.Namespace, repo_root: Path) -> None:
 
     if not args.dry_run:
         builder.write(manifest, out_path)
-        _run_features(out_path, args)
+        # PDBscreen ligand files store the molecule as a pickled tuple — extract SMILES first
+        pdbscreen_args = argparse.Namespace(**vars(args))
+        if args.features == "ligand,protein":
+            pdbscreen_args.features = "ligand_smiles_from_file,ligand,protein"
+        _run_features(out_path, pdbscreen_args)
 
 
 def main() -> None:

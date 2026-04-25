@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import random
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Dict
 
 import numpy as np
@@ -38,6 +39,15 @@ class RankingMethod(ABC):
     @abstractmethod
     def predict(self, val_df: pl.DataFrame) -> np.ndarray:
         pass
+
+    @staticmethod
+    def _fp_col_to_arr(col: pl.Series, n_bits: int = 2048) -> np.ndarray:
+        def _to_row(b):
+            row = np.zeros(n_bits, dtype=np.float32)
+            if b is not None:
+                DataStructs.ConvertToNumpyArray(DataStructs.ExplicitBitVect(b), row)
+            return row
+        return np.vstack([_to_row(b) for b in col.to_list()])
 
 
 # --- Concrete Implementations ---
@@ -96,13 +106,19 @@ class LambdaMARTProteo(RankingMethod):
         self.seed = seed
         self.model = None
 
+    def _build_X(self, df: pl.DataFrame) -> np.ndarray:
+        scalar_cols = [c for c in self.features if c != "protein_fingerprint"]
+        X_scalar = df.select(scalar_cols).cast(pl.Float32).to_numpy()
+        X_fp = self._fp_col_to_arr(df["protein_fingerprint"])
+        return np.hstack([X_scalar, X_fp])
+
     def fit(self, train_df: pl.DataFrame) -> None:
         train_df = (
             train_df
             .sort(["protein_id", "label"], descending=[False, True])
             .filter(pl.int_range(pl.len()).over("protein_id") < _LGBM_MAX_QUERY_ROWS)
         )
-        X = train_df.select(list(self.features.keys())).to_numpy()
+        X = self._build_X(train_df)
         y = train_df.get_column("label").to_numpy()
         group = train_df.get_column("protein_id").to_numpy()
         _, group_sizes = np.unique(group, return_counts=True)
@@ -117,7 +133,7 @@ class LambdaMARTProteo(RankingMethod):
         self.model.fit(X, y, group=group_sizes)
 
     def predict(self, val_df: pl.DataFrame) -> np.ndarray:
-        X = val_df.select(list(self.features.keys())).to_numpy()
+        X = self._build_X(val_df)
         return self.model.predict(X)
 
 
@@ -131,15 +147,16 @@ class TanimotoRandomRef(RankingMethod):
         self.seed = seed
 
     def fit(self, train_df: pl.DataFrame) -> None:
-        self.active_refs = train_df.filter(pl.col("label") == 1).get_column("ligand_fingerprint").to_list()
+        self.active_refs = [
+            DataStructs.ExplicitBitVect(b)
+            for b in train_df.filter(pl.col("label") == 1)["ligand_fingerprint"].drop_nulls().to_list()
+        ]
 
     def predict(self, val_df: pl.DataFrame) -> np.ndarray:
-        rng = random.Random(self.seed)
-        ref_fp = rng.choice(self.active_refs)
-        return np.array([
-            DataStructs.TanimotoSimilarity(fp, ref_fp)
-            for fp in val_df.get_column("ligand_fingerprint").to_list()
-        ], dtype=float)
+        ref_fp = random.Random(self.seed).choice(self.active_refs)
+        fps = [DataStructs.ExplicitBitVect(b) if b else DataStructs.ExplicitBitVect(2048)
+               for b in val_df["ligand_fingerprint"].to_list()]
+        return np.array(DataStructs.BulkTanimotoSimilarity(ref_fp, fps), dtype=float)
 
 
 class LogisticLigand(RankingMethod):
@@ -169,14 +186,20 @@ class LogisticProteo(RankingMethod):
         self.seed = seed
         self.model = None
 
+    def _build_X(self, df: pl.DataFrame) -> np.ndarray:
+        scalar_cols = [c for c in self.features if c != "protein_fingerprint"]
+        X_scalar = df.select(scalar_cols).cast(pl.Float32).to_numpy()
+        X_fp = self._fp_col_to_arr(df["protein_fingerprint"])
+        return np.hstack([X_scalar, X_fp])
+
     def fit(self, train_df: pl.DataFrame) -> None:
-        X = train_df.select(list(self.features.keys())).to_numpy()
+        X = self._build_X(train_df)
         y = train_df.get_column("label").to_numpy()
         self.model = LogisticRegression(max_iter=1000, random_state=self.seed)
         self.model.fit(X, y)
 
     def predict(self, val_df: pl.DataFrame) -> np.ndarray:
-        X = val_df.select(list(self.features.keys())).to_numpy()
+        X = self._build_X(val_df)
         return self.model.predict_proba(X)[:, 1]
 
 
@@ -212,18 +235,40 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    dataset = Path(args.manifest).stem.replace("_manifest", "")
+    methods = [m.strip() for m in args.methods.split(",") if m.strip()]
+
+    # ── LOADING ──────────────────────────────────────────────────────────────
+    print(f"\n[{dataset} | LOADING]")
+    print(f"  manifest : {args.manifest}")
     df = pl.read_parquet(args.manifest)
+    print(f"  rows     : {len(df):,} total")
 
     if "sna" in df.columns and args.sna != "all":
         df = df.filter(pl.col("sna") == (args.sna == "true"))
+        print(f"  sna={args.sna} filter : {len(df):,} rows remaining")
+
+    # Drop nulls upfront on the union of all feature columns needed by the selected methods
+    all_feature_cols = list({
+        col
+        for m in methods
+        for col in METHOD_REGISTRY[m].features
+        if col in df.columns
+    })
+    n_before = len(df)
+    df = df.drop_nulls(subset=all_feature_cols)
+    n_dropped = n_before - len(df)
+    if n_dropped:
+        print(f"  dropped  : {n_dropped:,}/{n_before:,} ({n_dropped/n_before:.1%}) rows with missing features")
 
     train_df = df.filter(pl.col("split") == args.train_split)
     val_df = df.filter(pl.col("split") == args.val_split)
+    print(f"  split    : {len(train_df):,} train  |  {len(val_df):,} val")
 
     if "sna" in val_df.columns:
         val_df = val_df.drop("sna")
 
-    methods = [m.strip() for m in args.methods.split(",") if m.strip()]
+    # ── PER-METHOD TRAIN / INFER ──────────────────────────────────────────────
     all_results = []
 
     for method_name in methods:
@@ -236,7 +281,10 @@ def main() -> None:
         if missing:
             raise ValueError(f"Missing required features for {method_name}: {missing}")
 
+        print(f"\n[{method_name} | {dataset} | TRAIN]  fitting {len(train_df):,} rows...")
         method.fit(train_df)
+
+        print(f"[{method_name} | {dataset} | INFER]  scoring {len(val_df):,} val rows...")
         scores = method.predict(val_df)
 
         ligand_id_expr = (
@@ -252,6 +300,7 @@ def main() -> None:
         ])
         all_results.append(out_df)
 
+    # ── OUTPUT ────────────────────────────────────────────────────────────────
     result = pl.concat(all_results, how="vertical")
 
     result = result.with_columns(
@@ -268,7 +317,9 @@ def main() -> None:
         "split",
     ])
 
+    print(f"\n[{dataset} | OUTPUT]  writing {len(result):,} predictions -> {args.out}")
     result.write_parquet(args.out, compression="zstd", statistics=True)
+    print(f"[{dataset} | DONE]")
 
 
 if __name__ == "__main__":
