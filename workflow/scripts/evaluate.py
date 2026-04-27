@@ -5,6 +5,7 @@ import argparse
 from pathlib import Path
 import polars as pl
 import numpy as np
+from tqdm.contrib.concurrent import process_map
 
 # --- Metric Calculation (from evaluate_predictions.py) ---
 FRACTIONS = [0.01, 0.05, 0.10]
@@ -47,7 +48,7 @@ def _metrics_for_group(g):
     rdkit_rows = [[int(y_true_sorted[i]), float(y_score_sorted[i])] for i in range(n)]
     from rdkit.ML.Scoring.Scoring import CalcBEDROC, CalcEnrichment
     from sklearn.metrics import average_precision_score, ndcg_score, roc_auc_score
-    out = {}
+    out = {col: None for col in METRIC_COLS}
     ef_values = CalcEnrichment(rdkit_rows, 0, FRACTIONS)
     for frac, ef in zip(FRACTIONS, ef_values):
         k = _top_k(n, frac)
@@ -118,12 +119,6 @@ def main():
     eval_parser.add_argument("--summary-out", required=True)
     eval_parser.add_argument("--by-query-out", required=True)
 
-    # SNA comparison
-    sna_parser = subparsers.add_parser("compare-sna", help="Combine per-method summary metrics across SNA settings.")
-    sna_parser.add_argument("--summaries", nargs="+", required=True)
-    sna_parser.add_argument("--labels", nargs="+", default=None)
-    sna_parser.add_argument("--out", required=True)
-
     # Dataset summary combination
     combine_parser = subparsers.add_parser("combine-datasets", help="Combine per-dataset parquet summaries.")
     combine_parser.add_argument("--inputs", nargs="+", required=True)
@@ -160,10 +155,20 @@ def main():
                 pl.col("n_poses").sum().cast(pl.Int64).alias("n_poses_total"),
             ])
         )
-        metrics_by_query = (
-            ligand_pred.group_by(["method", "protein_id"], maintain_order=True)
-            .map_groups(_metrics_for_group)
+
+        print("Extracting groups for evaluation...")
+        groups = [
+            g for _, g in ligand_pred.group_by(["method", "protein_id"], maintain_order=True)
+        ]
+        
+        metrics_list = process_map(
+            _metrics_for_group, 
+            groups, 
+            chunksize=max(1, len(groups) // 100), 
+            desc="Evaluating per-query metrics"
         )
+        metrics_by_query = pl.concat(metrics_list)
+
         by_query = (
             counts_by_query.join(metrics_by_query, on=["method", "protein_id"], how="inner")
             .filter(pl.col("roc_auc").is_not_null())
@@ -174,34 +179,13 @@ def main():
         by_query.write_parquet(args.by_query_out, compression="zstd", statistics=True)
         summary.write_parquet(args.summary_out, compression="zstd", statistics=True)
 
-    elif args.command == "compare-sna":
-        if args.labels is not None and len(args.labels) != len(args.summaries):
-            raise ValueError("When provided, --labels must have the same length as --summaries.")
-        frames = []
-        for idx, p in enumerate(args.summaries):
-            split_name = args.labels[idx] if args.labels is not None else Path(p).stem
-            df = pl.read_parquet(p)
-            if "method" not in df.columns:
-                raise ValueError(f"Missing 'method' column in summary file: {p}")
-            frames.append(df.with_columns(pl.lit(split_name).alias("sna")))
-        combined = pl.concat(frames, how="vertical_relaxed")
-        metric_cols = [c for c in combined.columns if c.endswith("_median")]
-        if not metric_cols:
-            raise ValueError("No *_median metric columns found in summaries.")
-        cols = combined.columns
-        non_metric_cols = [c for c in cols if c not in metric_cols and c not in {"method", "sna"}]
-        out_df = (
-            combined
-            .select(["method", "sna"] + non_metric_cols + metric_cols)
-            .sort(["method", "sna"])
-        )
-        Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-        out_df.write_parquet(args.out, compression="zstd", statistics=True)
-
     elif args.command == "combine-datasets":
-        frames = [pl.read_parquet(path) for path in args.inputs]
+        frames = [
+            pl.read_parquet(path).with_columns(pl.lit(Path(path).stem).alias("dataset_name")) 
+            for path in args.inputs
+        ]
         combined = pl.concat(frames, how="diagonal_relaxed").sort(["dataset_name", "method"])
-        leading = [c for c in ["method", "dataset_name", "sna"] if c in combined.columns]
+        leading = [c for c in ["method", "dataset_name"] if c in combined.columns]
         trailing = [c for c in combined.columns if c not in leading]
         combined = combined.select(leading + trailing)
         Path(args.out).parent.mkdir(parents=True, exist_ok=True)

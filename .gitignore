@@ -2,3 +2,5 @@ PDBscreen/
 .snakemake/
 BayesBindMLV1.5/
 BigBindV1.5/
+BayesBindBaselinesV1.5/
+results/

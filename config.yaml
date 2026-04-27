@@ -19,4 +19,4 @@ methods:
   - lambdamart_proteo
   - tanimoto_random_ref
   - logistic_ligand
-  - logistic_proteo
+#  - logistic_proteo

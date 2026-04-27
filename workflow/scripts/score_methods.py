@@ -13,6 +13,9 @@ import polars as pl
 from lightgbm import LGBMRanker
 from rdkit import DataStructs
 from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from tqdm import tqdm
 
 
 # LightGBM lambdarank hard limit per query group
@@ -154,8 +157,10 @@ class TanimotoRandomRef(RankingMethod):
 
     def predict(self, val_df: pl.DataFrame) -> np.ndarray:
         ref_fp = random.Random(self.seed).choice(self.active_refs)
-        fps = [DataStructs.ExplicitBitVect(b) if b else DataStructs.ExplicitBitVect(2048)
-               for b in val_df["ligand_fingerprint"].to_list()]
+        fps = [
+            DataStructs.ExplicitBitVect(b) if b else DataStructs.ExplicitBitVect(2048)
+            for b in tqdm(val_df["ligand_fingerprint"].to_list(), desc="Converting fingerprints", leave=False)
+        ]
         return np.array(DataStructs.BulkTanimotoSimilarity(ref_fp, fps), dtype=float)
 
 
@@ -170,7 +175,7 @@ class LogisticLigand(RankingMethod):
     def fit(self, train_df: pl.DataFrame) -> None:
         X = train_df.select(list(self.features.keys())).to_numpy()
         y = train_df.get_column("label").to_numpy()
-        self.model = LogisticRegression(max_iter=1000, random_state=self.seed)
+        self.model = make_pipeline(StandardScaler(), LogisticRegression(max_iter=100, random_state=self.seed))
         self.model.fit(X, y)
 
     def predict(self, val_df: pl.DataFrame) -> np.ndarray:
@@ -195,7 +200,7 @@ class LogisticProteo(RankingMethod):
     def fit(self, train_df: pl.DataFrame) -> None:
         X = self._build_X(train_df)
         y = train_df.get_column("label").to_numpy()
-        self.model = LogisticRegression(max_iter=1000, random_state=self.seed)
+        self.model = make_pipeline(StandardScaler(), LogisticRegression(max_iter=100, random_state=self.seed))
         self.model.fit(X, y)
 
     def predict(self, val_df: pl.DataFrame) -> np.ndarray:
@@ -223,12 +228,6 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--train-split", default="train")
     p.add_argument("--val-split", default="val")
-    p.add_argument(
-        "--sna",
-        default="all",
-        choices=["all", "true", "false"],
-        help="Filter rows by sna value (true/false). Use 'all' for no filtering.",
-    )
     p.add_argument("--methods", default="lambdamart_ligand,tanimoto_random_ref")
     return p.parse_args()
 
@@ -243,10 +242,6 @@ def main() -> None:
     print(f"  manifest : {args.manifest}")
     df = pl.read_parquet(args.manifest)
     print(f"  rows     : {len(df):,} total")
-
-    if "sna" in df.columns and args.sna != "all":
-        df = df.filter(pl.col("sna") == (args.sna == "true"))
-        print(f"  sna={args.sna} filter : {len(df):,} rows remaining")
 
     # Drop nulls upfront on the union of all feature columns needed by the selected methods
     all_feature_cols = list({
@@ -264,9 +259,6 @@ def main() -> None:
     train_df = df.filter(pl.col("split") == args.train_split)
     val_df = df.filter(pl.col("split") == args.val_split)
     print(f"  split    : {len(train_df):,} train  |  {len(val_df):,} val")
-
-    if "sna" in val_df.columns:
-        val_df = val_df.drop("sna")
 
     # ── PER-METHOD TRAIN / INFER ──────────────────────────────────────────────
     all_results = []

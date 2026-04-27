@@ -6,11 +6,6 @@ from datetime import datetime, timezone
 def _now_run_id() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d_%H%M")
 
-
-def _as_sna_list(values):
-    return [str(v).lower() for v in values]
-
-
 RUN_ID = config.get("run_id") or _now_run_id()
 OUTPUT_ROOT = config.get("output_root", "results/runs").rstrip("/")
 RUN_DIR = f"{OUTPUT_ROOT}/{RUN_ID}"
@@ -25,7 +20,6 @@ def _dataset_configs() -> dict:
                 "manifest": cfg["manifest"],
                 "train_split": cfg.get("train_split", config.get("train_split", "train")),
                 "val_split": cfg.get("val_split", config.get("val_split", "val")),
-                "sna_values": _as_sna_list(cfg.get("sna_values", config.get("sna_values", ["false", "true"]))),
             }
         return normalized
 
@@ -35,39 +29,24 @@ def _dataset_configs() -> dict:
             "manifest": config["manifest"],
             "train_split": config.get("train_split", "train"),
             "val_split": config.get("val_split", "val"),
-            "sna_values": _as_sna_list(config.get("sna_values", ["false", "true"])),
         }
     }
 
 
 DATASETS = _dataset_configs()
 DATASET_NAMES = list(DATASETS.keys())
-ALL_SNA_VALUES = sorted({s for d in DATASET_NAMES for s in DATASETS[d]["sna_values"]})
-SNA_REGEX = "|".join(ALL_SNA_VALUES)
 
 
 def dcfg(dataset_name):
     return DATASETS[dataset_name]
 
 
-def dataset_sna_values(dataset_name):
-    return dcfg(dataset_name)["sna_values"]
+def predictions_path(dataset_name):
+    return f"{RUN_DIR}/_{dataset_name}_val_predictions.parquet"
 
 
-def predictions_path(dataset_name, sna):
-    return f"{RUN_DIR}/_{dataset_name}_val_predictions_sna_{sna}.parquet"
-
-
-def summary_path(dataset_name, sna):
-    return f"{RUN_DIR}/_{dataset_name}_val_metrics_summary_sna_{sna}.parquet"
-
-
-def by_query_path(dataset_name, sna):
-    return f"{RUN_DIR}/_{dataset_name}_val_metrics_by_query_sna_{sna}.parquet"
-
-
-def intermediate_output_path(dataset_name):
-    return f"{RUN_DIR}/{dataset_name}_intermediate.parquet"
+def by_query_path(dataset_name):
+    return f"{RUN_DIR}/_{dataset_name}_val_metrics_by_query.parquet"
 
 
 def dataset_output_path(dataset_name):
@@ -84,7 +63,6 @@ def run_yaml_path():
 
 rule all:
     input:
-        [intermediate_output_path(d) for d in DATASET_NAMES],
         [dataset_output_path(d) for d in DATASET_NAMES],
         summary_output_path(),
         run_yaml_path()
@@ -92,18 +70,16 @@ rule all:
 
 rule score_methods:
     wildcard_constraints:
-        dataset="|".join(DATASET_NAMES),
-        sna=SNA_REGEX
+        dataset="|".join(DATASET_NAMES)
     input:
         manifest=lambda wildcards: dcfg(wildcards.dataset)["manifest"]
     output:
-        temp(f"{RUN_DIR}/_{{dataset}}_val_predictions_sna_{{sna}}.parquet")
+        temp(predictions_path("{dataset}"))
     params:
         seed=config["seed"],
         train_split=lambda wildcards: dcfg(wildcards.dataset)["train_split"],
         val_split=lambda wildcards: dcfg(wildcards.dataset)["val_split"],
-        methods=",".join(config["methods"]),
-        sna=lambda wildcards: wildcards.sna
+        methods=",".join(config["methods"])
     shell:
         """
         PYTHON_BIN=venv/bin/python
@@ -114,40 +90,18 @@ rule score_methods:
           --seed {params.seed} \
           --train-split {params.train_split} \
           --val-split {params.val_split} \
-          --sna {params.sna} \
           --methods {params.methods}
-        """
-
-
-rule combine_intermediate:
-    wildcard_constraints:
-        dataset="|".join(DATASET_NAMES)
-    input:
-        lambda wildcards: [predictions_path(wildcards.dataset, s) for s in dataset_sna_values(wildcards.dataset)]
-    output:
-        f"{RUN_DIR}/{{dataset}}_intermediate.parquet"
-    params:
-        dataset=lambda wildcards: wildcards.dataset
-    shell:
-        """
-        PYTHON_BIN=venv/bin/python
-
-        "$PYTHON_BIN" workflow/scripts/combine_dataset_intermediates.py \
-          --inputs {input} \
-          --out {output} \
-          --dataset {params.dataset}
         """
 
 
 rule evaluate:
     wildcard_constraints:
-        dataset="|".join(DATASET_NAMES),
-        sna=SNA_REGEX
+        dataset="|".join(DATASET_NAMES)
     input:
-        f"{RUN_DIR}/_{{dataset}}_val_predictions_sna_{{sna}}.parquet"
+        predictions_path("{dataset}")
     output:
-        summary=temp(f"{RUN_DIR}/_{{dataset}}_val_metrics_summary_sna_{{sna}}.parquet"),
-        by_query=temp(f"{RUN_DIR}/_{{dataset}}_val_metrics_by_query_sna_{{sna}}.parquet")
+        summary=dataset_output_path("{dataset}"),
+        by_query=by_query_path("{dataset}")
     shell:
         """
         PYTHON_BIN=venv/bin/python
@@ -156,26 +110,6 @@ rule evaluate:
           --predictions {input} \
           --summary-out {output.summary} \
           --by-query-out {output.by_query}
-        """
-
-
-rule compare_sna:
-    wildcard_constraints:
-        dataset="|".join(DATASET_NAMES)
-    input:
-        summaries=lambda wildcards: [summary_path(wildcards.dataset, s) for s in dataset_sna_values(wildcards.dataset)]
-    output:
-        f"{RUN_DIR}/{{dataset}}.parquet"
-    params:
-        labels=lambda wildcards: " ".join(dataset_sna_values(wildcards.dataset))
-    shell:
-        """
-        PYTHON_BIN=venv/bin/python
-
-        "$PYTHON_BIN" workflow/scripts/evaluate.py compare-sna \
-          --summaries {input.summaries} \
-          --labels {params.labels} \
-          --out {output}
         """
 
 
@@ -208,9 +142,7 @@ rule write_run_yaml:
                 f"  {name}:\n"
                 f"    manifest: {dcfg(name)['manifest']}\n"
                 f"    train_split: {dcfg(name)['train_split']}\n"
-                f"    val_split: {dcfg(name)['val_split']}\n"
-                + "    sna_values:\n"
-                + "\n".join([f"      - {s}" for s in dcfg(name)["sna_values"]])
+                f"    val_split: {dcfg(name)['val_split']}"
                 for name in DATASET_NAMES
             ]
         )
